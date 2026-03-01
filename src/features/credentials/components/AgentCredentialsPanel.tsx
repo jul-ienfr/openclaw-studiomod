@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { KeyRound, Plus } from "lucide-react";
+import { KeyRound, Plus, Loader2 } from "lucide-react";
 import type { CredentialEntry } from "../types";
 import { loadAgentCredentials, persistAgentCredentials } from "../credentialStore";
 import { CredentialCard } from "./CredentialCard";
@@ -14,12 +14,22 @@ type AgentCredentialsPanelProps = {
 
 export const AgentCredentialsPanel = ({ agentId }: AgentCredentialsPanelProps) => {
   const t = useTranslations("credentials");
+  const tc = useTranslations("common");
   const [entries, setEntries] = useState<CredentialEntry[]>([]);
   const [editingEntry, setEditingEntry] = useState<CredentialEntry | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setEntries(loadAgentCredentials(agentId));
+    let cancelled = false;
+    setLoading(true);
+    loadAgentCredentials(agentId).then((loaded) => {
+      if (!cancelled) {
+        setEntries(loaded);
+        setLoading(false);
+      }
+    });
+    return () => { cancelled = true; };
   }, [agentId]);
 
   const persist = useCallback(
@@ -76,6 +86,7 @@ export const AgentCredentialsPanel = ({ agentId }: AgentCredentialsPanelProps) =
           type="button"
           className="ui-btn-primary inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-[11px] font-medium"
           onClick={handleAdd}
+          disabled={loading}
           data-testid="add-credential-btn"
         >
           <Plus className="h-3 w-3" aria-hidden="true" />
@@ -83,7 +94,12 @@ export const AgentCredentialsPanel = ({ agentId }: AgentCredentialsPanelProps) =
         </button>
       </div>
 
-      {entries.length === 0 ? (
+      {loading ? (
+        <div className="flex items-center justify-center py-10">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          <span className="ml-2 text-xs text-muted-foreground">{tc("loading")}</span>
+        </div>
+      ) : entries.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border py-10 text-center">
           <KeyRound className="h-8 w-8 text-muted-foreground/40" aria-hidden="true" />
           <div>

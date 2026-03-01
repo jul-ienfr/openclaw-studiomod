@@ -1,37 +1,42 @@
 import type { CredentialEntry } from "./types";
+import {
+  fetchAgentCredentials,
+  saveAgentCredentials,
+  deleteAgentCredentials,
+} from "./credentialApi";
 
-const STORAGE_KEY_PREFIX = "openclaw-studio-credentials-";
-
-const storageKey = (agentId: string): string =>
-  `${STORAGE_KEY_PREFIX}${agentId}`;
-
-export const loadAgentCredentials = (agentId: string): CredentialEntry[] => {
-  if (typeof window === "undefined") return [];
+/**
+ * Loads credentials from the server-side encrypted vault.
+ * Falls back to empty array on error.
+ */
+export const loadAgentCredentials = async (agentId: string): Promise<CredentialEntry[]> => {
   try {
-    const raw = localStorage.getItem(storageKey(agentId));
-    if (!raw) return [];
-    return JSON.parse(raw) as CredentialEntry[];
+    return await fetchAgentCredentials(agentId);
   } catch {
     return [];
   }
 };
 
-export const persistAgentCredentials = (
+/**
+ * Persists credentials to the server-side encrypted vault.
+ */
+export const persistAgentCredentials = async (
   agentId: string,
   entries: CredentialEntry[],
-): void => {
-  if (typeof window === "undefined") return;
+): Promise<void> => {
   try {
-    localStorage.setItem(storageKey(agentId), JSON.stringify(entries));
+    await saveAgentCredentials(agentId, entries);
   } catch {
-    // localStorage may be full or unavailable
+    // best-effort
   }
 };
 
-export const removeAgentCredentials = (agentId: string): void => {
-  if (typeof window === "undefined") return;
+/**
+ * Removes all credentials for an agent from the vault.
+ */
+export const removeAgentCredentials = async (agentId: string): Promise<void> => {
   try {
-    localStorage.removeItem(storageKey(agentId));
+    await deleteAgentCredentials(agentId);
   } catch {
     // ignore
   }
