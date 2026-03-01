@@ -387,6 +387,27 @@ function truncateWsCloseReason(reason: string, maxBytes = WS_CLOSE_REASON_MAX_BY
   return out.trimEnd() || "connect failed";
 }
 
+// Module-level flag: defer WebSocket until initial page load completes.
+// In dev mode, Next.js compiles bundles on-demand during page load, each
+// holding a TCP connection.  Browsers limit HTTP/1.1 to 6 connections per
+// origin — if all slots are busy with bundle fetches, `new WebSocket()`
+// stays stuck in CONNECTING forever.  By waiting for `window.load` we
+// guarantee bundle traffic has settled and a TCP slot is available.
+// Using a module-level variable (not an instance property) so HMR module
+// re-evaluation picks up the current state correctly.
+let _pageBootComplete =
+  typeof document !== "undefined" && document.readyState === "complete";
+
+if (!_pageBootComplete && typeof window !== "undefined") {
+  window.addEventListener(
+    "load",
+    () => {
+      _pageBootComplete = true;
+    },
+    { once: true },
+  );
+}
+
 export class GatewayBrowserClient {
   private ws: WebSocket | null = null;
   private pending = new Map<string, Pending>();
@@ -395,6 +416,7 @@ export class GatewayBrowserClient {
   private connectNonce: string | null = null;
   private connectSent = false;
   private connectTimer: number | null = null;
+  private wsOpenTimer: number | null = null;
   private backoffMs = 800;
 
   constructor(private opts: GatewayBrowserClientOptions) {}
@@ -406,6 +428,7 @@ export class GatewayBrowserClient {
 
   stop() {
     this.closed = true;
+    this.clearWsOpenTimer();
     this.ws?.close();
     this.ws = null;
     this.flushPending(new Error("gateway client stopped"));
@@ -415,12 +438,49 @@ export class GatewayBrowserClient {
     return this.ws?.readyState === WebSocket.OPEN;
   }
 
+  private clearWsOpenTimer() {
+    if (this.wsOpenTimer !== null) {
+      window.clearTimeout(this.wsOpenTimer);
+      this.wsOpenTimer = null;
+    }
+  }
+
   private connect() {
     if (this.closed) return;
+
+    // Wait for initial page load so the WebSocket doesn't compete with
+    // dev-mode bundle fetches for the browser's 6-connection TCP pool.
+    if (!_pageBootComplete) {
+      const onLoad = () => {
+        _pageBootComplete = true;
+        if (!this.closed) this.connect();
+      };
+      window.addEventListener("load", onLoad, { once: true });
+      return;
+    }
+
     this.ws = new WebSocket(this.opts.url);
-    this.ws.onopen = () => this.queueConnect();
+
+    // Safety net: if the WebSocket stays stuck in CONNECTING for more than
+    // 4 seconds (TCP pool full, dev-mode compilation holding slots, etc.),
+    // force-close it.  The onclose handler will trigger scheduleReconnect()
+    // and the next attempt will likely succeed once TCP slots free up.
+    this.clearWsOpenTimer();
+    this.wsOpenTimer = window.setTimeout(() => {
+      this.wsOpenTimer = null;
+      if (this.ws && this.ws.readyState === WebSocket.CONNECTING) {
+        this.ws.close();
+      }
+    }, 4000);
+
+    this.ws.onopen = () => {
+      this.clearWsOpenTimer();
+      this.backoffMs = 800;
+      this.queueConnect();
+    };
     this.ws.onmessage = (ev) => this.handleMessage(String(ev.data ?? ""));
     this.ws.onclose = (ev) => {
+      this.clearWsOpenTimer();
       const reason = String(ev.reason ?? "");
       this.ws = null;
       this.flushPending(new Error(`gateway closed (${ev.code}): ${reason}`));
@@ -428,7 +488,7 @@ export class GatewayBrowserClient {
       this.scheduleReconnect();
     };
     this.ws.onerror = () => {
-      // ignored; close handler will fire
+      this.clearWsOpenTimer();
     };
   }
 

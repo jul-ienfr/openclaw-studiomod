@@ -65,11 +65,28 @@ async function main() {
     handleUpgrade(req, socket, head);
   };
 
-  const createServer = () =>
-    http.createServer((req, res) => {
+  const createServer = () => {
+    const srv = http.createServer((req, res) => {
       if (accessGate.handleHttp(req, res)) return;
       handle(req, res);
     });
+
+    // Fix CLOSE-WAIT accumulation: when the browser closes a connection
+    // (sends FIN), immediately destroy the server-side socket too.
+    // Without this, upgraded connections (HMR WebSocket, gateway WS) pile
+    // up in CLOSE-WAIT and eventually exhaust the browser's 6-connection-
+    // per-origin limit, blocking new WebSocket connections.
+    srv.on("connection", (socket) => {
+      socket.on("end", () => {
+        if (!socket.destroyed) socket.destroy();
+      });
+    });
+
+    srv.keepAliveTimeout = 5000;
+    srv.headersTimeout = 10000;
+
+    return srv;
+  };
 
   const servers = hostnames.map(() => createServer());
 
