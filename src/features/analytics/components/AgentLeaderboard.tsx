@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import type { AgentMetrics } from "../types";
 
 type AgentLeaderboardProps = {
@@ -18,6 +19,8 @@ const formatTimeAgo = (timestamp: number): string => {
 };
 
 export const AgentLeaderboard = ({ agents }: AgentLeaderboardProps) => {
+  const t = useTranslations("analytics");
+
   if (agents.length === 0) {
     return (
       <div className="ui-card p-3">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { useTranslations } from "next-intl";
 import { BarChart3 } from "lucide-react";
 import type { TimeRange } from "../types";
 import {
@@ -32,6 +33,7 @@ const SERIES_LABELS: Record<string, string> = {
 };
 
 export const AnalyticsDashboard = () => {
+  const t = useTranslations("analytics");
   const [range, setRange] = useState<TimeRange>("24h");
 
   useEffect(() => {

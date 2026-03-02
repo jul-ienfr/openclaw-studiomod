@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import { Mic, MicOff, Volume2, VolumeX, Settings2 } from "lucide-react";
 import type { VoiceProvider } from "../types";
 import { VOICE_PROVIDERS } from "../types";

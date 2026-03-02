@@ -62,6 +62,58 @@ export const ChannelConfigModal = ({
 
         <div className="space-y-3 px-5 py-4">
           <p className="text-xs text-muted-foreground">{channel.description}</p>
+
+          {/* Guide + Links */}
+          {channel.signupUrl ||
+          channel.getKeyUrl ||
+          (channel.guideSteps && channel.guideSteps.length > 0) ? (
+            <div className="flex flex-col gap-2">
+              {channel.signupUrl || channel.getKeyUrl ? (
+                <div className="flex flex-wrap gap-2">
+                  {channel.getKeyUrl ? (
+                    <a
+                      href={channel.getKeyUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary/5 px-2.5 py-1.5 text-[11px] font-semibold text-primary transition-colors hover:bg-primary/10"
+                    >
+                      <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                      {t("getCredentials")}
+                    </a>
+                  ) : null}
+                  {channel.signupUrl ? (
+                    <a
+                      href={channel.signupUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
+                    >
+                      <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                      {t("signUp")}
+                    </a>
+                  ) : null}
+                </div>
+              ) : null}
+              {channel.guideSteps && channel.guideSteps.length > 0 ? (
+                <details className="group">
+                  <summary className="cursor-pointer text-[11px] font-medium text-muted-foreground hover:text-foreground">
+                    {t("setupGuide")}
+                  </summary>
+                  <ol className="mt-1.5 flex flex-col gap-1 pl-4">
+                    {channel.guideSteps.map((step, i) => (
+                      <li
+                        key={i}
+                        className="list-decimal text-[11px] text-muted-foreground"
+                      >
+                        {step}
+                      </li>
+                    ))}
+                  </ol>
+                </details>
+              ) : null}
+            </div>
+          ) : null}
+
           {channel.configFields.map((field) => (
             <div key={field.key}>
               <label className="mb-1 block text-xs font-medium text-foreground">

@@ -19,6 +19,8 @@ export const SkillDetailModal = ({
   onUninstall,
   onClose,
 }: SkillDetailModalProps) => {
+  const t = useTranslations("skills");
+
   return (
     <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/50" onClick={onClose}>
       <div

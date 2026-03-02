@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import { Puzzle, Search } from "lucide-react";
 import { toast } from "sonner";
 import type { SkillCategory, SkillDefinition } from "../types";
@@ -27,6 +28,7 @@ const CATEGORIES: { value: SkillCategory | "all"; label: string }[] = [
 ];
 
 export const SkillsBrowser = () => {
+  const t = useTranslations("skills");
   const [installed, setInstalled] = useState(loadInstalledSkills);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<SkillCategory | "all">("all");

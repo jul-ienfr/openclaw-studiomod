@@ -1,6 +1,7 @@
 "use client";
 
 import { Search, Trash2, Download } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { LogLevel } from "../types";
 
 type LogFilterBarProps = {
@@ -32,6 +33,8 @@ export const LogFilterBar = ({
   onExport,
   logCount,
 }: LogFilterBarProps) => {
+  const t = useTranslations("logs");
+
   return (
     <div className="flex flex-wrap items-center gap-2 border-b border-border px-5 py-2">
       <div className="relative flex-1">

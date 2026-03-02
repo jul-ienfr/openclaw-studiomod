@@ -10,6 +10,7 @@ export type RoutingConditionType =
 
 export type RoutingCondition = {
   type: RoutingConditionType;
+  /** Operator: equals, contains, matches, gt, lt */
   operator: "equals" | "contains" | "matches" | "gt" | "lt";
   value: string;
 };

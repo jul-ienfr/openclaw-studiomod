@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useTranslations } from "next-intl";
 import { MonitorPlay } from "lucide-react";
 import type { CanvasLayout } from "../types";
 import { renderLayoutToHtml } from "../canvasRenderer";
@@ -10,6 +11,8 @@ type CanvasPreviewProps = {
 };
 
 export const CanvasPreview = ({ layout = null }: CanvasPreviewProps) => {
+  const t = useTranslations("canvas");
+
   const renderedHtml = useMemo(
     () => (layout ? renderLayoutToHtml(layout.elements) : ""),
     [layout],

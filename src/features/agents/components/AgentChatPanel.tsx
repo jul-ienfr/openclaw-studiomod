@@ -21,6 +21,19 @@ import { normalizeAssistantDisplayText } from "@/lib/text/assistantText";
 import { useVoiceRecorder } from "@/features/agents/hooks/useVoiceRecorder";
 import { isNearBottom } from "@/lib/dom";
 import { AgentAvatar } from "./AgentAvatar";
+import {
+  SPINE_LEFT,
+  ASSISTANT_GUTTER_CLASS,
+  ASSISTANT_MAX_WIDTH_DEFAULT_CLASS,
+  ASSISTANT_MAX_WIDTH_EXPANDED_CLASS,
+  CHAT_TOP_THRESHOLD_PX,
+  EMPTY_CHAT_INTRO_MESSAGES,
+  formatChatTimestamp,
+  formatDurationLabel,
+  stableStringHash,
+  resolveEmptyChatIntroMessage,
+  resolveAssistantMaxWidthClass,
+} from "./chat/chatUtils";
 import type {
   ExecApprovalDecision,
   PendingExecApproval,
@@ -33,85 +46,7 @@ import {
   type AgentChatItem,
 } from "./chatItems";
 
-const formatChatTimestamp = (timestampMs: number): string => {
-  return new Intl.DateTimeFormat(undefined, {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  }).format(new Date(timestampMs));
-};
-
-const formatDurationLabel = (durationMs: number): string => {
-  const seconds = durationMs / 1000;
-  if (!Number.isFinite(seconds) || seconds <= 0) return "0.0s";
-  if (seconds < 10) return `${seconds.toFixed(1)}s`;
-  return `${Math.round(seconds)}s`;
-};
-
-const SPINE_LEFT = "left-[15px]";
-const ASSISTANT_GUTTER_CLASS = "pl-[44px]";
-const ASSISTANT_MAX_WIDTH_DEFAULT_CLASS = "max-w-[68ch]";
-const ASSISTANT_MAX_WIDTH_EXPANDED_CLASS = "max-w-[1120px]";
-const CHAT_TOP_THRESHOLD_PX = 8;
-const EMPTY_CHAT_INTRO_MESSAGES = [
-  "How can I help you today?",
-  "What should we accomplish today?",
-  "Ready when you are. What do you want to tackle?",
-  "What are we working on today?",
-  "I'm here and ready. What's the plan?",
-];
-
-const stableStringHash = (value: string): number => {
-  let hash = 0;
-  for (let i = 0; i < value.length; i += 1) {
-    hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
-  }
-  return hash;
-};
-
-const resolveEmptyChatIntroMessage = (agentId: string, sessionEpoch: number | undefined): string => {
-  if (EMPTY_CHAT_INTRO_MESSAGES.length === 0) return "How can I help you today?";
-  const normalizedEpoch =
-    typeof sessionEpoch === "number" && Number.isFinite(sessionEpoch)
-      ? Math.max(0, Math.trunc(sessionEpoch))
-      : 0;
-  const offset = stableStringHash(agentId) % EMPTY_CHAT_INTRO_MESSAGES.length;
-  const index = (offset + normalizedEpoch) % EMPTY_CHAT_INTRO_MESSAGES.length;
-  return EMPTY_CHAT_INTRO_MESSAGES[index];
-};
-
-const looksLikePath = (value: string): boolean => {
-  if (!value) return false;
-  if (/(^|[\s(])(?:[A-Za-z]:\\|~\/|\/)/.test(value)) return true;
-  if (/(^|[\s(])(src|app|packages|components)\//.test(value)) return true;
-  if (/(^|[\s(])[\w.-]+\.(ts|tsx|js|jsx|json|md|py|go|rs|java|kt|rb|sh|yaml|yml)\b/.test(value)) {
-    return true;
-  }
-  return false;
-};
-
-const isStructuredMarkdown = (text: string): boolean => {
-  if (!text) return false;
-  if (/```/.test(text)) return true;
-  if (/^\s*#{1,6}\s+/m.test(text)) return true;
-  if (/^\s*[-*+]\s+/m.test(text)) return true;
-  if (/^\s*\d+\.\s+/m.test(text)) return true;
-  if (/^\s*\|.+\|\s*$/m.test(text)) return true;
-  if (looksLikePath(text) && text.split("\n").filter(Boolean).length >= 3) return true;
-  return false;
-};
-
-const resolveAssistantMaxWidthClass = (text: string | null | undefined): string => {
-  const value = (text ?? "").trim();
-  if (!value) return ASSISTANT_MAX_WIDTH_DEFAULT_CLASS;
-  if (isStructuredMarkdown(value)) return ASSISTANT_MAX_WIDTH_EXPANDED_CLASS;
-  const nonEmptyLines = value.split("\n").filter((line) => line.trim().length > 0);
-  const shortLineCount = nonEmptyLines.filter((line) => line.trim().length <= 44).length;
-  if (nonEmptyLines.length >= 10 && shortLineCount / Math.max(1, nonEmptyLines.length) >= 0.65) {
-    return ASSISTANT_MAX_WIDTH_EXPANDED_CLASS;
-  }
-  return ASSISTANT_MAX_WIDTH_DEFAULT_CLASS;
-};
+/* Utility functions and constants imported from ./chat/chatUtils */
 
 type AgentChatPanelProps = {
   agent: AgentRecord;
@@ -161,16 +96,18 @@ const ExecApprovalCard = memo(function ExecApprovalCard({
       className={`w-full ${ASSISTANT_MAX_WIDTH_EXPANDED_CLASS} ${ASSISTANT_GUTTER_CLASS} ui-badge-approval self-start rounded-md px-3 py-2 shadow-2xs`}
       data-testid={`exec-approval-card-${approval.id}`}
     >
-      <div className="type-meta">
-        Exec approval required
-      </div>
+      <div className="type-meta">Exec approval required</div>
       <div className="mt-2 rounded-md bg-surface-3 px-2 py-1.5 shadow-2xs">
-        <div className="font-mono text-[10px] font-semibold text-foreground">{approval.command}</div>
+        <div className="font-mono text-[10px] font-semibold text-foreground">
+          {approval.command}
+        </div>
       </div>
       <div className="mt-2 grid gap-1 text-[11px] text-muted-foreground sm:grid-cols-2">
         <div>Host: {approval.host ?? "unknown"}</div>
         <div>Expires: {formatApprovalExpiry(approval.expiresAtMs)}</div>
-        {approval.cwd ? <div className="sm:col-span-2">CWD: {approval.cwd}</div> : null}
+        {approval.cwd ? (
+          <div className="sm:col-span-2">CWD: {approval.cwd}</div>
+        ) : null}
       </div>
       {approval.error ? (
         <div className="ui-alert-danger mt-2 rounded-md px-2 py-1 text-[11px] shadow-2xs">
@@ -225,7 +162,9 @@ const ToolCallDetails = memo(function ToolCallDetails({
   if (inlineOnly) {
     return (
       <div className={resolvedClassName}>
-        <div className="font-mono text-[10px] font-semibold tracking-[0.11em]">{summaryText}</div>
+        <div className="font-mono text-[10px] font-semibold tracking-[0.11em]">
+          {summaryText}
+        </div>
       </div>
     );
   }
@@ -318,7 +257,9 @@ const ThinkingDetailsRow = memo(function ThinkingDetailsRow({
                 key={`thinking-event-${index}-${event.text.slice(0, 48)}`}
                 className="agent-markdown min-w-0 text-foreground/85"
               >
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{event.text}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {event.text}
+                </ReactMarkdown>
               </div>
             ) : (
               <ToolCallDetails
@@ -326,7 +267,7 @@ const ThinkingDetailsRow = memo(function ThinkingDetailsRow({
                 line={event.text}
                 className="rounded-md border border-border/45 bg-surface-2/65 px-2 py-1 text-[10px] text-muted-foreground/90 shadow-2xs"
               />
-            )
+            ),
           )}
         </div>
       ) : null}
@@ -383,23 +324,33 @@ const AssistantMessageCard = memo(function AssistantMessageCard({
   contentText?: string | null;
   streaming?: boolean;
 }) {
-  const resolvedTimestamp = typeof timestampMs === "number" ? timestampMs : null;
+  const resolvedTimestamp =
+    typeof timestampMs === "number" ? timestampMs : null;
   const hasThinking = Boolean(
     (thinkingEvents?.length ?? 0) > 0 ||
-      thinkingText?.trim() ||
-      (thinkingToolLines?.length ?? 0) > 0
+    thinkingText?.trim() ||
+    (thinkingToolLines?.length ?? 0) > 0,
   );
   const widthClass = hasThinking
     ? ASSISTANT_MAX_WIDTH_EXPANDED_CLASS
     : resolveAssistantMaxWidthClass(contentText);
   const hasContent = Boolean(contentText?.trim());
-  const compactStreamingIndicator = Boolean(streaming && !hasThinking && !hasContent);
+  const compactStreamingIndicator = Boolean(
+    streaming && !hasThinking && !hasContent,
+  );
 
   return (
     <div className="w-full self-start">
-      <div className={`relative w-full ${widthClass} ${ASSISTANT_GUTTER_CLASS}`}>
+      <div
+        className={`relative w-full ${widthClass} ${ASSISTANT_GUTTER_CLASS}`}
+      >
         <div className="absolute left-[4px] top-[2px]">
-          <AgentAvatar seed={avatarSeed} name={name} avatarUrl={avatarUrl} size={22} />
+          <AgentAvatar
+            seed={avatarSeed}
+            name={name}
+            avatarUrl={avatarUrl}
+            size={22}
+          />
         </div>
         <div className="flex items-center justify-between gap-3 py-0.5">
           <div className="type-meta min-w-0 truncate font-mono text-foreground/90">
@@ -479,7 +430,9 @@ const AssistantMessageCard = memo(function AssistantMessageCard({
                     }
                     return (
                       <div className="agent-markdown text-foreground">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{rewritten}</ReactMarkdown>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {rewritten}
+                        </ReactMarkdown>
                       </div>
                     );
                   })()
@@ -512,9 +465,16 @@ const AssistantIntroCard = memo(function AssistantIntroCard({
 }) {
   return (
     <div className="w-full self-start">
-      <div className={`relative w-full ${ASSISTANT_MAX_WIDTH_DEFAULT_CLASS} ${ASSISTANT_GUTTER_CLASS}`}>
+      <div
+        className={`relative w-full ${ASSISTANT_MAX_WIDTH_DEFAULT_CLASS} ${ASSISTANT_GUTTER_CLASS}`}
+      >
         <div className="absolute left-[4px] top-[2px]">
-          <AgentAvatar seed={avatarSeed} name={name} avatarUrl={avatarUrl} size={22} />
+          <AgentAvatar
+            seed={avatarSeed}
+            name={name}
+            avatarUrl={avatarUrl}
+            size={22}
+          />
         </div>
         <div className="flex items-center justify-between gap-3 py-0.5">
           <div className="type-meta min-w-0 truncate font-mono text-foreground/90">
@@ -522,7 +482,9 @@ const AssistantIntroCard = memo(function AssistantIntroCard({
           </div>
         </div>
         <div className="ui-chat-assistant-card mt-2">
-          <div className="text-[14px] leading-[1.65] text-foreground">{title}</div>
+          <div className="text-[14px] leading-[1.65] text-foreground">
+            {title}
+          </div>
           <div className="mt-2 font-mono text-[10px] tracking-[0.03em] text-muted-foreground/80">
             Try describing a task, bug, or question to get started.
           </div>
@@ -570,7 +532,10 @@ const AgentChatFinalItems = memo(function AgentChatFinalItems({
             avatarSeed={avatarSeed}
             avatarUrl={avatarUrl}
             name={name}
-            timestampMs={block.timestampMs ?? (streaming ? runStartedAt ?? undefined : undefined)}
+            timestampMs={
+              block.timestampMs ??
+              (streaming ? (runStartedAt ?? undefined) : undefined)
+            }
             thinkingEvents={block.traceEvents}
             thinkingDurationMs={block.thinkingDurationMs}
             contentText={block.text}
@@ -629,6 +594,7 @@ const AgentChatTranscript = memo(function AgentChatTranscript({
 }) {
   const chatRef = useRef<HTMLDivElement | null>(null);
   const chatBottomRef = useRef<HTMLDivElement | null>(null);
+  const tc = useTranslations("chat");
   const scrollFrameRef = useRef<number | null>(null);
   const pinnedRef = useRef(true);
   const [isPinned, setIsPinned] = useState(true);
@@ -662,8 +628,8 @@ const AgentChatTranscript = memo(function AgentChatTranscript({
           scrollHeight: el.scrollHeight,
           clientHeight: el.clientHeight,
         },
-        48
-      )
+        48,
+      ),
     );
   }, [setPinned]);
 
@@ -686,7 +652,10 @@ const AgentChatTranscript = memo(function AgentChatTranscript({
   }, []);
 
   const showJumpToLatest =
-    !isPinned && (outputLineCount > 0 || liveAssistantCharCount > 0 || liveThinkingCharCount > 0);
+    !isPinned &&
+    (outputLineCount > 0 ||
+      liveAssistantCharCount > 0 ||
+      liveThinkingCharCount > 0);
 
   useEffect(() => {
     const shouldForceScroll = scrollToBottomNextOutputRef.current;
@@ -719,12 +688,17 @@ const AgentChatTranscript = memo(function AgentChatTranscript({
   }, []);
 
   const showLiveAssistantCard =
-    status === "running" && Boolean(liveThinkingText || liveAssistantText || showTypingIndicator);
+    status === "running" &&
+    Boolean(liveThinkingText || liveAssistantText || showTypingIndicator);
   const hasApprovals = pendingExecApprovals.length > 0;
   const hasTranscriptContent = chatItems.length > 0 || hasApprovals;
 
   useEffect(() => {
-    if (status !== "running" || typeof runStartedAt !== "number" || !showLiveAssistantCard) {
+    if (
+      status !== "running" ||
+      typeof runStartedAt !== "number" ||
+      !showLiveAssistantCard
+    ) {
       return;
     }
 
@@ -754,12 +728,21 @@ const AgentChatTranscript = memo(function AgentChatTranscript({
         }}
       >
         <div className="relative flex flex-col gap-6 dark:gap-8 text-[14px] leading-[1.65] text-foreground">
-          <div aria-hidden className={`pointer-events-none absolute ${SPINE_LEFT} top-0 bottom-0 w-px bg-border/20`} />
+          <div
+            aria-hidden
+            className={`pointer-events-none absolute ${SPINE_LEFT} top-0 bottom-0 w-px bg-border/20`}
+          />
           {historyMaybeTruncated && isAtTop ? (
             <div className="-mx-1 flex items-center justify-between gap-3 rounded-md bg-surface-2 px-3 py-2 shadow-2xs">
               <div className="type-meta min-w-0 truncate font-mono text-muted-foreground">
-                Showing most recent {typeof historyFetchedCount === "number" ? historyFetchedCount : "?"} messages
-                {typeof historyFetchLimit === "number" ? ` (limit ${historyFetchLimit})` : ""}
+                Showing most recent{" "}
+                {typeof historyFetchedCount === "number"
+                  ? historyFetchedCount
+                  : "?"}{" "}
+                messages
+                {typeof historyFetchLimit === "number"
+                  ? ` (limit ${historyFetchLimit})`
+                  : ""}
               </div>
               <button
                 type="button"
@@ -796,7 +779,8 @@ const AgentChatTranscript = memo(function AgentChatTranscript({
                   timestampMs={runStartedAt ?? undefined}
                   thinkingText={liveThinkingText || null}
                   thinkingDurationMs={
-                    typeof runStartedAt === "number" && typeof nowMs === "number"
+                    typeof runStartedAt === "number" &&
+                    typeof nowMs === "number"
                       ? Math.max(0, nowMs - runStartedAt)
                       : undefined
                   }
@@ -825,9 +809,9 @@ const AgentChatTranscript = memo(function AgentChatTranscript({
             setPinned(true);
             scrollChatToBottom();
           }}
-          aria-label="Jump to latest"
+          aria-label={tc("jumpToLatest")}
         >
-          Jump to latest
+          {tc("jumpToLatest")}
         </button>
       ) : null}
     </div>
@@ -916,12 +900,18 @@ const AgentChatComposer = memo(function AgentChatComposer({
   voiceTranscribing: boolean;
   onToggleVoice: () => void;
 }) {
+  const tc = useTranslations("chat");
   const stopReason = stopDisabledReason?.trim() ?? "";
   const stopDisabled = !canSend || stopBusy || Boolean(stopReason);
-  const stopAriaLabel = stopReason ? `Stop unavailable: ${stopReason}` : "Stop";
+  const stopAriaLabel = stopReason
+    ? `${tc("stopUnavailable")}: ${stopReason}`
+    : tc("stop");
   const modelSelectedLabel = useMemo(() => {
-    if (modelOptions.length === 0) return "No models found";
-    return modelOptions.find((option) => option.value === modelValue)?.label ?? modelValue;
+    if (modelOptions.length === 0) return tc("noModels");
+    return (
+      modelOptions.find((option) => option.value === modelValue)?.label ??
+      modelValue
+    );
   }, [modelOptions, modelValue]);
   const modelSelectWidthCh = Math.max(11, Math.min(44, modelSelectedLabel.length + 6));
   const thinkingSelectedLabel = useMemo(
@@ -934,7 +924,9 @@ const AgentChatComposer = memo(function AgentChatComposer({
       {queuedMessages.length > 0 ? (
         <div
           className={`mb-2 grid items-start gap-2 ${
-            running ? "grid-cols-[minmax(0,1fr)_auto_auto]" : "grid-cols-[minmax(0,1fr)_auto]"
+            running
+              ? "grid-cols-[minmax(0,1fr)_auto_auto]"
+              : "grid-cols-[minmax(0,1fr)_auto]"
           }`}
         >
           <div
@@ -976,7 +968,7 @@ const AgentChatComposer = memo(function AgentChatComposer({
               disabled
               className="invisible rounded-md border border-border/70 bg-surface-3 px-3 py-2 font-mono text-[12px] font-medium tracking-[0.02em] text-foreground"
             >
-              {stopBusy ? "Stopping" : "Stop"}
+              {stopBusy ? tc("stopping") : tc("stop")}
             </button>
           ) : null}
           <button
@@ -986,7 +978,7 @@ const AgentChatComposer = memo(function AgentChatComposer({
             disabled
             className="ui-btn-primary ui-btn-send invisible px-3 py-2 font-mono text-[12px] font-medium tracking-[0.02em]"
           >
-            Send
+            {tc("send")}
           </button>
         </div>
       ) : null}
@@ -998,7 +990,7 @@ const AgentChatComposer = memo(function AgentChatComposer({
           className="chat-composer-input min-h-[28px] flex-1 resize-none border-0 bg-transparent px-0 py-1 text-[15px] leading-6 text-foreground outline-none shadow-none transition placeholder:text-muted-foreground/65 focus:outline-none focus-visible:outline-none focus-visible:ring-0"
           onChange={onChange}
           onKeyDown={onKeyDown}
-          placeholder="type a message"
+          placeholder={tc("typeMessage")}
         />
         {running ? (
           <span className="inline-flex" title={stopReason || undefined}>
@@ -1009,7 +1001,7 @@ const AgentChatComposer = memo(function AgentChatComposer({
               disabled={stopDisabled}
               aria-label={stopAriaLabel}
             >
-              {stopBusy ? "Stopping" : "Stop"}
+              {stopBusy ? tc("stopping") : tc("stop")}
             </button>
           </span>
         ) : null}
@@ -1038,10 +1030,10 @@ const AgentChatComposer = memo(function AgentChatComposer({
       </div>
       <div className="mt-1 flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          <InlineHoverTooltip text="Choose model">
+          <InlineHoverTooltip text={tc("chooseModel")}>
             <select
               className="ui-input ui-control-important h-6 min-w-0 rounded-md px-1.5 text-[10px] font-semibold text-foreground"
-              aria-label="Model"
+              aria-label={tc("model")}
               value={modelValue}
               style={{ width: `${modelSelectWidthCh}ch` }}
               onChange={(event) => {
@@ -1051,7 +1043,7 @@ const AgentChatComposer = memo(function AgentChatComposer({
               }}
             >
               {modelOptions.length === 0 ? (
-                <option value="">No models found</option>
+                <option value="">{tc("noModels")}</option>
               ) : null}
               {modelOptions.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -1061,10 +1053,10 @@ const AgentChatComposer = memo(function AgentChatComposer({
             </select>
           </InlineHoverTooltip>
           {allowThinking ? (
-            <InlineHoverTooltip text="Select reasoning effort">
+            <InlineHoverTooltip text={tc("selectReasoning")}>
               <select
                 className="ui-input ui-control-important h-6 rounded-md px-1.5 text-[10px] font-semibold text-foreground"
-                aria-label="Thinking"
+                aria-label={tc("thinking")}
                 value={thinkingValue}
                 style={{ width: `${thinkingSelectWidthCh}ch` }}
                 onChange={(event) => {
@@ -1080,11 +1072,11 @@ const AgentChatComposer = memo(function AgentChatComposer({
           ) : null}
         </div>
         <div className="ml-auto flex items-center gap-1.5 text-[10px] text-muted-foreground">
-          <span className="font-mono tracking-[0.02em]">Show</span>
+          <span className="font-mono tracking-[0.02em]">{tc("show")}</span>
           <button
             type="button"
             role="switch"
-            aria-label="Show tool calls"
+            aria-label={tc("showToolCalls")}
             aria-checked={toolCallingEnabled}
             className={`inline-flex h-5 items-center rounded-sm border px-1.5 font-mono text-[10px] tracking-[0.01em] transition ${
               toolCallingEnabled
@@ -1093,12 +1085,12 @@ const AgentChatComposer = memo(function AgentChatComposer({
             }`}
             onClick={() => onToolCallingToggle(!toolCallingEnabled)}
           >
-            Tools
+            {tc("tools")}
           </button>
           <button
             type="button"
             role="switch"
-            aria-label="Show thinking"
+            aria-label={tc("showThinking")}
             aria-checked={showThinkingTraces}
             className={`inline-flex h-5 items-center rounded-sm border px-1.5 font-mono text-[10px] tracking-[0.01em] transition ${
               showThinkingTraces
@@ -1107,7 +1099,7 @@ const AgentChatComposer = memo(function AgentChatComposer({
             }`}
             onClick={() => onThinkingTracesToggle(!showThinkingTraces)}
           >
-            Thinking
+            {tc("thinking")}
           </button>
           <button
             type="button"
@@ -1154,6 +1146,7 @@ export const AgentChatPanel = ({
   pendingExecApprovals = [],
   onResolveExecApproval,
 }: AgentChatPanelProps) => {
+  const tc = useTranslations("chat");
   const [draftValue, setDraftValue] = useState(agent.draft);
   const [newSessionBusy, setNewSessionBusy] = useState(false);
   const [renameEditing, setRenameEditing] = useState(false);
@@ -1179,9 +1172,12 @@ export const AgentChatPanel = ({
     el.style.overflowY = el.scrollHeight > el.clientHeight ? "auto" : "hidden";
   }, []);
 
-  const handleDraftRef = useCallback((el: HTMLTextAreaElement | HTMLInputElement | null) => {
-    draftRef.current = el instanceof HTMLTextAreaElement ? el : null;
-  }, []);
+  const handleDraftRef = useCallback(
+    (el: HTMLTextAreaElement | HTMLInputElement | null) => {
+      draftRef.current = el instanceof HTMLTextAreaElement ? el : null;
+    },
+    [],
+  );
 
   useEffect(() => {
     const previousIdentity = draftIdentityRef.current;
@@ -1195,6 +1191,7 @@ export const AgentChatPanel = ({
       };
       plainDraftRef.current = agent.draft;
       setDraftValue(agent.draft);
+      scrollToBottomNextOutputRef.current = true;
       return;
     }
     if (agent.draft === plainDraftRef.current) return;
@@ -1248,7 +1245,7 @@ export const AgentChatPanel = ({
       scrollToBottomNextOutputRef.current = true;
       onSend(trimmed);
     },
-    [canSend, onDraftChange, onSend]
+    [canSend, onDraftChange, onSend],
   );
 
   const handleVoiceTranscribed = useCallback(
@@ -1270,13 +1267,22 @@ export const AgentChatPanel = ({
     [agent.outputLines, agent.showThinkingTraces, agent.toolCallingEnabled, agent.hideSystemMessages]
   );
   const running = agent.status === "running";
-  const renderBlocks = useMemo(() => buildAgentChatRenderBlocks(chatItems), [chatItems]);
+  const renderBlocks = useMemo(
+    () => buildAgentChatRenderBlocks(chatItems),
+    [chatItems],
+  );
   const hasActiveStreamingTailInTranscript =
-    running && renderBlocks.length > 0 && !renderBlocks[renderBlocks.length - 1].text;
+    running &&
+    renderBlocks.length > 0 &&
+    !renderBlocks[renderBlocks.length - 1].text;
   const liveAssistantText =
-    running && agent.streamText ? normalizeAssistantDisplayText(agent.streamText) : "";
+    running && agent.streamText
+      ? normalizeAssistantDisplayText(agent.streamText)
+      : "";
   const liveThinkingText =
-    running && agent.showThinkingTraces && agent.thinkingTrace ? agent.thinkingTrace.trim() : "";
+    running && agent.showThinkingTraces && agent.thinkingTrace
+      ? agent.thinkingTrace.trim()
+      : "";
   const hasVisibleLiveThinking = Boolean(liveThinkingText.trim());
   const showTypingIndicator =
     running &&
@@ -1295,14 +1301,19 @@ export const AgentChatPanel = ({
           reasoning: entry.reasoning,
         };
       }),
-    [models]
+    [models],
   );
   const modelValue = agent.model ?? "";
   const modelOptionsWithFallback =
     modelValue && !modelOptions.some((option) => option.value === modelValue)
-      ? [{ value: modelValue, label: modelValue, reasoning: undefined }, ...modelOptions]
+      ? [
+          { value: modelValue, label: modelValue, reasoning: undefined },
+          ...modelOptions,
+        ]
       : modelOptions;
-  const selectedModel = modelOptionsWithFallback.find((option) => option.value === modelValue);
+  const selectedModel = modelOptionsWithFallback.find(
+    (option) => option.value === modelValue,
+  );
   const allowThinking = selectedModel?.reasoning !== false;
   // When no model is stored yet, use the first option in the list (what's displayed)
   const effectiveModelStr = selectedModel?.value ?? modelOptionsWithFallback[0]?.value ?? "";
@@ -1332,7 +1343,7 @@ export const AgentChatPanel = ({
   const avatarSeed = agent.avatarSeed ?? agent.agentId;
   const emptyStateTitle = useMemo(
     () => resolveEmptyChatIntroMessage(agent.agentId, agent.sessionEpoch),
-    [agent.agentId, agent.sessionEpoch]
+    [agent.agentId, agent.sessionEpoch],
   );
   const sendDisabled = !canSend || !draftValue.trim();
 
@@ -1343,18 +1354,19 @@ export const AgentChatPanel = ({
       setDraftValue(value);
       onDraftChange(value);
     },
-    [onDraftChange]
+    [onDraftChange],
   );
 
   const handleComposerKeyDown = useCallback(
     (event: KeyboardEvent<HTMLTextAreaElement>) => {
-      if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
+      if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229)
+        return;
       if (event.key !== "Enter" || event.shiftKey) return;
       if (event.defaultPrevented) return;
       event.preventDefault();
       handleSend(draftValue);
     },
-    [draftValue, handleSend]
+    [draftValue, handleSend],
   );
 
   const handleComposerSend = useCallback(() => {
@@ -1430,7 +1442,7 @@ export const AgentChatPanel = ({
         cancelRename();
       }
     },
-    [cancelRename, submitRename]
+    [cancelRename, submitRename],
   );
 
   const handleNewSession = useCallback(async () => {
@@ -1446,7 +1458,10 @@ export const AgentChatPanel = ({
   const newSessionDisabled = newSessionBusy || !canSend || !onNewSession;
 
   return (
-    <div data-agent-panel className="group fade-up relative flex h-full w-full flex-col">
+    <div
+      data-agent-panel
+      className="group fade-up relative flex h-full w-full flex-col"
+    >
       <div className="px-3 pt-2 sm:px-4 sm:pt-3">
         <div className="flex items-start justify-between gap-4">
           <div className="flex min-w-0 items-start gap-3">
@@ -1461,7 +1476,7 @@ export const AgentChatPanel = ({
               <button
                 className="nodrag ui-btn-icon ui-btn-icon-xs agent-avatar-shuffle-btn absolute bottom-0.5 right-0.5"
                 type="button"
-                aria-label="Shuffle avatar"
+                aria-label={tc("shuffleAvatar")}
                 data-testid="agent-avatar-shuffle"
                 onClick={(event) => {
                   event.preventDefault();
@@ -1477,11 +1492,14 @@ export const AgentChatPanel = ({
               <div className="flex min-w-0 items-center gap-2">
                 <div className="min-w-0 w-[clamp(11rem,34vw,16rem)]">
                   {renameEditing ? (
-                    <div ref={renameEditorRef} className="flex h-8 items-center gap-1.5">
+                    <div
+                      ref={renameEditorRef}
+                      className="flex h-8 items-center gap-1.5"
+                    >
                       <input
                         ref={renameInputRef}
                         className="ui-input agent-rename-input h-8 min-w-0 flex-1 rounded-md px-2 text-[12px] font-semibold text-foreground"
-                        aria-label="Edit agent name"
+                        aria-label={tc("editAgentName")}
                         data-testid="agent-rename-input"
                         value={renameDraft}
                         disabled={renameSaving}
@@ -1494,7 +1512,7 @@ export const AgentChatPanel = ({
                       <button
                         className="ui-btn-icon ui-btn-icon-sm agent-rename-control"
                         type="button"
-                        aria-label="Save agent name"
+                        aria-label={tc("saveAgentName")}
                         data-testid="agent-rename-save"
                         onClick={() => {
                           void submitRename();
@@ -1506,7 +1524,7 @@ export const AgentChatPanel = ({
                       <button
                         className="ui-btn-icon ui-btn-icon-sm agent-rename-control"
                         type="button"
-                        aria-label="Cancel agent rename"
+                        aria-label={tc("cancelRename")}
                         data-testid="agent-rename-cancel"
                         onClick={cancelRename}
                         disabled={renameSaving}
@@ -1523,7 +1541,7 @@ export const AgentChatPanel = ({
                         <button
                           className="ui-btn-icon ui-btn-icon-xs agent-rename-control shrink-0"
                           type="button"
-                          aria-label="Rename agent"
+                          aria-label={tc("renameAgent")}
                           data-testid="agent-rename-toggle"
                           onClick={beginRename}
                         >
@@ -1535,7 +1553,9 @@ export const AgentChatPanel = ({
                 </div>
               </div>
               {renameError ? (
-                <div className="ui-text-danger mt-1 text-[11px]">{renameError}</div>
+                <div className="ui-text-danger mt-1 text-[11px]">
+                  {renameError}
+                </div>
               ) : null}
             </div>
           </div>
@@ -1545,21 +1565,21 @@ export const AgentChatPanel = ({
               className="nodrag ui-btn-primary px-2.5 py-1.5 font-mono text-[11px] font-medium tracking-[0.02em] disabled:cursor-not-allowed disabled:border-border disabled:bg-muted disabled:text-muted-foreground"
               type="button"
               data-testid="agent-new-session-toggle"
-              aria-label="Start new session"
-              title="Start new session"
+              aria-label={tc("startNewSession")}
+              title={tc("startNewSession")}
               onClick={() => {
                 void handleNewSession();
               }}
               disabled={newSessionDisabled}
             >
-              {newSessionBusy ? "Starting..." : "New session"}
+              {newSessionBusy ? tc("starting") : tc("newSession")}
             </button>
             <button
               className="nodrag ui-btn-icon"
               type="button"
               data-testid="agent-settings-toggle"
-              aria-label="Open behavior"
-              title="Behavior"
+              aria-label={tc("openBehavior")}
+              title={tc("behavior")}
               onClick={onOpenSettings}
             >
               <Cog className="h-4 w-4" />

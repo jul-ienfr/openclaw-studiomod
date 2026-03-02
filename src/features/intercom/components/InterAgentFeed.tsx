@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { useTranslations } from "next-intl";
 import { MessageSquare, ArrowRight } from "lucide-react";
 import type { InterAgentMessage } from "../types";
 import { initIntercomStore, getIntercomMessages } from "../intercomStore";
@@ -17,6 +18,7 @@ type InterAgentFeedProps = {
 };
 
 export const InterAgentFeed = ({ agentId }: InterAgentFeedProps) => {
+  const t = useTranslations("intercom");
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {

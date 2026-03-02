@@ -64,7 +64,8 @@ export const applySessionSettingMutation = async ({
   field,
   value,
 }: ApplySessionSettingMutationParams) => {
-  const targetAgent = agents.find((candidate) => candidate.agentId === agentId) ?? null;
+  const targetAgent =
+    agents.find((candidate) => candidate.agentId === agentId) ?? null;
   const previousModel = targetAgent?.model ?? null;
   const previousThinkingLevel = targetAgent?.thinkingLevel ?? null;
   dispatch({
@@ -79,7 +80,9 @@ export const applySessionSettingMutation = async ({
     const result = await syncGatewaySessionSettings({
       client,
       sessionKey,
-      ...(field === "model" ? { model: value ?? null } : { thinkingLevel: value ?? null }),
+      ...(field === "model"
+        ? { model: value ?? null }
+        : { thinkingLevel: value ?? null }),
     });
     const patch: {
       model?: string | null;
@@ -89,19 +92,24 @@ export const applySessionSettingMutation = async ({
     } = { sessionSettingsSynced: true, sessionCreated: true };
     if (field === "model") {
       const resolvedModel = resolveModelFromPatchResult(result);
-      // Prefer gateway-resolved model, fall back to the requested value
-      const finalModel = resolvedModel ?? value;
-      patch.model = finalModel;
-      // Always persist to openclaw.json so the model survives WS reconnects
-      // and applies to all channels (Telegram, WhatsApp…)
+      // Keep the user's selected model in the UI — the gateway-resolved form
+      // is an internal routing detail and must not override the user's choice.
+      patch.model = value;
+      // Reset thinking level so it adapts to the new model's capabilities.
+      patch.thinkingLevel = null;
+      // Persist the resolved model (or user's value as fallback) to openclaw.json
+      // so the choice applies to all channels (Telegram, WhatsApp…).
+      const persistedModel = resolvedModel ?? value;
       void fetch("/api/agents/model", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agentId, model: finalModel }),
+        body: JSON.stringify({ agentId, model: persistedModel }),
       });
     } else {
       const nextThinkingLevel =
-        typeof result.entry?.thinkingLevel === "string" ? result.entry.thinkingLevel : undefined;
+        typeof result.entry?.thinkingLevel === "string"
+          ? result.entry.thinkingLevel
+          : undefined;
       if (nextThinkingLevel !== undefined) {
         patch.thinkingLevel = nextThinkingLevel;
       }
@@ -120,11 +128,11 @@ export const applySessionSettingMutation = async ({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ agentId, model: value }),
         });
-        // Keep the optimistic update (don't revert) and confirm to the user
+        // Keep the optimistic update (don't revert), reset thinking level, and confirm to the user
         dispatch({
           type: "updateAgent",
           agentId,
-          patch: { sessionSettingsSynced: true, sessionCreated: true },
+          patch: { sessionSettingsSynced: true, sessionCreated: true, thinkingLevel: null },
         });
         dispatch({
           type: "appendOutput",
@@ -152,6 +160,16 @@ export const applySessionSettingMutation = async ({
       }
       return;
     }
+    dispatch({
+      type: "updateAgent",
+      agentId,
+      patch: {
+        ...(field === "model"
+          ? { model: previousModel }
+          : { thinkingLevel: previousThinkingLevel }),
+        sessionSettingsSynced: true,
+      },
+    });
     const msg = err instanceof Error ? err.message : buildFallbackError(field);
     dispatch({
       type: "appendOutput",
@@ -161,10 +179,45 @@ export const applySessionSettingMutation = async ({
   }
 };
 
-const resolveModelFromPatchResult = (result: GatewaySessionsPatchResult): string | null | undefined => {
+const hasExplicitOverrideInResult = (
+  result: GatewaySessionsPatchResult,
+): boolean => {
   const provider =
-    typeof result.resolved?.modelProvider === "string" ? result.resolved.modelProvider.trim() : "";
-  const model = typeof result.resolved?.model === "string" ? result.resolved.model.trim() : "";
+    typeof result.entry?.providerOverride === "string"
+      ? result.entry.providerOverride.trim()
+      : "";
+  const model =
+    typeof result.entry?.modelOverride === "string"
+      ? result.entry.modelOverride.trim()
+      : "";
+  return provider.length > 0 && model.length > 0;
+};
+
+const resolveModelFromPatchResult = (
+  result: GatewaySessionsPatchResult,
+): string | null | undefined => {
+  // Prefer entry.modelOverride/providerOverride (the actual active override) over resolved
+  // because the gateway's resolved field may return the base model, not the override.
+  const overrideProvider =
+    typeof result.entry?.providerOverride === "string"
+      ? result.entry.providerOverride.trim()
+      : "";
+  const overrideModel =
+    typeof result.entry?.modelOverride === "string"
+      ? result.entry.modelOverride.trim()
+      : "";
+  if (overrideProvider && overrideModel) {
+    return `${overrideProvider}/${overrideModel}`;
+  }
+
+  const provider =
+    typeof result.resolved?.modelProvider === "string"
+      ? result.resolved.modelProvider.trim()
+      : "";
+  const model =
+    typeof result.resolved?.model === "string"
+      ? result.resolved.model.trim()
+      : "";
   if (!provider || !model) return undefined;
   return `${provider}/${model}`;
 };

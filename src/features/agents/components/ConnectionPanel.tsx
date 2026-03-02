@@ -1,3 +1,6 @@
+"use client";
+
+import { useTranslations } from "next-intl";
 import type { GatewayStatus } from "@/lib/gateway/GatewayClient";
 import { X } from "lucide-react";
 import { resolveGatewayStatusBadgeClass, resolveGatewayStatusLabel } from "./colorSemantics";
@@ -25,6 +28,8 @@ export const ConnectionPanel = ({
   onDisconnect,
   onClose,
 }: ConnectionPanelProps) => {
+  const t = useTranslations("connection");
+  const ts = useTranslations("status");
   const isConnected = status === "connected";
   const isConnecting = status === "connecting";
 
@@ -36,7 +41,7 @@ export const ConnectionPanel = ({
             className={`ui-chip inline-flex items-center px-3 py-1 font-mono text-[10px] font-semibold tracking-[0.08em] ${resolveGatewayStatusBadgeClass(status)}`}
             data-status={status}
           >
-            {resolveGatewayStatusLabel(status)}
+            {ts(resolveGatewayStatusLabel(status))}
           </span>
           <button
             className="ui-btn-secondary px-4 py-2 text-xs font-semibold tracking-[0.05em] text-foreground disabled:cursor-not-allowed disabled:opacity-60"
@@ -44,7 +49,7 @@ export const ConnectionPanel = ({
             onClick={isConnected ? onDisconnect : onConnect}
             disabled={isConnecting || !gatewayUrl.trim()}
           >
-            {isConnected ? "Disconnect" : "Connect"}
+            {isConnected ? t("disconnect") : t("connect")}
           </button>
         </div>
         {onClose ? (
@@ -53,16 +58,16 @@ export const ConnectionPanel = ({
             type="button"
             onClick={onClose}
             data-testid="gateway-connection-close"
-            aria-label="Close gateway connection panel"
+            aria-label={t("closePanel")}
           >
             <X className="h-3.5 w-3.5" />
-            Close
+            {t("close")}
           </button>
         ) : null}
       </div>
       <div className="grid gap-3 lg:grid-cols-[1.4fr_1fr]">
         <label className="flex flex-col gap-1 font-mono text-[10px] font-semibold tracking-[0.06em] text-muted-foreground">
-          Upstream gateway URL
+          {t("upstreamUrl")}
           <input
             className="ui-input h-10 rounded-md px-4 font-sans text-sm text-foreground outline-none"
             type="text"
@@ -73,13 +78,13 @@ export const ConnectionPanel = ({
           />
         </label>
         <label className="flex flex-col gap-1 font-mono text-[10px] font-semibold tracking-[0.06em] text-muted-foreground">
-          Upstream token
+          {t("upstreamToken")}
           <input
             className="ui-input h-10 rounded-md px-4 font-sans text-sm text-foreground outline-none"
             type="password"
             value={token}
             onChange={(event) => onTokenChange(event.target.value)}
-            placeholder="gateway token"
+            placeholder={t("gatewayTokenPlaceholder")}
             spellCheck={false}
           />
         </label>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import {
   X,
   Eye,
@@ -15,6 +16,7 @@ import type {
   ProviderConfig,
   ProviderAuthType,
 } from "../types";
+import { ServiceLogo } from "@/components/ServiceLogo";
 
 type ApiKeyModalProps = {
   provider: ProviderDefinition;

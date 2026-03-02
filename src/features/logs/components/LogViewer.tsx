@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import { ScrollText } from "lucide-react";
 import type { LogLevel, LogEntry } from "../types";
 import {
@@ -37,6 +38,7 @@ const LogRow = ({ entry }: { entry: LogEntry }) => (
 );
 
 export const LogViewer = () => {
+  const t = useTranslations("logs");
   const [level, setLevel] = useState<LogLevel | "">("");
   const [agentId, setAgentId] = useState("");
   const [search, setSearch] = useState("");

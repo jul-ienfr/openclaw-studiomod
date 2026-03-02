@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
 
+/* eslint-disable @typescript-eslint/no-require-imports */
+const {
+  validateProviderKey,
+} = require("../../../../../server/provider-validators");
+/* eslint-enable @typescript-eslint/no-require-imports */
+
 export const runtime = "nodejs";
 
 type ValidateBody = {

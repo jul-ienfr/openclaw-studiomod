@@ -28,6 +28,9 @@ export type ChannelDefinition = {
   iconColor: string;
   icon: string;
   configFields: ChannelConfigField[];
+  signupUrl?: string;
+  getKeyUrl?: string;
+  guideSteps?: string[];
 };
 
 export type ChannelConfigField = {

@@ -2,27 +2,131 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import dynamic from "next/dynamic";
 import { AgentChatPanel } from "@/features/agents/components/AgentChatPanel";
-import { AgentCreateModal } from "@/features/agents/components/AgentCreateModal";
-import {
-  AgentBrainPanel,
-  AgentSettingsPanel,
-} from "@/features/agents/components/AgentInspectPanels";
 import { FleetSidebar } from "@/features/agents/components/FleetSidebar";
 import { HeaderBar } from "@/features/agents/components/HeaderBar";
-import { ConnectionPanel } from "@/features/agents/components/ConnectionPanel";
 import { GatewayConnectScreen } from "@/features/agents/components/GatewayConnectScreen";
 import { EmptyStatePanel } from "@/features/agents/components/EmptyStatePanel";
-import {
-  isHeartbeatPrompt,
-} from "@/lib/text/message-extract";
-import {
-  useGatewayConnection,
-} from "@/lib/gateway/GatewayClient";
+import { getChannelsByAgent } from "@/features/routing/agentChannelResolver";
+
+const AgentCreateModal = dynamic(
+  () =>
+    import("@/features/agents/components/AgentCreateModal").then(
+      (m) => m.AgentCreateModal,
+    ),
+  { ssr: false },
+);
+const AgentBrainPanel = dynamic(
+  () =>
+    import("@/features/agents/components/AgentInspectPanels").then(
+      (m) => m.AgentBrainPanel,
+    ),
+  { ssr: false },
+);
+const AgentSettingsPanel = dynamic(
+  () =>
+    import("@/features/agents/components/AgentInspectPanels").then(
+      (m) => m.AgentSettingsPanel,
+    ),
+  { ssr: false },
+);
+const ConnectionPanel = dynamic(
+  () =>
+    import("@/features/agents/components/ConnectionPanel").then(
+      (m) => m.ConnectionPanel,
+    ),
+  { ssr: false },
+);
+const ProvidersPanel = dynamic(
+  () =>
+    import("@/features/providers/components/ProvidersPanel").then(
+      (m) => m.ProvidersPanel,
+    ),
+  { ssr: false },
+);
+const ChannelsPanel = dynamic(
+  () =>
+    import("@/features/channels/components/ChannelsPanel").then(
+      (m) => m.ChannelsPanel,
+    ),
+  { ssr: false },
+);
+const RoutingPanel = dynamic(
+  () =>
+    import("@/features/routing/components/RoutingPanel").then(
+      (m) => m.RoutingPanel,
+    ),
+  { ssr: false },
+);
+const WebhooksPanel = dynamic(
+  () =>
+    import("@/features/webhooks/components/WebhooksPanel").then(
+      (m) => m.WebhooksPanel,
+    ),
+  { ssr: false },
+);
+const SkillsBrowser = dynamic(
+  () =>
+    import("@/features/skills/components/SkillsBrowser").then(
+      (m) => m.SkillsBrowser,
+    ),
+  { ssr: false },
+);
+const AnalyticsDashboard = dynamic(
+  () =>
+    import("@/features/analytics/components/AnalyticsDashboard").then(
+      (m) => m.AnalyticsDashboard,
+    ),
+  { ssr: false },
+);
+const LogViewer = dynamic(
+  () => import("@/features/logs/components/LogViewer").then((m) => m.LogViewer),
+  { ssr: false },
+);
+const CanvasPreview = dynamic(
+  () =>
+    import("@/features/canvas/components/CanvasPreview").then(
+      (m) => m.CanvasPreview,
+    ),
+  { ssr: false },
+);
+const InterAgentFeed = dynamic(
+  () =>
+    import("@/features/intercom/components/InterAgentFeed").then(
+      (m) => m.InterAgentFeed,
+    ),
+  { ssr: false },
+);
+const VoiceControls = dynamic(
+  () =>
+    import("@/features/voice/components/VoiceControls").then(
+      (m) => m.VoiceControls,
+    ),
+  { ssr: false },
+);
+const AgentPerformanceTab = dynamic(
+  () =>
+    import("@/features/agents/components/AgentPerformanceTab").then(
+      (m) => m.AgentPerformanceTab,
+    ),
+  { ssr: false },
+);
+import { useTranslations } from "next-intl";
+import { Users, MessageSquare, BarChart3, Settings } from "lucide-react";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { isHeartbeatPrompt } from "@/lib/text/message-extract";
+import { useGatewayConnection } from "@/lib/gateway/GatewayClient";
 import {
   type GatewayModelChoice,
   type GatewayModelPolicySnapshot,
+  buildStaticModelCatalog,
+  mergeModelCatalogs,
+  filterModelsByConfiguredProviders,
 } from "@/lib/gateway/models";
+import { PROVIDER_REGISTRY } from "@/features/providers/providerRegistry";
+import { ProviderStoreProvider } from "@/features/providers/ProviderStoreProvider";
+import { useProviderStore } from "@/features/providers/providerStore";
 import {
   AgentStoreProvider,
   getFilteredAgents,
@@ -32,6 +136,7 @@ import {
 } from "@/features/agents/state/store";
 import type { AgentState } from "@/features/agents/state/store";
 import { createGatewayRuntimeEventHandler } from "@/features/agents/state/gatewayRuntimeEventHandler";
+import { initCollector } from "@/features/analytics/analyticsCollector";
 import {
   type CronJobSummary,
   formatCronJobDisplay,
@@ -60,7 +165,10 @@ import {
 import { useGatewayConfigSyncController } from "@/features/agents/operations/useGatewayConfigSyncController";
 import { isLocalGatewayUrl } from "@/lib/gateway/local-gateway";
 import { randomUUID } from "@/lib/uuid";
-import type { ExecApprovalDecision, PendingExecApproval } from "@/features/agents/approvals/types";
+import type {
+  ExecApprovalDecision,
+  PendingExecApproval,
+} from "@/features/agents/approvals/types";
 import {
   planAwaitingUserInputPatches,
   planPendingPruneDelay,
@@ -71,16 +179,10 @@ import {
   runPauseRunForExecApprovalOperation,
   runResolveExecApprovalOperation,
 } from "@/features/agents/approvals/execApprovalRunControlOperation";
-import {
-  mergePendingApprovalsForFocusedAgent,
-} from "@/features/agents/approvals/pendingStore";
-import {
-  resolveLatestUpdateKind,
-} from "@/features/agents/operations/latestUpdateWorkflow";
+import { mergePendingApprovalsForFocusedAgent } from "@/features/agents/approvals/pendingStore";
+import { resolveLatestUpdateKind } from "@/features/agents/operations/latestUpdateWorkflow";
 import { createSpecialLatestUpdateOperation } from "@/features/agents/operations/specialLatestUpdateOperation";
-import {
-  resolveAgentPermissionsDraft,
-} from "@/features/agents/operations/agentPermissionsOperation";
+import { resolveAgentPermissionsDraft } from "@/features/agents/operations/agentPermissionsOperation";
 import {
   executeStudioBootstrapLoadCommands,
   executeStudioFocusedPatchCommands,
@@ -152,7 +254,8 @@ const resolveControlUiUrl = (params: {
     const gateway = isRecord(configRecord["gateway"])
       ? (configRecord["gateway"] as Record<string, unknown>)
       : null;
-    const controlUi = gateway && isRecord(gateway.controlUi) ? gateway.controlUi : null;
+    const controlUi =
+      gateway && isRecord(gateway.controlUi) ? gateway.controlUi : null;
     if (controlUi && typeof controlUi.enabled === "boolean") {
       controlUiEnabled = controlUi.enabled;
     }
@@ -182,15 +285,21 @@ const resolveControlUiUrl = (params: {
 const resolveNextNewAgentName = (agents: AgentState[]) => {
   const baseName = "New Agent";
   const existingNames = new Set(
-    agents.map((agent) => agent.name.trim().toLowerCase()).filter((name) => name.length > 0)
+    agents
+      .map((agent) => agent.name.trim().toLowerCase())
+      .filter((name) => name.length > 0),
   );
   const existingIds = new Set(
     agents
       .map((agent) => agent.agentId.trim().toLowerCase())
-      .filter((agentId) => agentId.length > 0)
+      .filter((agentId) => agentId.length > 0),
   );
   const baseLower = baseName.toLowerCase();
-  if (!existingNames.has(baseLower) && !existingIds.has(slugifyAgentName(baseName))) return baseName;
+  if (
+    !existingNames.has(baseLower) &&
+    !existingIds.has(slugifyAgentName(baseName))
+  )
+    return baseName;
   for (let index = 2; index < 10000; index += 1) {
     const candidate = `${baseName} ${index}`;
     if (existingNames.has(candidate.toLowerCase())) continue;
@@ -201,18 +310,21 @@ const resolveNextNewAgentName = (agents: AgentState[]) => {
 };
 
 const AgentStudioPage = () => {
+  const tp = useTranslations("page");
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const settingsRouteAgentId = useMemo(
     () =>
       parseSettingsRouteAgentIdFromQueryParam(
-        searchParams.get(SETTINGS_ROUTE_AGENT_ID_QUERY_PARAM)
+        searchParams.get(SETTINGS_ROUTE_AGENT_ID_QUERY_PARAM),
       ) ?? parseSettingsRouteAgentIdFromPathname(pathname ?? ""),
-    [pathname, searchParams]
+    [pathname, searchParams],
   );
   const settingsRouteActive = settingsRouteAgentId !== null;
-  const [settingsCoordinator] = useState(() => createStudioSettingsCoordinator());
+  const [settingsCoordinator] = useState(() =>
+    createStudioSettingsCoordinator(),
+  );
   const {
     client,
     status,
@@ -227,42 +339,81 @@ const AgentStudioPage = () => {
     setToken,
   } = useGatewayConnection(settingsCoordinator);
 
-  const { state, dispatch, hydrateAgents, setError, setLoading } = useAgentStore();
+  const { state, dispatch, hydrateAgents, setError, setLoading } =
+    useAgentStore();
   const [showConnectionPanel, setShowConnectionPanel] = useState(false);
+  const [showProvidersPanel, setShowProvidersPanel] = useState(false);
+  const [showChannelsPanel, setShowChannelsPanel] = useState(false);
+  const [showRoutingPanel, setShowRoutingPanel] = useState(false);
+  const [showWebhooksPanel, setShowWebhooksPanel] = useState(false);
+  const [showSkillsBrowser, setShowSkillsBrowser] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [showLogViewer, setShowLogViewer] = useState(false);
+  const [showCanvas, setShowCanvas] = useState(false);
+  const [showIntercom, setShowIntercom] = useState(false);
+  const [showVoice, setShowVoice] = useState(false);
   const [focusFilter, setFocusFilter] = useState<FocusFilter>("all");
-  const [focusedPreferencesLoaded, setFocusedPreferencesLoaded] = useState(false);
+  const [focusedPreferencesLoaded, setFocusedPreferencesLoaded] =
+    useState(false);
   const [agentsLoadedOnce, setAgentsLoadedOnce] = useState(false);
-  const [didAttemptGatewayConnect, setDidAttemptGatewayConnect] = useState(false);
+  const [didAttemptGatewayConnect, setDidAttemptGatewayConnect] =
+    useState(false);
   const [heartbeatTick, setHeartbeatTick] = useState(0);
   const stateRef = useRef(state);
   const focusFilterTouchedRef = useRef(false);
   const [gatewayModels, setGatewayModels] = useState<GatewayModelChoice[]>([]);
-  const [gatewayModelsError, setGatewayModelsError] = useState<string | null>(null);
+  const [gatewayModelsError, setGatewayModelsError] = useState<string | null>(
+    null,
+  );
+  const { getConfiguredProviderIds } = useProviderStore();
+  const configuredProviderIds = useMemo(
+    () => getConfiguredProviderIds(),
+    [getConfiguredProviderIds],
+  );
+  const allModels = useMemo(
+    () =>
+      filterModelsByConfiguredProviders(
+        mergeModelCatalogs(
+          gatewayModels,
+          buildStaticModelCatalog(PROVIDER_REGISTRY),
+        ),
+        configuredProviderIds,
+      ),
+    [gatewayModels, configuredProviderIds],
+  );
   const [gatewayConfigSnapshot, setGatewayConfigSnapshot] =
     useState<GatewayModelPolicySnapshot | null>(null);
   const [createAgentBusy, setCreateAgentBusy] = useState(false);
   const [createAgentModalOpen, setCreateAgentModalOpen] = useState(false);
-  const [createAgentModalError, setCreateAgentModalError] = useState<string | null>(null);
+  const [createAgentModalError, setCreateAgentModalError] = useState<
+    string | null
+  >(null);
   const [mobilePane, setMobilePane] = useState<MobilePane>("chat");
-  const [inspectSidebar, setInspectSidebar] = useState<InspectSidebarState>(null);
-  const [systemInitialSkillKey, setSystemInitialSkillKey] = useState<string | null>(null);
-  const [personalityHasUnsavedChanges, setPersonalityHasUnsavedChanges] = useState(false);
-  const [settingsSidebarItem, setSettingsSidebarItem] = useState<SettingsSidebarItem>("personality");
-  const [createAgentBlock, setCreateAgentBlock] = useState<CreateAgentBlockState | null>(null);
-  const [pendingExecApprovalsByAgentId, setPendingExecApprovalsByAgentId] = useState<
-    Record<string, PendingExecApproval[]>
-  >({});
-  const [unscopedPendingExecApprovals, setUnscopedPendingExecApprovals] = useState<
-    PendingExecApproval[]
-  >([]);
-  const pendingExecApprovalsByAgentIdRef = useRef(pendingExecApprovalsByAgentId);
+  const [inspectSidebar, setInspectSidebar] =
+    useState<InspectSidebarState>(null);
+  const [systemInitialSkillKey, setSystemInitialSkillKey] = useState<
+    string | null
+  >(null);
+  const [personalityHasUnsavedChanges, setPersonalityHasUnsavedChanges] =
+    useState(false);
+  const [settingsSidebarItem, setSettingsSidebarItem] =
+    useState<SettingsSidebarItem>("personality");
+  const [createAgentBlock, setCreateAgentBlock] =
+    useState<CreateAgentBlockState | null>(null);
+  const [pendingExecApprovalsByAgentId, setPendingExecApprovalsByAgentId] =
+    useState<Record<string, PendingExecApproval[]>>({});
+  const [unscopedPendingExecApprovals, setUnscopedPendingExecApprovals] =
+    useState<PendingExecApproval[]>([]);
+  const pendingExecApprovalsByAgentIdRef = useRef(
+    pendingExecApprovalsByAgentId,
+  );
   const unscopedPendingExecApprovalsRef = useRef(unscopedPendingExecApprovals);
   const specialUpdateRef = useRef<Map<string, string>>(new Map());
   const seenCronEventIdsRef = useRef<Set<string>>(new Set());
   const preferredSelectedAgentIdRef = useRef<string | null>(null);
-  const runtimeEventHandlerRef = useRef<ReturnType<typeof createGatewayRuntimeEventHandler> | null>(
-    null
-  );
+  const runtimeEventHandlerRef = useRef<ReturnType<
+    typeof createGatewayRuntimeEventHandler
+  > | null>(null);
   const enqueueConfigMutationRef = useRef<
     (params: {
       kind: ConfigMutationKind;
@@ -270,15 +421,21 @@ const AgentStudioPage = () => {
       run: () => Promise<void>;
       requiresIdleAgents?: boolean;
     }) => Promise<void>
-  >((input) => Promise.reject(new Error(`Config mutation queue not ready for "${input.kind}".`)));
+  >((input) =>
+    Promise.reject(
+      new Error(`Config mutation queue not ready for "${input.kind}".`),
+    ),
+  );
   const approvalPausedRunIdByAgentRef = useRef<Map<string, string>>(new Map());
 
   const agents = state.agents;
   const selectedAgent = useMemo(() => getSelectedAgent(state), [state]);
   const filteredAgents = useMemo(
     () => getFilteredAgents(state, focusFilter),
-    [focusFilter, state]
+    [focusFilter, state],
   );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const channelsByAgent = useMemo(() => getChannelsByAgent(), [agents]);
   const focusedAgent = useMemo(() => {
     if (filteredAgents.length === 0) return null;
     const selectedInFilter = selectedAgent
@@ -297,13 +454,19 @@ const AgentStudioPage = () => {
   }, [focusedAgent]);
   const inspectSidebarAgentId = inspectSidebar?.agentId ?? null;
   const inspectSidebarTab = inspectSidebar?.tab ?? null;
-  const effectiveSettingsTab: SettingsRouteTab = inspectSidebarTab ?? "personality";
+  const effectiveSettingsTab: SettingsRouteTab =
+    inspectSidebarTab ?? "personality";
+  useEffect(() => {
+    initCollector();
+  }, []);
   useEffect(() => {
     setSettingsSidebarItem(effectiveSettingsTab);
   }, [effectiveSettingsTab]);
   const inspectSidebarAgent = useMemo(() => {
     if (!inspectSidebarAgentId) return null;
-    return agents.find((entry) => entry.agentId === inspectSidebarAgentId) ?? null;
+    return (
+      agents.find((entry) => entry.agentId === inspectSidebarAgentId) ?? null
+    );
   }, [agents, inspectSidebarAgentId]);
   useEffect(() => {
     setSystemInitialSkillKey(null);
@@ -322,9 +485,11 @@ const AgentStudioPage = () => {
         ? (gatewayConfigSnapshot.config as Record<string, unknown>)
         : undefined;
     const list = readConfigAgentList(baseConfig);
-    const configEntry = list.find((entry) => entry.id === inspectSidebarAgent.agentId) ?? null;
+    const configEntry =
+      list.find((entry) => entry.id === inspectSidebarAgent.agentId) ?? null;
     const toolsRaw =
-      configEntry && typeof (configEntry as Record<string, unknown>).tools === "object"
+      configEntry &&
+      typeof (configEntry as Record<string, unknown>).tools === "object"
         ? ((configEntry as Record<string, unknown>).tools as unknown)
         : null;
     const tools =
@@ -345,7 +510,8 @@ const AgentStudioPage = () => {
         ? (gatewayConfigSnapshot.config as Record<string, unknown>)
         : undefined;
     const list = readConfigAgentList(baseConfig);
-    const configEntry = list.find((entry) => entry.id === inspectSidebarAgent.agentId) ?? null;
+    const configEntry =
+      list.find((entry) => entry.id === inspectSidebarAgent.agentId) ?? null;
     const raw = configEntry?.skills;
     if (!Array.isArray(raw)) return undefined;
     return raw
@@ -376,7 +542,11 @@ const AgentStudioPage = () => {
       scopedApprovals: scoped,
       unscopedApprovals: unscopedPendingExecApprovals,
     });
-  }, [focusedAgentId, pendingExecApprovalsByAgentId, unscopedPendingExecApprovals]);
+  }, [
+    focusedAgentId,
+    pendingExecApprovalsByAgentId,
+    unscopedPendingExecApprovals,
+  ]);
   const suggestedCreateAgentName = useMemo(() => {
     try {
       return resolveNextNewAgentName(state.agents);
@@ -391,23 +561,26 @@ const AgentStudioPage = () => {
   }, [agents]);
   const faviconHref = useMemo(
     () => (faviconSeed ? buildAvatarDataUrl(faviconSeed) : null),
-    [faviconSeed]
+    [faviconSeed],
   );
   const errorMessage = state.error ?? gatewayModelsError;
   const runningAgentCount = useMemo(
     () => agents.filter((agent) => agent.status === "running").length,
-    [agents]
+    [agents],
   );
   const hasRunningAgents = runningAgentCount > 0;
-  const isLocalGateway = useMemo(() => isLocalGatewayUrl(gatewayUrl), [gatewayUrl]);
-  const controlUiUrl = useMemo(
-    () => resolveControlUiUrl({ gatewayUrl, configSnapshot: gatewayConfigSnapshot }),
-    [gatewayConfigSnapshot, gatewayUrl]
+  const isLocalGateway = useMemo(
+    () => isLocalGatewayUrl(gatewayUrl),
+    [gatewayUrl],
   );
-  const settingsHeaderModel = (inspectSidebarAgent?.model ?? "").trim() || "Default";
-  const settingsHeaderThinkingRaw = (inspectSidebarAgent?.thinkingLevel ?? "").trim() || "low";
-  const settingsHeaderThinking =
-    settingsHeaderThinkingRaw.charAt(0).toUpperCase() + settingsHeaderThinkingRaw.slice(1);
+  const controlUiUrl = useMemo(
+    () =>
+      resolveControlUiUrl({
+        gatewayUrl,
+        configSnapshot: gatewayConfigSnapshot,
+      }),
+    [gatewayConfigSnapshot, gatewayUrl],
+  );
   const activeSettingsSidebarItem: SettingsSidebarItem = settingsSidebarItem;
 
   useEffect(() => {
@@ -431,10 +604,12 @@ const AgentStudioPage = () => {
     document.head.appendChild(link);
   }, [faviconHref]);
 
-
-  const resolveCronJobForAgent = useCallback((jobs: CronJobSummary[], agentId: string) => {
-    return resolveLatestCronJobForAgent(jobs, agentId);
-  }, []);
+  const resolveCronJobForAgent = useCallback(
+    (jobs: CronJobSummary[], agentId: string) => {
+      return resolveLatestCronJobForAgent(jobs, agentId);
+    },
+    [],
+  );
 
   const specialLatestUpdate = useMemo(() => {
     return createSpecialLatestUpdateOperation({
@@ -463,7 +638,8 @@ const AgentStudioPage = () => {
         client,
         gatewayUrl,
         cachedConfigSnapshot: gatewayConfigSnapshot,
-        loadStudioSettings: settingsCoordinator.loadSettings.bind(settingsCoordinator),
+        loadStudioSettings:
+          settingsCoordinator.loadSettings.bind(settingsCoordinator),
         isDisconnectLikeError: isGatewayDisconnectLikeError,
         preferredSelectedAgentId: preferredSelectedAgentIdRef.current,
         hasCurrentSelection: Boolean(stateRef.current.selectedAgentId),
@@ -514,10 +690,14 @@ const AgentStudioPage = () => {
   ]);
 
   const enqueueConfigMutationFromRef = useCallback(
-    (mutation: { kind: ConfigMutationKind; label: string; run: () => Promise<void> }) => {
+    (mutation: {
+      kind: ConfigMutationKind;
+      label: string;
+      run: () => Promise<void>;
+    }) => {
       return enqueueConfigMutationRef.current(mutation);
     },
-    []
+    [],
   );
 
   const { refreshGatewayConfigSnapshot } = useGatewayConfigSyncController({
@@ -569,12 +749,15 @@ const AgentStudioPage = () => {
     setError,
   });
 
-  const hasRenameMutationBlock = settingsMutationController.hasRenameMutationBlock;
-  const hasDeleteMutationBlock = settingsMutationController.hasDeleteMutationBlock;
-  const restartingMutationBlock = settingsMutationController.restartingMutationBlock;
+  const hasRenameMutationBlock =
+    settingsMutationController.hasRenameMutationBlock;
+  const hasDeleteMutationBlock =
+    settingsMutationController.hasDeleteMutationBlock;
+  const restartingMutationBlock =
+    settingsMutationController.restartingMutationBlock;
   const hasRestartBlockInProgress = Boolean(
     settingsMutationController.hasRestartBlockInProgress ||
-      (createAgentBlock && createAgentBlock.phase !== "queued")
+    (createAgentBlock && createAgentBlock.phase !== "queued"),
   );
 
   const {
@@ -620,7 +803,8 @@ const AgentStudioPage = () => {
     const loadFocusedPreferences = async () => {
       const commands = await runStudioFocusedPreferenceLoadOperation({
         gatewayUrl,
-        loadStudioSettings: settingsCoordinator.loadSettings.bind(settingsCoordinator),
+        loadStudioSettings:
+          settingsCoordinator.loadSettings.bind(settingsCoordinator),
         isFocusFilterTouched: () => focusFilterTouchedRef.current,
       });
       if (cancelled) return;
@@ -654,7 +838,8 @@ const AgentStudioPage = () => {
     });
     executeStudioFocusedPatchCommands({
       commands,
-      schedulePatch: settingsCoordinator.schedulePatch.bind(settingsCoordinator),
+      schedulePatch:
+        settingsCoordinator.schedulePatch.bind(settingsCoordinator),
     });
   }, [focusFilter, gatewayUrl, settingsCoordinator]);
 
@@ -668,7 +853,8 @@ const AgentStudioPage = () => {
     });
     executeStudioFocusedPatchCommands({
       commands,
-      schedulePatch: settingsCoordinator.schedulePatch.bind(settingsCoordinator),
+      schedulePatch:
+        settingsCoordinator.schedulePatch.bind(settingsCoordinator),
     });
   }, [
     agentsLoadedOnce,
@@ -681,7 +867,8 @@ const AgentStudioPage = () => {
 
   useEffect(() => {
     if (status !== "connected" || !focusedPreferencesLoaded) return;
-    if (restartingMutationBlock && restartingMutationBlock.phase !== "queued") return;
+    if (restartingMutationBlock && restartingMutationBlock.phase !== "queued")
+      return;
     if (createAgentBlock && createAgentBlock.phase !== "queued") return;
     void loadAgents();
   }, [
@@ -719,7 +906,8 @@ const AgentStudioPage = () => {
         nowMs: Date.now(),
         graceMs: PENDING_EXEC_APPROVAL_PRUNE_GRACE_MS,
       });
-      pendingExecApprovalsByAgentIdRef.current = pendingState.approvalsByAgentId;
+      pendingExecApprovalsByAgentIdRef.current =
+        pendingState.approvalsByAgentId;
       unscopedPendingExecApprovalsRef.current = pendingState.unscopedApprovals;
       setPendingExecApprovalsByAgentId(pendingState.approvalsByAgentId);
       setUnscopedPendingExecApprovals(pendingState.unscopedApprovals);
@@ -748,7 +936,8 @@ const AgentStudioPage = () => {
       const lastMessage = agent.lastUserMessage?.trim() ?? "";
       const kind = resolveLatestUpdateKind(lastMessage);
       const key = agent.agentId;
-      const marker = kind === "heartbeat" ? `${lastMessage}:${heartbeatTick}` : lastMessage;
+      const marker =
+        kind === "heartbeat" ? `${lastMessage}:${heartbeatTick}` : lastMessage;
       const previous = specialUpdateRef.current.get(key);
       if (previous === marker) continue;
       specialUpdateRef.current.set(key, marker);
@@ -815,7 +1004,7 @@ const AgentStudioPage = () => {
       focusFilterTouchedRef.current = true;
       setFocusFilter(next);
     },
-    [flushPendingDraft, focusedAgent]
+    [flushPendingDraft, focusedAgent],
   );
 
   const {
@@ -854,7 +1043,7 @@ const AgentStudioPage = () => {
       setSettingsSidebarItem("system");
       handleSettingsRouteTabChange("system");
     },
-    [handleSettingsRouteTabChange]
+    [handleSettingsRouteTabChange],
   );
 
   const handleOpenCreateAgentModal = useCallback(() => {
@@ -879,10 +1068,10 @@ const AgentStudioPage = () => {
             },
           },
         },
-        0
+        0,
       );
     },
-    [gatewayUrl, settingsCoordinator]
+    [gatewayUrl, settingsCoordinator],
   );
 
   const handleCreateAgentSubmit = useCallback(
@@ -929,12 +1118,22 @@ const AgentStudioPage = () => {
             });
           },
           onCompletion: async (completion) => {
+            const personaPayload =
+              payload.persona || payload.directives || payload.userContext
+                ? {
+                    persona: payload.persona,
+                    directives: payload.directives,
+                    userContext: payload.userContext,
+                  }
+                : undefined;
             const commands = await runCreateAgentBootstrapOperation({
               completion,
               focusedAgentId: focusedAgent?.agentId ?? null,
               loadAgents,
               findAgentById: (agentId) =>
-                stateRef.current.agents.find((entry) => entry.agentId === agentId) ?? null,
+                stateRef.current.agents.find(
+                  (entry) => entry.agentId === agentId,
+                ) ?? null,
               applyDefaultPermissions: async ({ agentId, sessionKey }) => {
                 await applyCreateAgentBootstrapPermissions({
                   client,
@@ -945,9 +1144,12 @@ const AgentStudioPage = () => {
                 });
               },
               refreshGatewayConfigSnapshot,
+              personaPayload,
             });
             executeCreateAgentBootstrapCommands({
               commands,
+              client,
+              agentName: completion.agentName,
               setCreateAgentModalError,
               setGlobalError: setError,
               setCreateAgentBlock: (value) => {
@@ -972,7 +1174,7 @@ const AgentStudioPage = () => {
             setCreateAgentBlock(null);
           },
           onError: setError,
-        }
+        },
       );
     },
     [
@@ -990,7 +1192,7 @@ const AgentStudioPage = () => {
       refreshGatewayConfigSnapshot,
       setError,
       status,
-    ]
+    ],
   );
 
   useEffect(() => {
@@ -1035,7 +1237,7 @@ const AgentStudioPage = () => {
       agentId: string,
       sessionKey: string,
       field: "model" | "thinkingLevel",
-      value: string | null
+      value: string | null,
     ) => {
       await applySessionSettingMutation({
         agents: stateRef.current.agents,
@@ -1047,7 +1249,7 @@ const AgentStudioPage = () => {
         value,
       });
     },
-    [client, dispatch]
+    [client, dispatch],
   );
 
   const handleModelChange = useCallback(
@@ -1056,16 +1258,20 @@ const AgentStudioPage = () => {
       saveAgentUiPref(agentId, "model", value);
       await handleSessionSettingChange(agentId, sessionKey, "model", value);
     },
-    [handleSessionSettingChange]
+    [handleSessionSettingChange],
   );
 
   const handleThinkingChange = useCallback(
     async (agentId: string, sessionKey: string, value: string | null) => {
-      await handleSessionSettingChange(agentId, sessionKey, "thinkingLevel", value);
+      await handleSessionSettingChange(
+        agentId,
+        sessionKey,
+        "thinkingLevel",
+        value,
+      );
     },
-    [handleSessionSettingChange]
+    [handleSessionSettingChange],
   );
-
 
   const handleToolCallingToggle = useCallback(
     (agentId: string, enabled: boolean) => {
@@ -1076,7 +1282,7 @@ const AgentStudioPage = () => {
       });
       saveAgentUiPref(agentId, "toolCallingEnabled", enabled);
     },
-    [dispatch]
+    [dispatch],
   );
 
   const handleThinkingTracesToggle = useCallback(
@@ -1100,7 +1306,7 @@ const AgentStudioPage = () => {
       });
       saveAgentUiPref(agentId, "hideSystemMessages", enabled);
     },
-    [dispatch]
+    [dispatch],
   );
 
   const handleResolveExecApproval = useCallback(
@@ -1133,10 +1339,11 @@ const AgentStudioPage = () => {
         dispatch,
         isDisconnectLikeError: isGatewayDisconnectLikeError,
         logWarn: (message, error) => console.warn(message, error),
-        clearRunTracking: (runId) => runtimeEventHandlerRef.current?.clearRunTracking(runId),
+        clearRunTracking: (runId) =>
+          runtimeEventHandlerRef.current?.clearRunTracking(runId),
       });
     },
-    [client, dispatch, loadAgentHistory]
+    [client, dispatch, loadAgentHistory],
   );
 
   const pauseRunForExecApproval = useCallback(
@@ -1152,7 +1359,7 @@ const AgentStudioPage = () => {
         logWarn: (message, error) => console.warn(message, error),
       });
     },
-    [client, status]
+    [client, status],
   );
 
   const handleGatewayEventIngress = useCallback(
@@ -1188,10 +1395,11 @@ const AgentStudioPage = () => {
         pauseRunForApproval: (approval, commandPreferredAgentId) =>
           pauseRunForExecApproval(approval, commandPreferredAgentId),
         dispatch,
-        recordCronDedupeKey: (dedupeKey) => seenCronEventIdsRef.current.add(dedupeKey),
+        recordCronDedupeKey: (dedupeKey) =>
+          seenCronEventIdsRef.current.add(dedupeKey),
       });
     },
-    [dispatch, pauseRunForExecApproval]
+    [dispatch, pauseRunForExecApproval],
   );
 
   useEffect(() => {
@@ -1213,7 +1421,8 @@ const AgentStudioPage = () => {
         if (stopReason !== "rpc") return false;
         const normalizedRunId = runId?.trim() ?? "";
         if (!normalizedRunId) return false;
-        const pausedRunId = approvalPausedRunIdByAgentRef.current.get(agentId)?.trim() ?? "";
+        const pausedRunId =
+          approvalPausedRunIdByAgentRef.current.get(agentId)?.trim() ?? "";
         return pausedRunId.length > 0 && pausedRunId === normalizedRunId;
       },
       updateSpecialLatestUpdate: (agentId, agent, message) => {
@@ -1253,7 +1462,7 @@ const AgentStudioPage = () => {
       });
       persistAvatarSeed(agentId, avatarSeed);
     },
-    [dispatch, persistAvatarSeed]
+    [dispatch, persistAvatarSeed],
   );
 
   const connectionPanelVisible = showConnectionPanel;
@@ -1271,8 +1480,8 @@ const AgentStudioPage = () => {
     ? createAgentBlock.phase === "queued"
       ? "Waiting for active runs to finish"
       : createAgentBlock.phase === "creating"
-      ? "Submitting config change"
-      : null
+        ? "Submitting config change"
+        : null
     : null;
   const restartingMutationStatusLine = resolveConfigMutationStatusLine({
     block: restartingMutationBlock
@@ -1311,7 +1520,10 @@ const AgentStudioPage = () => {
     }
   }, [gatewayError]);
 
-  if (!agentsLoadedOnce && (!didAttemptGatewayConnect || status === "connecting")) {
+  if (
+    !agentsLoadedOnce &&
+    (!didAttemptGatewayConnect || status === "connecting")
+  ) {
     return (
       <div className="relative min-h-screen w-full overflow-hidden bg-background">
         <div className="flex min-h-screen items-center justify-center px-6">
@@ -1320,7 +1532,9 @@ const AgentStudioPage = () => {
               OpenClaw Studio
             </div>
             <div className="mt-3 text-sm text-muted-foreground">
-              {status === "connecting" ? "Connecting to gateway…" : "Booting Studio…"}
+              {status === "connecting"
+                ? tp("connectingGateway")
+                : tp("bootingStudio")}
             </div>
           </div>
         </div>
@@ -1328,13 +1542,29 @@ const AgentStudioPage = () => {
     );
   }
 
-  if (status === "disconnected" && !agentsLoadedOnce && didAttemptGatewayConnect) {
+  if (
+    status === "disconnected" &&
+    !agentsLoadedOnce &&
+    didAttemptGatewayConnect
+  ) {
     return (
       <div className="relative min-h-screen w-full overflow-hidden bg-background">
         <div className="relative z-10 flex h-screen flex-col">
           <HeaderBar
             status={status}
             onConnectionSettings={() => setShowConnectionPanel(true)}
+            onProviders={() => setShowProvidersPanel(true)}
+            onChannels={() => setShowChannelsPanel(true)}
+            onRouting={() => setShowRoutingPanel(true)}
+            onWebhooks={() => setShowWebhooksPanel(true)}
+            onSkills={() => setShowSkillsBrowser(true)}
+            onAnalytics={() => setShowAnalytics(true)}
+            onLogs={() => setShowLogViewer(true)}
+            onCanvas={() => setShowCanvas(true)}
+            onIntercom={() => setShowIntercom(true)}
+            onVoice={() => setShowVoice(true)}
+            configuredProviderCount={configuredProviderIds.length}
+            totalProviderCount={PROVIDER_REGISTRY.length}
           />
           <div className="flex min-h-0 flex-1 flex-col gap-4 px-3 pb-3 pt-3 sm:px-4 sm:pb-4 sm:pt-4 md:px-6 md:pb-6 md:pt-4">
             {settingsRouteActive ? (
@@ -1344,7 +1574,7 @@ const AgentStudioPage = () => {
                   className="ui-btn-secondary px-3 py-1.5 font-mono text-[10px] font-semibold tracking-[0.06em]"
                   onClick={handleBackToChat}
                 >
-                  Back to chat
+                  {tp("backToChat")}
                 </button>
               </div>
             ) : null}
@@ -1373,7 +1603,9 @@ const AgentStudioPage = () => {
             <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
               OpenClaw Studio
             </div>
-            <div className="mt-3 text-sm text-muted-foreground">Loading agents…</div>
+            <div className="mt-3 text-sm text-muted-foreground">
+              Loading agents…
+            </div>
           </div>
         </div>
       </div>
@@ -1393,11 +1625,236 @@ const AgentStudioPage = () => {
         <HeaderBar
           status={status}
           onConnectionSettings={() => setShowConnectionPanel(true)}
+          onProviders={() => setShowProvidersPanel((prev) => !prev)}
+          onChannels={() => setShowChannelsPanel((prev) => !prev)}
+          onRouting={() => setShowRoutingPanel((prev) => !prev)}
+          onWebhooks={() => setShowWebhooksPanel((prev) => !prev)}
+          onSkills={() => setShowSkillsBrowser((prev) => !prev)}
+          onAnalytics={() => setShowAnalytics((prev) => !prev)}
+          onLogs={() => setShowLogViewer((prev) => !prev)}
+          onCanvas={() => setShowCanvas((prev) => !prev)}
+          onIntercom={() => setShowIntercom((prev) => !prev)}
+          onVoice={() => setShowVoice((prev) => !prev)}
+          configuredProviderCount={configuredProviderIds.length}
+          totalProviderCount={PROVIDER_REGISTRY.length}
         />
         <div className="flex min-h-0 flex-1 flex-col gap-3 px-3 pb-3 pt-2 sm:px-4 sm:pb-4 sm:pt-3 md:px-5 md:pb-5 md:pt-3">
+          {showProvidersPanel ? (
+            <div className="pointer-events-none fixed inset-x-0 top-12 z-[140] flex justify-center px-3 sm:px-4 md:px-5">
+              <div
+                className="glass-panel pointer-events-auto flex w-full max-w-3xl flex-col overflow-hidden !bg-card"
+                style={{ maxHeight: "calc(100vh - 5rem)" }}
+              >
+                <ErrorBoundary fallbackLabel={tp("providersError")}>
+                  <ProvidersPanel />
+                </ErrorBoundary>
+                <div className="flex justify-end border-t border-border px-4 py-2">
+                  <button
+                    type="button"
+                    className="ui-btn-ghost rounded-md px-3 py-1 text-xs font-medium"
+                    onClick={() => setShowProvidersPanel(false)}
+                  >
+                    {tp("close")}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
+          {showChannelsPanel ? (
+            <div className="pointer-events-none fixed inset-x-0 top-12 z-[140] flex justify-center px-3 sm:px-4 md:px-5">
+              <div
+                className="glass-panel pointer-events-auto flex w-full max-w-3xl flex-col overflow-hidden !bg-card"
+                style={{ maxHeight: "calc(100vh - 5rem)" }}
+              >
+                <ErrorBoundary fallbackLabel={tp("channelsError")}>
+                  <ChannelsPanel />
+                </ErrorBoundary>
+                <div className="flex justify-end border-t border-border px-4 py-2">
+                  <button
+                    type="button"
+                    className="ui-btn-ghost rounded-md px-3 py-1 text-xs font-medium"
+                    onClick={() => setShowChannelsPanel(false)}
+                  >
+                    {tp("close")}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
+          {showRoutingPanel ? (
+            <div className="pointer-events-none fixed inset-x-0 top-12 z-[140] flex justify-center px-3 sm:px-4 md:px-5">
+              <div
+                className="glass-panel pointer-events-auto flex w-full max-w-3xl flex-col overflow-hidden !bg-card"
+                style={{ maxHeight: "calc(100vh - 5rem)" }}
+              >
+                <ErrorBoundary fallbackLabel={tp("routingError")}>
+                  <RoutingPanel agents={agents} />
+                </ErrorBoundary>
+                <div className="flex justify-end border-t border-border px-4 py-2">
+                  <button
+                    type="button"
+                    className="ui-btn-ghost rounded-md px-3 py-1 text-xs font-medium"
+                    onClick={() => setShowRoutingPanel(false)}
+                  >
+                    {tp("close")}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
+          {showWebhooksPanel ? (
+            <div className="pointer-events-none fixed inset-x-0 top-12 z-[140] flex justify-center px-3 sm:px-4 md:px-5">
+              <div
+                className="glass-panel pointer-events-auto flex w-full max-w-3xl flex-col overflow-hidden !bg-card"
+                style={{ maxHeight: "calc(100vh - 5rem)" }}
+              >
+                <ErrorBoundary fallbackLabel={tp("webhooksError")}>
+                  <WebhooksPanel />
+                </ErrorBoundary>
+                <div className="flex justify-end border-t border-border px-4 py-2">
+                  <button
+                    type="button"
+                    className="ui-btn-ghost rounded-md px-3 py-1 text-xs font-medium"
+                    onClick={() => setShowWebhooksPanel(false)}
+                  >
+                    {tp("close")}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
+          {showSkillsBrowser ? (
+            <div className="pointer-events-none fixed inset-x-0 top-12 z-[140] flex justify-center px-3 sm:px-4 md:px-5">
+              <div
+                className="glass-panel pointer-events-auto flex w-full max-w-3xl flex-col overflow-hidden !bg-card"
+                style={{ maxHeight: "calc(100vh - 5rem)" }}
+              >
+                <ErrorBoundary fallbackLabel={tp("skillsError")}>
+                  <SkillsBrowser />
+                </ErrorBoundary>
+                <div className="flex justify-end border-t border-border px-4 py-2">
+                  <button
+                    type="button"
+                    className="ui-btn-ghost rounded-md px-3 py-1 text-xs font-medium"
+                    onClick={() => setShowSkillsBrowser(false)}
+                  >
+                    {tp("close")}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
+          {showAnalytics ? (
+            <div className="pointer-events-none fixed inset-x-0 top-12 z-[140] flex justify-center px-3 sm:px-4 md:px-5">
+              <div
+                className="glass-panel pointer-events-auto flex w-full max-w-4xl flex-col overflow-hidden !bg-card"
+                style={{ maxHeight: "calc(100vh - 5rem)" }}
+              >
+                <ErrorBoundary fallbackLabel={tp("analyticsError")}>
+                  <AnalyticsDashboard />
+                </ErrorBoundary>
+                <div className="flex justify-end border-t border-border px-4 py-2">
+                  <button
+                    type="button"
+                    className="ui-btn-ghost rounded-md px-3 py-1 text-xs font-medium"
+                    onClick={() => setShowAnalytics(false)}
+                  >
+                    {tp("close")}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
+          {showLogViewer ? (
+            <div className="pointer-events-none fixed inset-x-0 top-12 z-[140] flex justify-center px-3 sm:px-4 md:px-5">
+              <div
+                className="glass-panel pointer-events-auto flex w-full max-w-4xl flex-col overflow-hidden !bg-card"
+                style={{ maxHeight: "calc(100vh - 5rem)" }}
+              >
+                <ErrorBoundary fallbackLabel={tp("logViewerError")}>
+                  <LogViewer />
+                </ErrorBoundary>
+                <div className="flex justify-end border-t border-border px-4 py-2">
+                  <button
+                    type="button"
+                    className="ui-btn-ghost rounded-md px-3 py-1 text-xs font-medium"
+                    onClick={() => setShowLogViewer(false)}
+                  >
+                    {tp("close")}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
+          {showCanvas ? (
+            <div className="pointer-events-none fixed inset-x-0 top-12 z-[140] flex justify-center px-3 sm:px-4 md:px-5">
+              <div
+                className="glass-panel pointer-events-auto flex w-full max-w-3xl flex-col overflow-hidden !bg-card"
+                style={{ maxHeight: "calc(100vh - 5rem)" }}
+              >
+                <ErrorBoundary fallbackLabel={tp("canvasPreviewError")}>
+                  <CanvasPreview />
+                </ErrorBoundary>
+                <div className="flex justify-end border-t border-border px-4 py-2">
+                  <button
+                    type="button"
+                    className="ui-btn-ghost rounded-md px-3 py-1 text-xs font-medium"
+                    onClick={() => setShowCanvas(false)}
+                  >
+                    {tp("close")}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
+          {showIntercom ? (
+            <div className="pointer-events-none fixed inset-x-0 top-12 z-[140] flex justify-center px-3 sm:px-4 md:px-5">
+              <div
+                className="glass-panel pointer-events-auto flex w-full max-w-3xl flex-col overflow-hidden !bg-card"
+                style={{ maxHeight: "calc(100vh - 5rem)" }}
+              >
+                <ErrorBoundary fallbackLabel={tp("interAgentFeedError")}>
+                  <InterAgentFeed />
+                </ErrorBoundary>
+                <div className="flex justify-end border-t border-border px-4 py-2">
+                  <button
+                    type="button"
+                    className="ui-btn-ghost rounded-md px-3 py-1 text-xs font-medium"
+                    onClick={() => setShowIntercom(false)}
+                  >
+                    {tp("close")}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
+          {showVoice ? (
+            <div className="pointer-events-none fixed inset-x-0 top-12 z-[140] flex justify-center px-3 sm:px-4 md:px-5">
+              <div
+                className="glass-panel pointer-events-auto flex w-full max-w-3xl flex-col overflow-hidden !bg-card"
+                style={{ maxHeight: "calc(100vh - 5rem)" }}
+              >
+                <ErrorBoundary fallbackLabel={tp("voiceControlsError")}>
+                  <VoiceControls />
+                </ErrorBoundary>
+                <div className="flex justify-end border-t border-border px-4 py-2">
+                  <button
+                    type="button"
+                    className="ui-btn-ghost rounded-md px-3 py-1 text-xs font-medium"
+                    onClick={() => setShowVoice(false)}
+                  >
+                    {tp("close")}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
           {connectionPanelVisible ? (
             <div className="pointer-events-none fixed inset-x-0 top-12 z-[140] flex justify-center px-3 sm:px-4 md:px-5">
-              <div className="glass-panel pointer-events-auto w-full max-w-4xl !bg-card px-4 py-4 sm:px-6 sm:py-6">
+              <div
+                className="glass-panel pointer-events-auto flex w-full max-w-4xl flex-col overflow-hidden !bg-card px-4 py-4 sm:px-6 sm:py-6"
+                style={{ maxHeight: "calc(100vh - 5rem)" }}
+              >
                 <ConnectionPanel
                   gatewayUrl={gatewayUrl}
                   token={token}
@@ -1440,7 +1897,7 @@ const AgentStudioPage = () => {
                     className="ui-btn-secondary w-full px-3 py-1.5 font-mono text-[10px] font-semibold tracking-[0.06em]"
                     onClick={handleBackToChat}
                   >
-                    Back to chat
+                    {tp("backToChat")}
                   </button>
                 </div>
                 <nav className="py-3">
@@ -1451,6 +1908,8 @@ const AgentStudioPage = () => {
                       { id: "skills", label: "Skills" },
                       { id: "system", label: "System setup" },
                       { id: "automations", label: "Automations" },
+                      { id: "credentials", label: "Credentials" },
+                      { id: "performance", label: "Performance" },
                       { id: "advanced", label: "Advanced" },
                     ] as const
                   ).map((entry) => {
@@ -1483,17 +1942,75 @@ const AgentStudioPage = () => {
               </aside>
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
                 <div className="flex items-start justify-between border-b border-border/60 px-6 py-4">
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <div className="text-lg font-semibold text-foreground">
-                      {inspectSidebarAgent?.name ?? settingsRouteAgentId ?? "Agent settings"}
+                      {inspectSidebarAgent?.name ??
+                        settingsRouteAgentId ??
+                        "Agent settings"}
                     </div>
-                    <div className="mt-1 font-mono text-[11px] text-muted-foreground">
-                      Model: {settingsHeaderModel}{" "}
-                      <span className="mx-2 text-border">|</span>
-                      Thinking: {settingsHeaderThinking}
+                    <div className="mt-2 flex flex-wrap items-center gap-3">
+                      <label className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
+                        <span className="font-semibold tracking-[0.04em]">
+                          Model
+                        </span>
+                        <select
+                          className="ui-input h-6 min-w-[140px] rounded-md px-1.5 text-[11px] font-semibold text-foreground"
+                          value={inspectSidebarAgent?.model ?? ""}
+                          onChange={(e) => {
+                            const agentId = inspectSidebarAgent?.agentId;
+                            const sessionKey = inspectSidebarAgent?.sessionKey;
+                            if (!agentId || !sessionKey) return;
+                            const next = e.target.value.trim();
+                            void handleModelChange(
+                              agentId,
+                              sessionKey,
+                              next || null,
+                            );
+                          }}
+                        >
+                          <option value="">Default (gateway)</option>
+                          {allModels.map((m) => {
+                            const key = `${m.provider}/${m.id}`;
+                            return (
+                              <option key={key} value={key}>
+                                {m.name || key}
+                                {m.reasoning ? " (Reasoning)" : ""}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </label>
+                      <label className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
+                        <span className="font-semibold tracking-[0.04em]">
+                          Thinking
+                        </span>
+                        <select
+                          className="ui-input h-6 rounded-md px-1.5 text-[11px] font-semibold text-foreground"
+                          value={inspectSidebarAgent?.thinkingLevel ?? ""}
+                          onChange={(e) => {
+                            const agentId = inspectSidebarAgent?.agentId;
+                            const sessionKey = inspectSidebarAgent?.sessionKey;
+                            if (!agentId || !sessionKey) return;
+                            const next = e.target.value.trim();
+                            void handleThinkingChange(
+                              agentId,
+                              sessionKey,
+                              next || null,
+                            );
+                          }}
+                        >
+                          <option value="">Default</option>
+                          <option value="off">Off</option>
+                          <option value="minimal">Minimal</option>
+                          <option value="low">Low</option>
+                          <option value="medium">Medium</option>
+                          <option value="high">High</option>
+                          <option value="xhigh">XHigh</option>
+                        </select>
+                      </label>
                     </div>
                   </div>
-                  <div className="rounded-md border border-border/70 bg-surface-1 px-3 py-1 font-mono text-[11px] text-muted-foreground">
+                  <div className="shrink-0 rounded-md border border-border/70 bg-surface-1 px-3 py-1 font-mono text-[11px] text-muted-foreground">
                     [{personalityHasUnsavedChanges ? "Unsaved" : "Saved ✓"}]
                   </div>
                 </div>
@@ -1506,11 +2023,18 @@ const AgentStudioPage = () => {
                         selectedAgentId={inspectSidebarAgent.agentId}
                         onUnsavedChangesChange={setPersonalityHasUnsavedChanges}
                       />
+                    ) : effectiveSettingsTab === "performance" ? (
+                      <div className="h-full overflow-y-auto px-6 py-6">
+                        <div className="mx-auto w-full max-w-[920px]">
+                          <AgentPerformanceTab agent={inspectSidebarAgent} />
+                        </div>
+                      </div>
                     ) : (
                       <div className="h-full overflow-y-auto px-6 py-6">
                         <div className="mx-auto w-full max-w-[920px]">
                           <AgentSettingsPanel
                             key={`${inspectSidebarAgent.agentId}:${effectiveSettingsTab}`}
+                            gatewayClient={client}
                             mode={
                               effectiveSettingsTab === "automations"
                                 ? "automations"
@@ -1518,37 +2042,87 @@ const AgentStudioPage = () => {
                                   ? "skills"
                                   : effectiveSettingsTab === "system"
                                     ? "system"
-                                    : effectiveSettingsTab === "advanced"
-                                  ? "advanced"
-                                  : "capabilities"
+                                    : effectiveSettingsTab === "credentials"
+                                      ? "credentials"
+                                      : effectiveSettingsTab === "advanced"
+                                        ? "advanced"
+                                        : "capabilities"
                             }
                             showHeader={false}
                             agent={inspectSidebarAgent}
+                            models={allModels}
+                            onModelChange={(value) =>
+                              handleModelChange(
+                                inspectSidebarAgent.agentId,
+                                inspectSidebarAgent.sessionKey,
+                                value,
+                              )
+                            }
+                            onThinkingChange={(value) =>
+                              handleThinkingChange(
+                                inspectSidebarAgent.agentId,
+                                inspectSidebarAgent.sessionKey,
+                                value,
+                              )
+                            }
+                            onRename={(name) =>
+                              settingsMutationController.handleRenameAgent(
+                                inspectSidebarAgent.agentId,
+                                name,
+                              )
+                            }
                             onClose={handleBackToChat}
-                            permissionsDraft={settingsAgentPermissionsDraft ?? undefined}
+                            permissionsDraft={
+                              settingsAgentPermissionsDraft ?? undefined
+                            }
                             onUpdateAgentPermissions={(draft) =>
                               settingsMutationController.handleUpdateAgentPermissions(
                                 inspectSidebarAgent.agentId,
-                                draft
+                                draft,
                               )
                             }
                             onDelete={() =>
-                              settingsMutationController.handleDeleteAgent(inspectSidebarAgent.agentId)
+                              settingsMutationController.handleDeleteAgent(
+                                inspectSidebarAgent.agentId,
+                              )
                             }
-                            canDelete={inspectSidebarAgent.agentId !== RESERVED_MAIN_AGENT_ID}
+                            canDelete={
+                              inspectSidebarAgent.agentId !==
+                              RESERVED_MAIN_AGENT_ID
+                            }
                             onToolCallingToggle={(enabled) =>
-                              handleToolCallingToggle(inspectSidebarAgent.agentId, enabled)
+                              handleToolCallingToggle(
+                                inspectSidebarAgent.agentId,
+                                enabled,
+                              )
                             }
                             onThinkingTracesToggle={(enabled) =>
-                              handleThinkingTracesToggle(inspectSidebarAgent.agentId, enabled)
+                              handleThinkingTracesToggle(
+                                inspectSidebarAgent.agentId,
+                                enabled,
+                              )
                             }
-                            skillsReport={settingsMutationController.settingsSkillsReport}
-                            skillsLoading={settingsMutationController.settingsSkillsLoading}
-                            skillsError={settingsMutationController.settingsSkillsError}
-                            skillsBusy={settingsMutationController.settingsSkillsBusy}
-                            skillsBusyKey={settingsMutationController.settingsSkillsBusyKey}
-                            skillMessages={settingsMutationController.settingsSkillMessages}
-                            skillApiKeyDrafts={settingsMutationController.settingsSkillApiKeyDrafts}
+                            skillsReport={
+                              settingsMutationController.settingsSkillsReport
+                            }
+                            skillsLoading={
+                              settingsMutationController.settingsSkillsLoading
+                            }
+                            skillsError={
+                              settingsMutationController.settingsSkillsError
+                            }
+                            skillsBusy={
+                              settingsMutationController.settingsSkillsBusy
+                            }
+                            skillsBusyKey={
+                              settingsMutationController.settingsSkillsBusyKey
+                            }
+                            skillMessages={
+                              settingsMutationController.settingsSkillMessages
+                            }
+                            skillApiKeyDrafts={
+                              settingsMutationController.settingsSkillApiKeyDrafts
+                            }
                             defaultAgentScopeWarning={settingsSkillScopeWarning}
                             systemInitialSkillKey={systemInitialSkillKey}
                             onSystemInitialSkillHandled={() => {
@@ -1559,7 +2133,7 @@ const AgentStudioPage = () => {
                               settingsMutationController.handleSetSkillEnabled(
                                 inspectSidebarAgent.agentId,
                                 skillName,
-                                enabled
+                                enabled,
                               )
                             }
                             onOpenSystemSetup={handleOpenSystemSkillSetup}
@@ -1568,55 +2142,84 @@ const AgentStudioPage = () => {
                                 inspectSidebarAgent.agentId,
                                 skillKey,
                                 name,
-                                installId
+                                installId,
                               )
                             }
                             onRemoveSkill={(skill) =>
                               settingsMutationController.handleRemoveSkill(
                                 inspectSidebarAgent.agentId,
-                                skill
+                                skill,
                               )
                             }
                             onSkillApiKeyChange={(skillKey, value) =>
-                              settingsMutationController.handleSkillApiKeyDraftChange(skillKey, value)
+                              settingsMutationController.handleSkillApiKeyDraftChange(
+                                skillKey,
+                                value,
+                              )
                             }
                             onSaveSkillApiKey={(skillKey) =>
                               settingsMutationController.handleSaveSkillApiKey(
                                 inspectSidebarAgent.agentId,
-                                skillKey
+                                skillKey,
                               )
                             }
                             onSetSkillGlobalEnabled={(skillKey, enabled) =>
                               settingsMutationController.handleSetSkillGlobalEnabled(
                                 inspectSidebarAgent.agentId,
                                 skillKey,
-                                enabled
+                                enabled,
                               )
                             }
-                            cronJobs={settingsMutationController.settingsCronJobs}
-                            cronLoading={settingsMutationController.settingsCronLoading}
-                            cronError={settingsMutationController.settingsCronError}
-                            cronCreateBusy={settingsMutationController.cronCreateBusy}
-                            cronRunBusyJobId={settingsMutationController.cronRunBusyJobId}
-                            cronDeleteBusyJobId={settingsMutationController.cronDeleteBusyJobId}
+                            cronJobs={
+                              settingsMutationController.settingsCronJobs
+                            }
+                            cronLoading={
+                              settingsMutationController.settingsCronLoading
+                            }
+                            cronError={
+                              settingsMutationController.settingsCronError
+                            }
+                            cronCreateBusy={
+                              settingsMutationController.cronCreateBusy
+                            }
+                            cronRunBusyJobId={
+                              settingsMutationController.cronRunBusyJobId
+                            }
+                            cronDeleteBusyJobId={
+                              settingsMutationController.cronDeleteBusyJobId
+                            }
                             onCreateCronJob={(draft) =>
-                              settingsMutationController.handleCreateCronJob(inspectSidebarAgent.agentId, draft)
+                              settingsMutationController.handleCreateCronJob(
+                                inspectSidebarAgent.agentId,
+                                draft,
+                              )
                             }
                             onRunCronJob={(jobId) =>
-                              settingsMutationController.handleRunCronJob(inspectSidebarAgent.agentId, jobId)
+                              settingsMutationController.handleRunCronJob(
+                                inspectSidebarAgent.agentId,
+                                jobId,
+                              )
                             }
                             onDeleteCronJob={(jobId) =>
-                              settingsMutationController.handleDeleteCronJob(inspectSidebarAgent.agentId, jobId)
+                              settingsMutationController.handleDeleteCronJob(
+                                inspectSidebarAgent.agentId,
+                                jobId,
+                              )
                             }
                             controlUiUrl={controlUiUrl}
+                            connectedChannels={
+                              channelsByAgent.get(
+                                inspectSidebarAgent.agentId,
+                              ) ?? []
+                            }
                           />
                         </div>
                       </div>
                     )
                   ) : (
                     <EmptyStatePanel
-                      title="Agent not found."
-                      description="Back to chat and select an available agent."
+                      title={tp("agentNotFound")}
+                      description={tp("agentNotFoundDescription")}
                       fillHeight
                       className="items-center p-6 text-center text-sm"
                     />
@@ -1626,7 +2229,10 @@ const AgentStudioPage = () => {
             </div>
           ) : (
             <div className="flex min-h-0 flex-1 flex-col gap-4 xl:flex-row">
-              <div className="glass-panel ui-panel p-2 xl:hidden" data-testid="mobile-pane-toggle">
+              <div
+                className="glass-panel ui-panel p-2 xl:hidden"
+                data-testid="mobile-pane-toggle"
+              >
                 <div className="ui-segment grid-cols-2">
                   <button
                     type="button"
@@ -1634,7 +2240,7 @@ const AgentStudioPage = () => {
                     data-active={mobilePane === "fleet" ? "true" : "false"}
                     onClick={() => setMobilePane("fleet")}
                   >
-                    Fleet
+                    {tp("fleet")}
                   </button>
                   <button
                     type="button"
@@ -1642,25 +2248,32 @@ const AgentStudioPage = () => {
                     data-active={mobilePane === "chat" ? "true" : "false"}
                     onClick={() => setMobilePane("chat")}
                   >
-                    Chat
+                    {tp("chat")}
                   </button>
                 </div>
               </div>
               <div
                 className={`${mobilePane === "fleet" ? "block" : "hidden"} min-h-0 xl:block xl:min-h-0`}
               >
-                <FleetSidebar
-                  agents={filteredAgents}
-                  selectedAgentId={focusedAgent?.agentId ?? state.selectedAgentId}
-                  filter={focusFilter}
-                  onFilterChange={handleFocusFilterChange}
-                  onCreateAgent={() => {
-                    handleOpenCreateAgentModal();
-                  }}
-                  createDisabled={status !== "connected" || createAgentBusy || state.loading}
-                  createBusy={createAgentBusy}
-                  onSelectAgent={handleFleetSelectAgent}
-                />
+                <ErrorBoundary fallbackLabel={tp("fleetSidebarError")}>
+                  <FleetSidebar
+                    agents={filteredAgents}
+                    selectedAgentId={
+                      focusedAgent?.agentId ?? state.selectedAgentId
+                    }
+                    filter={focusFilter}
+                    onFilterChange={handleFocusFilterChange}
+                    onCreateAgent={() => {
+                      handleOpenCreateAgentModal();
+                    }}
+                    createDisabled={
+                      status !== "connected" || createAgentBusy || state.loading
+                    }
+                    createBusy={createAgentBusy}
+                    onSelectAgent={handleFleetSelectAgent}
+                    channelsByAgent={channelsByAgent}
+                  />
+                </ErrorBoundary>
               </div>
               <div
                 className={`${mobilePane === "chat" ? "flex" : "hidden"} ui-panel ui-depth-workspace min-h-0 flex-1 overflow-hidden xl:flex`}
@@ -1715,13 +2328,17 @@ const AgentStudioPage = () => {
                   </div>
                 ) : (
                   <EmptyStatePanel
-                    title={hasAnyAgents ? "No agents match this filter." : "No agents available."}
+                    title={
+                      hasAnyAgents
+                        ? tp("noAgentsMatch")
+                        : tp("noAgentsAvailable")
+                    }
                     description={
                       hasAnyAgents
                         ? undefined
                         : status === "connected"
-                          ? "Use New Agent in the sidebar to add your first agent."
-                          : "Connect to your gateway to load agents into the studio."
+                          ? tp("useNewAgent")
+                          : tp("connectToGateway")
                     }
                     fillHeight
                     className="items-center p-6 text-center text-sm"
@@ -1738,6 +2355,7 @@ const AgentStudioPage = () => {
           suggestedName={suggestedCreateAgentName}
           busy={createAgentBusy}
           submitError={createAgentModalError}
+          models={allModels}
           onClose={() => {
             if (createAgentBusy) return;
             setCreateAgentModalError(null);
@@ -1754,17 +2372,17 @@ const AgentStudioPage = () => {
           data-testid="agent-create-restart-modal"
           role="dialog"
           aria-modal="true"
-          aria-label="Creating agent"
+          aria-label={tp("creatingAgent")}
         >
           <div className="ui-panel w-full max-w-md p-6">
             <div className="font-mono text-[10px] font-semibold tracking-[0.06em] text-muted-foreground">
-              Agent create in progress
+              {tp("agentCreateInProgress")}
             </div>
             <div className="mt-2 text-base font-semibold text-foreground">
               {createAgentBlock.agentName}
             </div>
             <div className="mt-3 text-sm text-muted-foreground">
-              Studio is temporarily locked until creation finishes.
+              {tp("studioLockedCreation")}
             </div>
             {createBlockStatusLine ? (
               <div className="ui-card mt-4 px-3 py-2 font-mono text-[11px] tracking-[0.06em] text-foreground">
@@ -1790,7 +2408,7 @@ const AgentStudioPage = () => {
               {restartingMutationBlock.agentName}
             </div>
             <div className="mt-3 text-sm text-muted-foreground">
-              Studio is temporarily locked until the gateway restarts.
+              {tp("studioLockedRestart")}
             </div>
             {restartingMutationStatusLine ? (
               <div className="ui-card mt-4 px-3 py-2 font-mono text-[11px] tracking-[0.06em] text-foreground">
@@ -1800,6 +2418,58 @@ const AgentStudioPage = () => {
           </div>
         </div>
       ) : null}
+      <nav className="mobile-bottom-nav" aria-label="Mobile navigation">
+        <button
+          type="button"
+          className="mobile-bottom-nav-item"
+          data-active={
+            mobilePane === "fleet" && !inspectSidebar ? "true" : "false"
+          }
+          onClick={() => {
+            setMobilePane("fleet");
+            setInspectSidebar(null);
+          }}
+        >
+          <Users />
+          <span>{tp("fleet")}</span>
+        </button>
+        <button
+          type="button"
+          className="mobile-bottom-nav-item"
+          data-active={
+            mobilePane === "chat" && !inspectSidebar ? "true" : "false"
+          }
+          onClick={() => {
+            setMobilePane("chat");
+            setInspectSidebar(null);
+          }}
+        >
+          <MessageSquare />
+          <span>{tp("chat")}</span>
+        </button>
+        <button
+          type="button"
+          className="mobile-bottom-nav-item"
+          data-active={showAnalytics ? "true" : "false"}
+          onClick={() => setShowAnalytics((v) => !v)}
+        >
+          <BarChart3 />
+          <span>{tp("analytics")}</span>
+        </button>
+        <button
+          type="button"
+          className="mobile-bottom-nav-item"
+          data-active={!!inspectSidebar ? "true" : "false"}
+          onClick={() => {
+            if (focusedAgent) {
+              handleOpenAgentSettingsRoute(focusedAgent.agentId);
+            }
+          }}
+        >
+          <Settings />
+          <span>{tp("settings")}</span>
+        </button>
+      </nav>
     </div>
   );
 };
