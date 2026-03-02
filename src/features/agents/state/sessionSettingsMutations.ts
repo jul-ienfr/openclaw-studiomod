@@ -4,6 +4,7 @@ import {
   type GatewayClient,
   type GatewaySessionsPatchResult,
 } from "@/lib/gateway/GatewayClient";
+import { STUDIO_NOTICE_PREFIX } from "@/features/agents/components/chatItems";
 
 type SessionSettingField = "model" | "thinkingLevel";
 
@@ -88,9 +89,16 @@ export const applySessionSettingMutation = async ({
     } = { sessionSettingsSynced: true, sessionCreated: true };
     if (field === "model") {
       const resolvedModel = resolveModelFromPatchResult(result);
-      if (resolvedModel !== undefined) {
-        patch.model = resolvedModel;
-      }
+      // Prefer gateway-resolved model, fall back to the requested value
+      const finalModel = resolvedModel ?? value;
+      patch.model = finalModel;
+      // Always persist to openclaw.json so the model survives WS reconnects
+      // and applies to all channels (Telegram, WhatsApp…)
+      void fetch("/api/agents/model", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agentId, model: finalModel }),
+      });
     } else {
       const nextThinkingLevel =
         typeof result.entry?.thinkingLevel === "string" ? result.entry.thinkingLevel : undefined;
@@ -105,29 +113,50 @@ export const applySessionSettingMutation = async ({
     });
   } catch (err) {
     if (isWebchatSessionMutationBlockedError(err)) {
-      dispatch({
-        type: "updateAgent",
-        agentId,
-        patch: {
-          ...(field === "model"
-            ? { model: previousModel }
-            : { thinkingLevel: previousThinkingLevel }),
-          sessionSettingsSynced: true,
-          sessionCreated: true,
-        },
-      });
-      dispatch({
-        type: "appendOutput",
-        agentId,
-        line: buildWebchatBlockedMessage(field),
-      });
+      if (field === "model" && value) {
+        // Gateway blocks sessions.patch for WebChat — persist to openclaw.json instead
+        void fetch("/api/agents/model", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ agentId, model: value }),
+        });
+        // Keep the optimistic update (don't revert) and confirm to the user
+        dispatch({
+          type: "updateAgent",
+          agentId,
+          patch: { sessionSettingsSynced: true, sessionCreated: true },
+        });
+        dispatch({
+          type: "appendOutput",
+          agentId,
+          line: `${STUDIO_NOTICE_PREFIX}Model saved persistently: **${value}**. Will apply to all channels (Telegram, WhatsApp…) immediately.`,
+        });
+      } else {
+        // For thinkingLevel or null model: revert and explain
+        dispatch({
+          type: "updateAgent",
+          agentId,
+          patch: {
+            ...(field === "model"
+              ? { model: previousModel }
+              : { thinkingLevel: previousThinkingLevel }),
+            sessionSettingsSynced: true,
+            sessionCreated: true,
+          },
+        });
+        dispatch({
+          type: "appendOutput",
+          agentId,
+          line: `${STUDIO_NOTICE_PREFIX}${buildWebchatBlockedMessage(field)}`,
+        });
+      }
       return;
     }
     const msg = err instanceof Error ? err.message : buildFallbackError(field);
     dispatch({
       type: "appendOutput",
       agentId,
-      line: `${buildErrorPrefix(field)}: ${msg}`,
+      line: `${STUDIO_NOTICE_PREFIX}${buildErrorPrefix(field)}: ${msg}`,
     });
   }
 };

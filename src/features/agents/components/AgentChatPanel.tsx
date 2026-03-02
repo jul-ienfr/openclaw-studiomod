@@ -2,6 +2,7 @@ import {
   memo,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -13,10 +14,11 @@ import {
 import type { AgentState as AgentRecord } from "@/features/agents/state/store";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Check, ChevronRight, Clock, Cog, Pencil, Shuffle, Trash2, X } from "lucide-react";
+import { Check, ChevronRight, Clock, Cog, Mic, Pencil, Shuffle, Trash2, X } from "lucide-react";
 import type { GatewayModelChoice } from "@/lib/gateway/models";
 import { rewriteMediaLinesToMarkdown } from "@/lib/text/media-markdown";
 import { normalizeAssistantDisplayText } from "@/lib/text/assistantText";
+import { useVoiceRecorder } from "@/features/agents/hooks/useVoiceRecorder";
 import { isNearBottom } from "@/lib/dom";
 import { AgentAvatar } from "./AgentAvatar";
 import type {
@@ -126,6 +128,7 @@ type AgentChatPanelProps = {
   onThinkingChange: (value: string | null) => void;
   onToolCallingToggle?: (enabled: boolean) => void;
   onThinkingTracesToggle?: (enabled: boolean) => void;
+  onHideSystemMessagesToggle?: (enabled: boolean) => void;
   onDraftChange: (value: string) => void;
   onSend: (message: string) => void;
   onRemoveQueuedMessage?: (index: number) => void;
@@ -676,6 +679,12 @@ const AgentChatTranscript = memo(function AgentChatTranscript({
     updatePinnedFromScroll();
   }, [updatePinnedFromScroll]);
 
+  // Scroll to bottom immediately on mount (triggered on agent switch via key={agentId})
+  useLayoutEffect(() => {
+    scrollChatToBottom();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const showJumpToLatest =
     !isPinned && (outputLineCount > 0 || liveAssistantCharCount > 0 || liveThinkingCharCount > 0);
 
@@ -864,12 +873,18 @@ const AgentChatComposer = memo(function AgentChatComposer({
   modelValue,
   allowThinking,
   thinkingValue,
+  thinkingLevels,
   onModelChange,
   onThinkingChange,
   toolCallingEnabled,
   showThinkingTraces,
+  hideSystemMessages,
   onToolCallingToggle,
   onThinkingTracesToggle,
+  onHideSystemMessagesToggle,
+  voiceRecording,
+  voiceTranscribing,
+  onToggleVoice,
 }: {
   value: string;
   onChange: (event: ChangeEvent<HTMLTextAreaElement>) => void;
@@ -888,12 +903,18 @@ const AgentChatComposer = memo(function AgentChatComposer({
   modelValue: string;
   allowThinking: boolean;
   thinkingValue: string;
+  thinkingLevels: { value: string; label: string }[];
   onModelChange: (value: string | null) => void;
   onThinkingChange: (value: string | null) => void;
   toolCallingEnabled: boolean;
   showThinkingTraces: boolean;
+  hideSystemMessages: boolean;
   onToolCallingToggle: (enabled: boolean) => void;
   onThinkingTracesToggle: (enabled: boolean) => void;
+  onHideSystemMessagesToggle: (enabled: boolean) => void;
+  voiceRecording: boolean;
+  voiceTranscribing: boolean;
+  onToggleVoice: () => void;
 }) {
   const stopReason = stopDisabledReason?.trim() ?? "";
   const stopDisabled = !canSend || stopBusy || Boolean(stopReason);
@@ -903,24 +924,10 @@ const AgentChatComposer = memo(function AgentChatComposer({
     return modelOptions.find((option) => option.value === modelValue)?.label ?? modelValue;
   }, [modelOptions, modelValue]);
   const modelSelectWidthCh = Math.max(11, Math.min(44, modelSelectedLabel.length + 6));
-  const thinkingSelectedLabel = useMemo(() => {
-    switch (thinkingValue) {
-      case "off":
-        return "Off";
-      case "minimal":
-        return "Minimal";
-      case "low":
-        return "Low";
-      case "medium":
-        return "Medium";
-      case "high":
-        return "High";
-      case "xhigh":
-        return "XHigh";
-      default:
-        return "Default";
-    }
-  }, [thinkingValue]);
+  const thinkingSelectedLabel = useMemo(
+    () => thinkingLevels.find((l) => l.value === thinkingValue)?.label ?? "Default",
+    [thinkingLevels, thinkingValue]
+  );
   const thinkingSelectWidthCh = Math.max(9, Math.min(22, thinkingSelectedLabel.length + 6));
   return (
     <div className="rounded-2xl border border-border/65 bg-surface-2/45 px-3 py-2">
@@ -1014,6 +1021,20 @@ const AgentChatComposer = memo(function AgentChatComposer({
         >
           Send
         </button>
+        <button
+          className={`rounded-md border px-2 py-2 transition disabled:cursor-not-allowed disabled:opacity-50 ${
+            voiceRecording
+              ? "border-red-500/50 bg-red-500/15 hover:bg-red-500/25"
+              : "border-border/70 bg-surface-3 hover:bg-surface-2"
+          }`}
+          type="button"
+          onClick={onToggleVoice}
+          disabled={voiceTranscribing}
+          aria-label={voiceRecording ? "Arrêter l'enregistrement" : "Enregistrer un vocal"}
+          title={voiceTranscribing ? "Transcription..." : voiceRecording ? "Cliquer pour envoyer" : "Vocal"}
+        >
+          <Mic className={`h-3.5 w-3.5 ${voiceRecording ? "text-red-500 animate-pulse" : voiceTranscribing ? "text-muted-foreground animate-pulse" : "text-muted-foreground"}`} />
+        </button>
       </div>
       <div className="mt-1 flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
@@ -1051,13 +1072,9 @@ const AgentChatComposer = memo(function AgentChatComposer({
                   onThinkingChange(nextValue ? nextValue : null);
                 }}
               >
-                <option value="">Default</option>
-                <option value="off">Off</option>
-                <option value="minimal">Minimal</option>
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-                <option value="xhigh">XHigh</option>
+                {thinkingLevels.map((level) => (
+                  <option key={level.value} value={level.value}>{level.label}</option>
+                ))}
               </select>
             </InlineHoverTooltip>
           ) : null}
@@ -1092,6 +1109,21 @@ const AgentChatComposer = memo(function AgentChatComposer({
           >
             Thinking
           </button>
+          <button
+            type="button"
+            role="switch"
+            aria-label="Hide system notices"
+            aria-checked={hideSystemMessages}
+            title={hideSystemMessages ? "System notices hidden" : "System notices visible"}
+            className={`inline-flex h-5 items-center rounded-sm border px-1.5 font-mono text-[10px] tracking-[0.01em] transition ${
+              hideSystemMessages
+                ? "border-primary/45 bg-primary/14 text-foreground"
+                : "border-border/70 bg-surface-2/40 text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={() => onHideSystemMessagesToggle(!hideSystemMessages)}
+          >
+            Notices
+          </button>
         </div>
       </div>
     </div>
@@ -1113,6 +1145,7 @@ export const AgentChatPanel = ({
   onThinkingChange,
   onToolCallingToggle = noopToggle,
   onThinkingTracesToggle = noopToggle,
+  onHideSystemMessagesToggle = noopToggle,
   onDraftChange,
   onSend,
   onRemoveQueuedMessage,
@@ -1218,14 +1251,23 @@ export const AgentChatPanel = ({
     [canSend, onDraftChange, onSend]
   );
 
+  const handleVoiceTranscribed = useCallback(
+    (text: string) => {
+      handleSend(text);
+    },
+    [handleSend]
+  );
+  const voice = useVoiceRecorder(handleVoiceTranscribed);
+
   const chatItems = useMemo(
     () =>
       buildFinalAgentChatItems({
         outputLines: agent.outputLines,
         showThinkingTraces: agent.showThinkingTraces,
         toolCallingEnabled: agent.toolCallingEnabled,
+        hideSystemMessages: agent.hideSystemMessages,
       }),
-    [agent.outputLines, agent.showThinkingTraces, agent.toolCallingEnabled]
+    [agent.outputLines, agent.showThinkingTraces, agent.toolCallingEnabled, agent.hideSystemMessages]
   );
   const running = agent.status === "running";
   const renderBlocks = useMemo(() => buildAgentChatRenderBlocks(chatItems), [chatItems]);
@@ -1262,6 +1304,30 @@ export const AgentChatPanel = ({
       : modelOptions;
   const selectedModel = modelOptionsWithFallback.find((option) => option.value === modelValue);
   const allowThinking = selectedModel?.reasoning !== false;
+  // When no model is stored yet, use the first option in the list (what's displayed)
+  const effectiveModelStr = selectedModel?.value ?? modelOptionsWithFallback[0]?.value ?? "";
+
+  const thinkingLevels = useMemo((): { value: string; label: string }[] => {
+    const isClaude = effectiveModelStr.toLowerCase().includes("claude");
+    if (isClaude) {
+      return [
+        { value: "", label: "Default" },
+        { value: "off", label: "Off" },
+        { value: "minimal", label: "Minimal" },
+        { value: "low", label: "Low" },
+        { value: "medium", label: "Medium" },
+        { value: "high", label: "High" },
+        { value: "xhigh", label: "XHigh" },
+      ];
+    }
+    return [
+      { value: "", label: "Default" },
+      { value: "off", label: "Off" },
+      { value: "low", label: "Low" },
+      { value: "medium", label: "Medium" },
+      { value: "high", label: "High" },
+    ];
+  }, [effectiveModelStr]);
 
   const avatarSeed = agent.avatarSeed ?? agent.agentId;
   const emptyStateTitle = useMemo(
@@ -1504,6 +1570,7 @@ export const AgentChatPanel = ({
 
       <div className="mt-3 flex min-h-0 flex-1 flex-col px-3 pb-3 sm:px-4 sm:pb-4">
         <AgentChatTranscript
+          key={agent.agentId}
           agentId={agent.agentId}
           name={agent.name}
           avatarSeed={avatarSeed}
@@ -1549,12 +1616,18 @@ export const AgentChatPanel = ({
             modelValue={modelValue}
             allowThinking={allowThinking}
             thinkingValue={agent.thinkingLevel ?? ""}
+            thinkingLevels={thinkingLevels}
             onModelChange={onModelChange}
             onThinkingChange={onThinkingChange}
             toolCallingEnabled={agent.toolCallingEnabled}
             showThinkingTraces={agent.showThinkingTraces}
+            hideSystemMessages={agent.hideSystemMessages}
             onToolCallingToggle={onToolCallingToggle}
             onThinkingTracesToggle={onThinkingTracesToggle}
+            onHideSystemMessagesToggle={onHideSystemMessagesToggle}
+            voiceRecording={voice.isRecording}
+            voiceTranscribing={voice.isTranscribing}
+            onToggleVoice={voice.toggleRecording}
           />
         </div>
       </div>

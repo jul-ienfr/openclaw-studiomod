@@ -53,14 +53,17 @@ const normalizeThinkingDisplayText = (value: string): string => {
   return normalized;
 };
 
+export const STUDIO_NOTICE_PREFIX = "[[studio-notice]]";
+
 export const buildFinalAgentChatItems = ({
   outputLines,
   showThinkingTraces,
   toolCallingEnabled,
+  hideSystemMessages = false,
 }: Pick<
   BuildAgentChatItemsInput,
   "outputLines" | "showThinkingTraces" | "toolCallingEnabled"
->): AgentChatItem[] => {
+> & { hideSystemMessages?: boolean }): AgentChatItem[] => {
   const items: AgentChatItem[] = [];
   let currentMeta: ItemMeta | null = null;
   const appendThinking = (text: string) => {
@@ -88,8 +91,20 @@ export const buildFinalAgentChatItems = ({
     previous.text = `${previous.text}\n\n${normalized}`;
   };
 
-  for (const line of outputLines) {
-    if (!line) continue;
+  for (const rawLine of outputLines) {
+    if (!rawLine) continue;
+
+    // Studio-side notice messages
+    if (rawLine.startsWith(STUDIO_NOTICE_PREFIX)) {
+      if (hideSystemMessages) continue;
+      const noticeText = rawLine.slice(STUDIO_NOTICE_PREFIX.length).trim();
+      if (noticeText) {
+        items.push({ kind: "assistant", text: noticeText });
+      }
+      continue;
+    }
+
+    const line = rawLine;
     if (isMetaMarkdown(line)) {
       const parsed = parseMetaMarkdown(line);
       if (parsed) {

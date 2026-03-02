@@ -24,6 +24,7 @@ import {
 } from "@/features/agents/state/runtimeEventCoordinatorWorkflow";
 import { type EventFrame, isSameSessionKey } from "@/lib/gateway/GatewayClient";
 import { normalizeAssistantDisplayText } from "@/lib/text/assistantText";
+import { pushEvent } from "@/features/analytics/analyticsCollector";
 import {
   extractText,
   extractThinking,
@@ -378,6 +379,11 @@ export function createGatewayRuntimeEventHandler(
     });
     coordinatorState = reduced.state;
     executeCoordinatorEffects(reduced.effects);
+
+    // Analytics: track final assistant messages
+    if (finalAssistantText !== null) {
+      pushEvent({ type: "message.received", agentId });
+    }
   };
 
   const handleRuntimeAgentEvent = (payload: AgentEventPayload) => {

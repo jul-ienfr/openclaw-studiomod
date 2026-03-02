@@ -64,6 +64,7 @@ export type AgentState = AgentStoreSeed & {
   historyMaybeTruncated: boolean;
   toolCallingEnabled: boolean;
   showThinkingTraces: boolean;
+  hideSystemMessages: boolean;
   transcriptEntries?: TranscriptEntry[];
   transcriptRevision?: number;
   transcriptSequenceCounter?: number;
@@ -216,6 +217,7 @@ const createRuntimeAgentState = (
     historyMaybeTruncated: sameSessionKey ? (existing?.historyMaybeTruncated ?? false) : false,
     toolCallingEnabled: seed.toolCallingEnabled ?? existing?.toolCallingEnabled ?? false,
     showThinkingTraces: seed.showThinkingTraces ?? existing?.showThinkingTraces ?? true,
+    hideSystemMessages: existing?.hideSystemMessages ?? false,
     transcriptEntries,
     transcriptRevision: sameSessionKey
       ? (existing?.transcriptRevision ?? outputLines.length)

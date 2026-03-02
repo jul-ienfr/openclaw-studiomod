@@ -71,3 +71,4 @@ test-results
 
 # bv (beads viewer) local config and caches
 .bv/
+certs/

@@ -53,7 +53,7 @@ function createAccessGate(options) {
       }
 
       url.searchParams.delete(queryParam);
-      const cookieValue = `${cookieName}=${token}; HttpOnly; Path=/; SameSite=Lax`;
+      const cookieValue = `${cookieName}=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=31536000`;
       res.statusCode = 302;
       res.setHeader("Set-Cookie", cookieValue);
       res.setHeader("Location", buildRedirectUrl(req, url.pathname + url.search));

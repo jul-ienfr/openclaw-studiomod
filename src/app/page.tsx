@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AgentChatPanel } from "@/features/agents/components/AgentChatPanel";
 import { AgentCreateModal } from "@/features/agents/components/AgentCreateModal";
@@ -47,6 +47,7 @@ import {
 import { buildAvatarDataUrl } from "@/lib/avatars/multiavatar";
 import { createStudioSettingsCoordinator } from "@/lib/studio/coordinator";
 import { applySessionSettingMutation } from "@/features/agents/state/sessionSettingsMutations";
+import { loadAgentUiPrefs, saveAgentUiPref } from "@/features/agents/state/agentUiPrefs";
 import type { AgentCreateModalSubmitPayload } from "@/features/agents/creation/types";
 import {
   isGatewayDisconnectLikeError,
@@ -477,6 +478,25 @@ const AgentStudioPage = () => {
         },
         setError,
       });
+      // Restore persisted UI prefs (Tools/Thinking/Notices toggles)
+      const hydrateCmd = commands.find((c) => c.kind === "hydrate-agents");
+      if (hydrateCmd && hydrateCmd.kind === "hydrate-agents") {
+        for (const seed of hydrateCmd.seeds) {
+          const prefs = loadAgentUiPrefs(seed.agentId);
+          const prefPatch: Partial<import("@/features/agents/state/store").AgentState> = {};
+          if (typeof prefs.toolCallingEnabled === "boolean")
+            prefPatch.toolCallingEnabled = prefs.toolCallingEnabled;
+          if (typeof prefs.showThinkingTraces === "boolean")
+            prefPatch.showThinkingTraces = prefs.showThinkingTraces;
+          if (typeof prefs.hideSystemMessages === "boolean")
+            prefPatch.hideSystemMessages = prefs.hideSystemMessages;
+          // Restore persisted model choice — overrides gateway seed if user changed it
+          if (prefs.model !== undefined) prefPatch.model = prefs.model ?? null;
+          if (Object.keys(prefPatch).length > 0) {
+            dispatch({ type: "updateAgent", agentId: seed.agentId, patch: prefPatch });
+          }
+        }
+      }
     } finally {
       setLoading(false);
       setAgentsLoadedOnce(true);
@@ -610,7 +630,7 @@ const AgentStudioPage = () => {
         setPreferredSelectedAgentId: (agentId) => {
           preferredSelectedAgentIdRef.current = agentId;
         },
-        setFocusFilter,
+        setFocusFilter: () => {}, // always start with "all" on load
         logError: (message, error) => console.error(message, error),
       });
     };
@@ -1032,6 +1052,8 @@ const AgentStudioPage = () => {
 
   const handleModelChange = useCallback(
     async (agentId: string, sessionKey: string, value: string | null) => {
+      // Persist immediately to localStorage so the choice survives WS reconnects/re-bootstrap
+      saveAgentUiPref(agentId, "model", value);
       await handleSessionSettingChange(agentId, sessionKey, "model", value);
     },
     [handleSessionSettingChange]
@@ -1052,6 +1074,7 @@ const AgentStudioPage = () => {
         agentId,
         patch: { toolCallingEnabled: enabled },
       });
+      saveAgentUiPref(agentId, "toolCallingEnabled", enabled);
     },
     [dispatch]
   );
@@ -1063,6 +1086,19 @@ const AgentStudioPage = () => {
         agentId,
         patch: { showThinkingTraces: enabled },
       });
+      saveAgentUiPref(agentId, "showThinkingTraces", enabled);
+    },
+    [dispatch]
+  );
+
+  const handleHideSystemMessagesToggle = useCallback(
+    (agentId: string, enabled: boolean) => {
+      dispatch({
+        type: "updateAgent",
+        agentId,
+        patch: { hideSystemMessages: enabled },
+      });
+      saveAgentUiPref(agentId, "hideSystemMessages", enabled);
     },
     [dispatch]
   );
@@ -1277,7 +1313,7 @@ const AgentStudioPage = () => {
 
   if (!agentsLoadedOnce && (!didAttemptGatewayConnect || status === "connecting")) {
     return (
-      <div className="relative min-h-screen w-screen overflow-hidden bg-background">
+      <div className="relative min-h-screen w-full overflow-hidden bg-background">
         <div className="flex min-h-screen items-center justify-center px-6">
           <div className="glass-panel ui-panel w-full max-w-md px-6 py-6 text-center">
             <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
@@ -1294,7 +1330,7 @@ const AgentStudioPage = () => {
 
   if (status === "disconnected" && !agentsLoadedOnce && didAttemptGatewayConnect) {
     return (
-      <div className="relative min-h-screen w-screen overflow-hidden bg-background">
+      <div className="relative min-h-screen w-full overflow-hidden bg-background">
         <div className="relative z-10 flex h-screen flex-col">
           <HeaderBar
             status={status}
@@ -1331,7 +1367,7 @@ const AgentStudioPage = () => {
 
   if (status === "connected" && !agentsLoadedOnce) {
     return (
-      <div className="relative min-h-screen w-screen overflow-hidden bg-background">
+      <div className="relative min-h-screen w-full overflow-hidden bg-background">
         <div className="flex min-h-screen items-center justify-center px-6">
           <div className="glass-panel ui-panel w-full max-w-md px-6 py-6 text-center">
             <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
@@ -1345,7 +1381,7 @@ const AgentStudioPage = () => {
   }
 
   return (
-    <div className="relative min-h-screen w-screen overflow-hidden bg-background">
+    <div className="relative min-h-screen w-full overflow-hidden bg-background">
       {state.loading ? (
         <div className="pointer-events-none fixed bottom-4 left-0 right-0 z-50 flex justify-center px-3">
           <div className="glass-panel ui-card px-6 py-3 font-mono text-[11px] tracking-[0.08em] text-muted-foreground">
@@ -1658,6 +1694,9 @@ const AgentStudioPage = () => {
                         onThinkingTracesToggle={(enabled) =>
                           handleThinkingTracesToggle(focusedAgent.agentId, enabled)
                         }
+                        onHideSystemMessagesToggle={(enabled) =>
+                          handleHideSystemMessagesToggle(focusedAgent.agentId, enabled)
+                        }
                         onDraftChange={(value) => handleDraftChange(focusedAgent.agentId, value)}
                         onSend={(message) =>
                           handleSend(focusedAgent.agentId, focusedAgent.sessionKey, message)
@@ -1768,7 +1807,9 @@ const AgentStudioPage = () => {
 export default function Home() {
   return (
     <AgentStoreProvider>
-      <AgentStudioPage />
+      <Suspense>
+        <AgentStudioPage />
+      </Suspense>
     </AgentStoreProvider>
   );
 }

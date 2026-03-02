@@ -1,100 +1,115 @@
 "use client";
 
-import { useState, useCallback, type KeyboardEvent } from "react";
+import { useState, type KeyboardEvent } from "react";
+
+type ValidateMode = "url" | "regex" | "none";
 
 type TagListEditorProps = {
   value: string[];
   onChange: (value: string[]) => void;
-  label: string;
   placeholder?: string;
-  validate?: (v: string) => boolean;
+  validate?: ValidateMode;
 };
+
+function validateInput(input: string, mode: ValidateMode): string | null {
+  if (mode === "url") {
+    try {
+      new URL(input);
+      return null;
+    } catch {
+      return "URL invalide";
+    }
+  }
+  if (mode === "regex") {
+    try {
+      new RegExp(input);
+      return null;
+    } catch {
+      return "Expression régulière invalide";
+    }
+  }
+  return null;
+}
 
 export function TagListEditor({
   value,
   onChange,
-  label,
   placeholder,
-  validate,
+  validate = "none",
 }: TagListEditorProps) {
   const [input, setInput] = useState("");
-  const [touched, setTouched] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const isValid = !validate || !touched || input === "" || validate(input);
-
-  const addTag = useCallback(() => {
+  function tryAdd() {
     const trimmed = input.trim();
     if (!trimmed) return;
-    if (validate && !validate(trimmed)) return;
-    if (value.includes(trimmed)) return;
+    const err = validateInput(trimmed, validate);
+    if (err) {
+      setError(err);
+      return;
+    }
+    if (value.includes(trimmed)) {
+      setError("Déjà présent");
+      return;
+    }
     onChange([...value, trimmed]);
     setInput("");
-    setTouched(false);
-  }, [input, value, onChange, validate]);
+    setError(null);
+  }
 
-  const removeTag = useCallback(
-    (index: number) => {
-      onChange(value.filter((_, i) => i !== index));
-    },
-    [value, onChange],
-  );
+  function handleKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      tryAdd();
+    }
+  }
 
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        addTag();
-      }
-    },
-    [addTag],
-  );
+  function removeTag(index: number) {
+    onChange(value.filter((_, i) => i !== index));
+  }
 
   return (
     <div className="space-y-2">
-      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
-        {label}
-      </label>
-
       <div className="flex gap-2">
         <input
           type="text"
           value={input}
           onChange={(e) => {
             setInput(e.target.value);
-            setTouched(true);
+            setError(null);
           }}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          className={`flex-1 rounded-md border px-3 py-1.5 text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 ${
-            !isValid
-              ? "border-red-500 focus:ring-red-500"
-              : "border-slate-300 dark:border-slate-600 focus:ring-blue-500"
-          } focus:outline-none focus:ring-2`}
+          className="flex-1 rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
         />
         <button
           type="button"
-          onClick={addTag}
-          className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          onClick={tryAdd}
+          className="ui-btn-primary px-3 py-1.5 text-sm"
         >
           Add
         </button>
       </div>
 
+      {error && (
+        <p className="text-xs text-red-500">{error}</p>
+      )}
+
       {value.length > 0 && (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1.5">
           {value.map((tag, i) => (
             <span
               key={`${tag}-${i}`}
-              className="inline-flex items-center gap-1 rounded-full bg-slate-100 dark:bg-slate-800 px-3 py-1 text-sm text-slate-700 dark:text-slate-300"
+              className="ui-badge inline-flex items-center gap-1"
             >
-              {tag}
+              <span className="max-w-[200px] truncate">{tag}</span>
               <button
                 type="button"
                 onClick={() => removeTag(i)}
-                className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full text-slate-500 hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-slate-700 dark:hover:text-slate-200"
-                aria-label={`Remove ${tag}`}
+                aria-label={`Supprimer ${tag}`}
+                className="ml-0.5 opacity-60 hover:opacity-100"
               >
-                &times;
+                ×
               </button>
             </span>
           ))}

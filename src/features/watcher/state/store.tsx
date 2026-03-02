@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useReducer, type ReactNode } from "react";
+import { useWatcherSSE } from "@/features/watcher/operations/useWatcherSSE";
 import type {
   SourceState,
   WatchItem,
@@ -84,7 +85,7 @@ function reducer(state: WatcherState, action: WatcherAction): WatcherState {
       return { ...state, config: action.config, configDirty: false, configError: null };
     case "PATCH_CONFIG":
       if (!state.config) return state;
-      return { ...state, config: deepMerge(state.config, action.patch) as WatcherConfig, configDirty: true };
+      return { ...state, config: deepMerge(state.config as unknown as Record<string, unknown>, action.patch as unknown as Record<string, unknown>) as unknown as WatcherConfig, configDirty: true };
     case "SET_CONFIG_DIRTY":
       return { ...state, configDirty: action.dirty };
     case "SET_CONFIG_SAVING":
@@ -125,6 +126,10 @@ const WatcherContext = createContext<WatcherContextValue | null>(null);
 
 export function WatcherProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
+
+  // Real-time updates via SSE — sources, new item count, implementations
+  useWatcherSSE(dispatch);
+
   return (
     <WatcherContext.Provider value={{ state, dispatch }}>
       {children}

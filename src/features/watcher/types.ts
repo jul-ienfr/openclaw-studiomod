@@ -86,6 +86,17 @@ export interface DecisionThresholds {
 
 export interface WatcherConfig {
   sources: Record<string, SourceConfig>;
+  models?: ModelConfig[];
+  models_tasks?: {
+    scoring?: string;
+    analysis?: string;
+    reports?: string;
+  };
+  models_budget?: {
+    limit_api_calls: boolean;
+    max_calls_per_hour: number;
+    max_calls_per_day: number;
+  };
   scoring: {
     weights: ScoringWeights;
     thresholds: DecisionThresholds;
@@ -184,4 +195,21 @@ export interface Filters {
   category?: string;
   page: number;
   limit: number;
+}
+
+// ─── Model Config ───
+
+export type ModelProvider = "anthropic" | "google" | "openai" | "custom";
+
+export interface ModelConfig {
+  id: string;
+  enabled: boolean;
+  model_id: string;
+  provider: ModelProvider;
+  base_url?: string;
+  api_key?: string;
+  max_tokens: number;
+  temperature: number;
+  timeout_seconds: number;
+  max_retries: number;
 }

@@ -11,6 +11,7 @@ import {
 import type { AgentState } from "@/features/agents/state/store";
 import { randomUUID } from "@/lib/uuid";
 import type { TranscriptAppendMeta } from "@/features/agents/state/transcript";
+import { pushEvent } from "@/features/analytics/analyticsCollector";
 
 type SendDispatchAction =
   | { type: "updateAgent"; agentId: string; patch: Partial<AgentState> }
@@ -146,6 +147,7 @@ export async function sendChatMessageViaStudio(params: {
         kind: "user",
       },
     });
+    pushEvent({ type: "message.sent", agentId });
   }
 
   try {
