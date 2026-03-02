@@ -1825,15 +1825,17 @@ export const AgentBrainPanel = ({
             <BrainPanelToggle mode={brainMode} onModeChange={setBrainMode} />
 
             <div className="flex items-center gap-2">
-              {agentFilesSaving ? (
-                <span className="text-[10px] text-muted-foreground animate-pulse">
-                  {t("brainSaving")}
-                </span>
-              ) : !agentFilesDirty && !agentFilesLoading ? (
-                <span className="text-[10px] text-muted-foreground/60">
-                  {t("brainSaved")}
-                </span>
-              ) : null}
+              <span aria-live="polite" role="status" className="text-[10px]">
+                {agentFilesSaving ? (
+                  <span className="text-muted-foreground animate-pulse">
+                    {t("brainSaving")}
+                  </span>
+                ) : !agentFilesDirty && !agentFilesLoading ? (
+                  <span className="text-muted-foreground/60">
+                    {t("brainSaved")}
+                  </span>
+                ) : null}
+              </span>
               <button
                 type="button"
                 className="ui-btn-secondary px-3 py-1 font-mono text-[10px] font-semibold tracking-[0.06em] disabled:opacity-50"

@@ -230,29 +230,40 @@ export const PersonaPreview = ({
                 </p>
 
                 {/* Response / loading / error */}
-                {result?.loading ? (
-                  <div className="flex items-center gap-2 rounded-md bg-muted/30 px-3 py-3">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-                    <span className="text-xs text-muted-foreground">
-                      {t("generatingPreview") ?? "Generating preview..."}
-                    </span>
-                  </div>
-                ) : null}
+                <div aria-live="polite" role="status">
+                  {result?.loading ? (
+                    <div className="flex items-center gap-2 rounded-md bg-muted/30 px-3 py-3">
+                      <Loader2
+                        className="h-3.5 w-3.5 animate-spin text-muted-foreground"
+                        aria-hidden="true"
+                      />
+                      <span className="text-xs text-muted-foreground">
+                        {t("generatingPreview") ?? "Generating preview..."}
+                      </span>
+                    </div>
+                  ) : null}
 
-                {result?.error ? (
-                  <div className="flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
-                    <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                    {result.error}
-                  </div>
-                ) : null}
+                  {result?.error ? (
+                    <div
+                      role="alert"
+                      className="flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive"
+                    >
+                      <AlertTriangle
+                        className="h-3.5 w-3.5 shrink-0"
+                        aria-hidden="true"
+                      />
+                      {result.error}
+                    </div>
+                  ) : null}
 
-                {result?.response ? (
-                  <div className="rounded-md bg-muted/30 px-3 py-3">
-                    <p className="whitespace-pre-wrap text-xs text-foreground leading-relaxed">
-                      {result.response}
-                    </p>
-                  </div>
-                ) : null}
+                  {result?.response ? (
+                    <div className="rounded-md bg-muted/30 px-3 py-3">
+                      <p className="whitespace-pre-wrap text-xs text-foreground leading-relaxed">
+                        {result.response}
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
               </div>
             );
           })}

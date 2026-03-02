@@ -48,11 +48,18 @@ const CollapsibleSection = ({
         type="button"
         className="flex w-full items-center gap-2 text-left"
         onClick={() => setOpen((prev) => !prev)}
+        aria-expanded={open}
       >
         {open ? (
-          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          <ChevronDown
+            className="h-4 w-4 text-muted-foreground"
+            aria-hidden="true"
+          />
         ) : (
-          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          <ChevronRight
+            className="h-4 w-4 text-muted-foreground"
+            aria-hidden="true"
+          />
         )}
         <span className="text-sm font-semibold text-foreground">{title}</span>
       </button>

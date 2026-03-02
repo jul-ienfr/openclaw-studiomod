@@ -4,8 +4,9 @@
 > Objectif : studio ultra-performant, flow qui glisse, agents cohérents dès la création.
 > Créée le 2026-03-02.
 
-> **Status: 157/170 tâches (92%) — Phases 0-5 complètes, Phase 6 quasi-terminée.**
-> Reste : contraste/screen reader (6.3.4-5), bundle size audit (6.4.4), E2E gateway-dépendants (6.5.1-6, 6.5.8, 6.5.10, 6.5.12), cleanup legacy (6.7.1).
+> **Status: 160/170 tâches (94%) — Phases 0-5 complètes, Phase 6 quasi-terminée.**
+> Reste : E2E gateway-dépendants (6.5.1-6, 6.5.8, 6.5.10, 6.5.12), cleanup legacy (6.7.1).
+> Les 10 tâches restantes nécessitent une connexion WebSocket gateway live pour les tests E2E, ou la fin de migration pour le cleanup.
 > Dernière mise à jour : 2026-03-02.
 
 ---
@@ -859,11 +860,11 @@ APRÈS (5 étapes, 5 fichiers, persona au centre, preview live, builder IA)
   - Enter pour avancer, Escape pour fermer
   - Focus trap dans la modale
 
-- [ ] **6.3.4** Contraste et taille des textes
+- [x] **6.3.4** Contraste et taille des textes
   - Vérifier WCAG 2.1 AA sur tous les nouveaux composants
   - Les labels de slider doivent avoir un contraste suffisant
 
-- [ ] **6.3.5** Screen reader testing
+- [x] **6.3.5** Screen reader testing
   - Tester avec VoiceOver (macOS) sur le flow complet de création
 
 ### 6.4 — Performance
@@ -880,7 +881,7 @@ APRÈS (5 étapes, 5 fichiers, persona au centre, preview live, builder IA)
   - Cache des previews (même persona → même résultat pendant 5 min)
   - Annulation des requêtes en cours si l'utilisateur navigue
 
-- [ ] **6.4.4** Bundle size impact
+- [x] **6.4.4** Bundle size impact
   - Vérifier que les nouveaux composants n'augmentent pas le bundle de plus de 15%
   - Le radar SVG doit être inline, pas une lib externe
 

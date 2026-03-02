@@ -98,7 +98,11 @@ export const ConversationalBuilder = ({
             Continue
           </button>
         )}
-        {error ? <p className="text-xs text-destructive">{error}</p> : null}
+        {error ? (
+          <p role="alert" className="text-xs text-destructive">
+            {error}
+          </p>
+        ) : null}
       </div>
     );
   }
@@ -108,6 +112,7 @@ export const ConversationalBuilder = ({
       <textarea
         className="h-28 w-full resize-y rounded-md border border-border/80 bg-background px-4 py-3 text-sm text-foreground outline-none"
         placeholder={t("conversationalPlaceholder")}
+        aria-label={t("conversationalPlaceholder")}
         value={description}
         onChange={(e) => setDescription(e.target.value)}
       />
@@ -116,11 +121,16 @@ export const ConversationalBuilder = ({
         className="ui-btn-primary flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-50"
         onClick={generate}
         disabled={loading || !description.trim()}
+        aria-busy={loading}
       >
-        <Sparkles className="h-4 w-4" />
+        <Sparkles className="h-4 w-4" aria-hidden="true" />
         {loading ? t("generating") : t("generate")}
       </button>
-      {error ? <p className="text-xs text-destructive">{error}</p> : null}
+      {error ? (
+        <p role="alert" className="text-xs text-destructive">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 };

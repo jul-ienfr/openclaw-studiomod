@@ -78,6 +78,7 @@ const StepIndicator = ({
           />
         ) : null}
         <span
+          aria-current={i === current ? "step" : undefined}
           className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold transition-colors ${
             i === current
               ? "bg-primary/10 text-primary"
@@ -578,7 +579,10 @@ const AgentCreateModalContent = ({
                 ) : null}
 
                 {submitError ? (
-                  <div className="ui-alert-danger rounded-md px-3 py-2 text-xs">
+                  <div
+                    role="alert"
+                    className="ui-alert-danger rounded-md px-3 py-2 text-xs"
+                  >
                     {submitError}
                   </div>
                 ) : null}
