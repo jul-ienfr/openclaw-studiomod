@@ -1688,7 +1688,7 @@ const AgentStudioPage = () => {
                 style={{ maxHeight: "calc(100vh - 5rem)" }}
               >
                 <ErrorBoundary fallbackLabel={tp("routingError")}>
-                  <RoutingPanel agents={agents} />
+                  <RoutingPanel agents={agents.map((a) => ({ id: a.agentId, name: a.name }))} />
                 </ErrorBoundary>
                 <div className="flex justify-end border-t border-border px-4 py-2">
                   <button

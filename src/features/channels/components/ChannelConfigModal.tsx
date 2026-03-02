@@ -1,6 +1,7 @@
 "use client";
 import { useState, useCallback } from "react";
-import { X, Eye, EyeOff } from "lucide-react";
+import { X, Eye, EyeOff, ExternalLink } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { ChannelDefinition, ChannelConfig, ChannelId } from "../types";
 
 type ChannelConfigModalProps = {
@@ -14,6 +15,7 @@ type ChannelConfigModalProps = {
 export const ChannelConfigModal = ({
   channel, existingConfig, onSave, onRemove, onClose,
 }: ChannelConfigModalProps) => {
+  const t = useTranslations("channels");
   const [fields, setFields] = useState<Record<string, string>>(
     existingConfig?.fields ?? Object.fromEntries(channel.configFields.map((f) => [f.key, ""]))
   );

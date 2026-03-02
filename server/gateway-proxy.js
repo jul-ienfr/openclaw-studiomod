@@ -94,7 +94,6 @@ function createGatewayProxy(options) {
   const wss = new WebSocketServer({ noServer: true });
 
   wss.on("connection", (browserWs) => {
-    console.log("[gw-proxy] browser WS connected");
     let upstreamWs = null;
     let upstreamReady = false;
     let connectRequestId = null;
@@ -230,10 +229,6 @@ function createGatewayProxy(options) {
 
         upstreamWs.on("open", () => {
           upstreamReady = true;
-          console.log("[gw-proxy] upstream open, browserHasAuth:", browserHasAuth);
-          if (browserHasAuth) {
-            upstreamWs.send(JSON.stringify(parsed));
-            return;
           console.log("[gateway-proxy] upstream open");
           // Flush any browser messages that arrived before upstream was ready.
           for (const msg of pendingUpstream) {
@@ -244,7 +239,6 @@ function createGatewayProxy(options) {
 
         upstreamWs.on("message", (upRaw) => {
           const upParsed = safeJsonParse(String(upRaw ?? ""));
-          console.log("[gw-proxy] upstream→browser:", String(upRaw ?? "").slice(0, 200));
 
           // Log upstream messages for debugging.
           if (upParsed && isObject(upParsed)) {
@@ -281,10 +275,6 @@ function createGatewayProxy(options) {
           }
         });
 
-        upstreamWs.on("close", (ev) => {
-          console.log("[gw-proxy] upstream closed:", ev?.code, ev?.reason);
-          const reason = typeof ev?.reason === "string" ? ev.reason : "";
-          if (!connectResponseSent) {
         upstreamWs.on("close", (code, reason) => {
           const reasonStr = reason ? String(reason) : "";
           console.log(`[gateway-proxy] upstream closed (${code}): ${reasonStr}`);
@@ -302,7 +292,6 @@ function createGatewayProxy(options) {
         });
 
         upstreamWs.on("error", (err) => {
-          console.log("[gw-proxy] upstream error:", err.message);
           logError("Upstream gateway WebSocket error.", err);
           sendConnectError(
             "studio.upstream_error",
@@ -322,13 +311,10 @@ function createGatewayProxy(options) {
   });
 
   const handleUpgrade = (req, socket, head) => {
-    console.log("[gw-proxy] handleUpgrade called for", req.url);
     if (!allowWs(req)) {
-      console.log("[gw-proxy] ACCESS DENIED — cookie missing or invalid");
       socket.destroy();
       return;
     }
-    console.log("[gw-proxy] upgrading to WebSocket");
     wss.handleUpgrade(req, socket, head, (ws) => {
       wss.emit("connection", ws, req);
     });

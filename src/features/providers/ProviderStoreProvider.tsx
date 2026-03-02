@@ -26,7 +26,7 @@ export const ProviderStoreProvider = ({
     });
   }, []);
 
-  const removeProvider = useCallback((id: ProviderId) => {
+  const removeProvider = useCallback((id: string) => {
     setConfigs((prev) => {
       const next = { ...prev };
       delete next[id];

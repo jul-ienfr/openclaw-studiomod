@@ -11,6 +11,7 @@ import {
   type MutableRefObject,
   type ReactNode,
 } from "react";
+import { useTranslations } from "next-intl";
 import type { AgentState as AgentRecord } from "@/features/agents/state/store";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";

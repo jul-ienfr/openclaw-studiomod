@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import { Bebas_Neue, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getMessages } from "next-intl/server";
+import { Toaster } from "@/components/Toaster";
 import { AppNav } from "@/components/AppNav";
 import "./globals.css";
 
@@ -47,10 +50,13 @@ export default async function RootLayout({
         />
       </head>
       <body className={`${display.variable} ${sans.variable} ${mono.variable} antialiased`}>
-        <div className="flex h-screen w-full overflow-hidden">
-          <AppNav />
-          <div className="min-w-0 flex-1 overflow-hidden">{children}</div>
-        </div>
+        <NextIntlClientProvider messages={messages} locale={locale}>
+          <div className="flex h-screen w-full overflow-hidden">
+            <AppNav />
+            <div className="min-w-0 flex-1 overflow-hidden">{children}</div>
+          </div>
+        </NextIntlClientProvider>
+        <Toaster />
       </body>
     </html>
   );

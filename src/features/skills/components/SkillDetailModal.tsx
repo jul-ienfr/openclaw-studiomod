@@ -1,5 +1,5 @@
 "use client";
-
+import { useTranslations } from "next-intl";
 import { X, Download, Tag } from "lucide-react";
 import { Star } from "lucide-react";
 import type { SkillDefinition } from "../types";
