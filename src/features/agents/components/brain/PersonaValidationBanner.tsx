@@ -46,7 +46,7 @@ export const PersonaValidationBanner = ({
       setIssues([
         {
           severity: "error",
-          message: "Validation request failed",
+          message: t("brainValidationFailed"),
           field: "unknown",
         },
       ]);

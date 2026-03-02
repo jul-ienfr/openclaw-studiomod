@@ -1747,6 +1747,26 @@ export const AgentBrainPanel = ({
     await saveAgentFiles();
   }, [agentFilesDirty, agentFilesLoading, agentFilesSaving, saveAgentFiles]);
 
+  // Auto-save with 500ms debounce
+  const brainSaveTimerRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!agentFilesDirty) return;
+    if (agentFilesLoading || agentFilesSaving) return;
+    if (brainSaveTimerRef.current !== null) {
+      window.clearTimeout(brainSaveTimerRef.current);
+    }
+    brainSaveTimerRef.current = window.setTimeout(() => {
+      brainSaveTimerRef.current = null;
+      void saveAgentFiles();
+    }, 500);
+    return () => {
+      if (brainSaveTimerRef.current !== null) {
+        window.clearTimeout(brainSaveTimerRef.current);
+        brainSaveTimerRef.current = null;
+      }
+    };
+  }, [agentFilesDirty, agentFilesLoading, agentFilesSaving, saveAgentFiles]);
+
   useEffect(() => {
     onUnsavedChangesChange?.(agentFilesDirty);
   }, [agentFilesDirty, onUnsavedChangesChange]);
@@ -1805,6 +1825,15 @@ export const AgentBrainPanel = ({
             <BrainPanelToggle mode={brainMode} onModeChange={setBrainMode} />
 
             <div className="flex items-center gap-2">
+              {agentFilesSaving ? (
+                <span className="text-[10px] text-muted-foreground animate-pulse">
+                  {t("brainSaving")}
+                </span>
+              ) : !agentFilesDirty && !agentFilesLoading ? (
+                <span className="text-[10px] text-muted-foreground/60">
+                  {t("brainSaved")}
+                </span>
+              ) : null}
               <button
                 type="button"
                 className="ui-btn-secondary px-3 py-1 font-mono text-[10px] font-semibold tracking-[0.06em] disabled:opacity-50"

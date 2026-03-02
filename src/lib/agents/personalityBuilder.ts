@@ -11,6 +11,12 @@ import {
 // Draft type — unified structure for the new 5-file format.
 // ---------------------------------------------------------------------------
 
+/**
+ * Unified in-memory representation of all five agent personality files.
+ *
+ * Serialised to: PERSONA.md, DIRECTIVES.md, USER.md, HEARTBEAT.md, MEMORY.md.
+ * Parsed back via `parsePersonalityFiles()` / `parseLegacyPersonalityFiles()`.
+ */
 export type PersonalityBuilderDraft = {
   persona: {
     name: string;

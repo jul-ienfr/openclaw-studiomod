@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
+import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
-import { Shuffle, ChevronRight, ChevronLeft } from "lucide-react";
+import { Shuffle, ChevronRight, ChevronLeft, Loader2 } from "lucide-react";
 import type { AgentCreateModalSubmitPayload } from "@/features/agents/creation/types";
 import type { GatewayModelChoice } from "@/lib/gateway/models";
 import { AgentAvatar } from "@/features/agents/components/AgentAvatar";
@@ -13,10 +14,37 @@ import {
 } from "@/features/agents/templates/agentTemplates";
 import { useCreateAgentWizard } from "@/features/agents/hooks/useCreateAgentWizard";
 import { CreationModeSelector } from "@/features/agents/components/creation/CreationModeSelector";
-import { StepPersona } from "@/features/agents/components/creation/StepPersona";
-import { ConversationalBuilder } from "@/features/agents/components/creation/ConversationalBuilder";
 import type { PersonaBuilderResult } from "@/features/agents/creation/personaBuilderSchema";
-import { PersonaPreview } from "@/features/agents/components/creation/PersonaPreview";
+
+const LazyFallback = () => (
+  <div className="flex items-center justify-center py-12 text-muted-foreground">
+    <Loader2 className="h-5 w-5 animate-spin" />
+  </div>
+);
+
+const StepPersona = dynamic(
+  () =>
+    import("@/features/agents/components/creation/StepPersona").then(
+      (m) => m.StepPersona,
+    ),
+  { ssr: false, loading: LazyFallback },
+);
+
+const ConversationalBuilder = dynamic(
+  () =>
+    import("@/features/agents/components/creation/ConversationalBuilder").then(
+      (m) => m.ConversationalBuilder,
+    ),
+  { ssr: false, loading: LazyFallback },
+);
+
+const PersonaPreview = dynamic(
+  () =>
+    import("@/features/agents/components/creation/PersonaPreview").then(
+      (m) => m.PersonaPreview,
+    ),
+  { ssr: false, loading: LazyFallback },
+);
 
 type AgentCreateModalProps = {
   open: boolean;
@@ -153,6 +181,42 @@ const AgentCreateModalContent = ({
     void onSubmit(buildPayload());
   };
 
+  // Focus trap + keyboard navigation
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !busy) {
+        e.preventDefault();
+        onClose();
+        return;
+      }
+      // Focus trap: Tab cycles within modal
+      if (e.key === "Tab" && modalRef.current) {
+        const focusable = modalRef.current.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        );
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [busy, onClose]);
+
+  // Auto-focus the modal on mount
+  useEffect(() => {
+    modalRef.current?.focus();
+  }, []);
+
   const groupedModels = models.reduce<Record<string, GatewayModelChoice[]>>(
     (acc, m) => {
       const p = m.provider || "other";
@@ -204,7 +268,9 @@ const AgentCreateModalContent = ({
     >
       <div className="flex h-full items-center justify-center p-4">
         <div
-          className="ui-panel flex w-full max-w-2xl flex-col overflow-hidden shadow-xs"
+          ref={modalRef}
+          tabIndex={-1}
+          className="ui-panel flex w-full max-w-2xl flex-col overflow-hidden shadow-xs outline-none"
           style={{ maxHeight: "calc(100vh - 2rem)" }}
           onClick={(event) => event.stopPropagation()}
           data-testid="agent-create-modal"

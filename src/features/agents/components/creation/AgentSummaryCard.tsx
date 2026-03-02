@@ -27,12 +27,12 @@ export const AgentSummaryCard = ({
   return (
     <div className="rounded-lg border border-border/60 bg-card p-4 space-y-3">
       <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        {t("agentSummary") ?? "Agent Summary"}
+        {t("agentSummary")}
       </p>
 
       <div>
         <p className="text-sm font-medium text-foreground">
-          {name || "Unnamed Agent"}
+          {name || t("unnamedAgent")}
         </p>
         {vibe ? (
           <p className="mt-0.5 text-xs text-muted-foreground">{vibe}</p>
@@ -70,12 +70,9 @@ export const AgentSummaryCard = ({
       ) : null}
 
       <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-        {modelKey ? <span>Model: {modelKey}</span> : null}
+        {modelKey ? <span>{t("modelPrefix", { model: modelKey })}</span> : null}
         {boundariesCount != null && boundariesCount > 0 ? (
-          <span>
-            {boundariesCount}{" "}
-            {boundariesCount === 1 ? "boundary" : "boundaries"}
-          </span>
+          <span>{t("boundaryCount", { count: boundariesCount })}</span>
         ) : null}
       </div>
     </div>

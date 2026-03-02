@@ -2,12 +2,21 @@
 // Personality trait dimensions — numeric 0-100 scale with text labels.
 // ---------------------------------------------------------------------------
 
+/**
+ * Five numeric dimensions (0–100) that shape an agent's communication style.
+ * Used by the wizard, brain panel, and radar chart.
+ */
 export type PersonalityTraits = {
-  formality: number; // 0 = casual, 100 = formal
-  verbosity: number; // 0 = concise, 100 = verbose
-  creativity: number; // 0 = precise, 100 = creative
-  proactivity: number; // 0 = reactive, 100 = proactive
-  warmth: number; // 0 = neutral, 100 = warm
+  /** 0 = casual, 100 = formal */
+  formality: number;
+  /** 0 = concise, 100 = verbose */
+  verbosity: number;
+  /** 0 = precise/literal, 100 = creative/expressive */
+  creativity: number;
+  /** 0 = reactive (waits for prompts), 100 = proactive (suggests next steps) */
+  proactivity: number;
+  /** 0 = neutral/detached, 100 = warm/empathetic */
+  warmth: number;
 };
 
 export const TRAIT_DIMENSIONS = [

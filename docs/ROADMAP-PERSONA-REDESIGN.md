@@ -4,8 +4,8 @@
 > Objectif : studio ultra-performant, flow qui glisse, agents cohérents dès la création.
 > Créée le 2026-03-02.
 
-> **Status: 141/170 tâches (83%) — Phases 0-5 complètes, Phase 6 en cours.**
-> Reste : i18n templates FR (6.1.6), audit strings (6.1.7), test migration (6.2.4), a11y avancée (6.3.3-5), perf (6.4.x), E2E (6.5.x), docs (6.6.x), cleanup legacy (6.7.1).
+> **Status: 157/170 tâches (92%) — Phases 0-5 complètes, Phase 6 quasi-terminée.**
+> Reste : contraste/screen reader (6.3.4-5), bundle size audit (6.4.4), E2E gateway-dépendants (6.5.1-6, 6.5.8, 6.5.10, 6.5.12), cleanup legacy (6.7.1).
 > Dernière mise à jour : 2026-03-02.
 
 ---
@@ -809,11 +809,11 @@ APRÈS (5 étapes, 5 fichiers, persona au centre, preview live, builder IA)
 - [x] **6.1.5** Ajouter les clés i18n pour la preview et les tests
   - Section `createAgent.preview.*` et `inspect.tests.*`
 
-- [ ] **6.1.6** Traduire les personnalités des 14 templates en FR
+- [x] **6.1.6** Traduire les personnalités des 14 templates en FR
   - Fichier : `src/features/agents/templates/templatePersonalities.ts`
   - Utiliser `useTranslations("templatePersonalities")` ou intégrer dans les messages JSON
 
-- [ ] **6.1.7** Vérifier que TOUS les textes hardcodés sont passés par i18n
+- [x] **6.1.7** Vérifier que TOUS les textes hardcodés sont passés par i18n
   - Grep pour les strings hardcodées en français/anglais dans les nouveaux composants
   - Aucun texte visible ne doit être en dur
 
@@ -838,7 +838,7 @@ APRÈS (5 étapes, 5 fichiers, persona au centre, preview live, builder IA)
   - Le parseur détecte automatiquement quel format est utilisé
   - Fichier : `src/lib/agents/personalityBuilder.ts`
 
-- [ ] **6.2.4** Tester la migration sur des agents existants
+- [x] **6.2.4** Tester la migration sur des agents existants
   - Créer des agents de test avec l'ancien format
   - Vérifier que la migration produit le bon résultat
   - Vérifier qu'aucune donnée n'est perdue
@@ -854,7 +854,7 @@ APRÈS (5 étapes, 5 fichiers, persona au centre, preview live, builder IA)
   - Texte alternatif décrivant les traits
   - `role="img"` avec `aria-label` descriptif
 
-- [ ] **6.3.3** Navigation clavier dans le wizard
+- [x] **6.3.3** Navigation clavier dans le wizard
   - Tab order logique entre les étapes
   - Enter pour avancer, Escape pour fermer
   - Focus trap dans la modale
@@ -868,15 +868,15 @@ APRÈS (5 étapes, 5 fichiers, persona au centre, preview live, builder IA)
 
 ### 6.4 — Performance
 
-- [ ] **6.4.1** Lazy loading des étapes du wizard
+- [x] **6.4.1** Lazy loading des étapes du wizard
   - Les étapes 2+ ne sont rendues que quand l'utilisateur y arrive
   - `React.lazy()` pour les composants lourds (radar, preview)
 
-- [ ] **6.4.2** Debounce des sauvegardes dans le panneau Brain
+- [x] **6.4.2** Debounce des sauvegardes dans le panneau Brain
   - 500ms de debounce sur les modifications
   - Indicateur "Saving..." / "Saved" dans le header
 
-- [ ] **6.4.3** Optimisation des appels LLM
+- [x] **6.4.3** Optimisation des appels LLM
   - Cache des previews (même persona → même résultat pendant 5 min)
   - Annulation des requêtes en cours si l'utilisateur navigue
 
@@ -892,21 +892,21 @@ APRÈS (5 étapes, 5 fichiers, persona au centre, preview live, builder IA)
 - [ ] **6.5.4** Test E2E : migration d'un agent ancien format → nouveau format
 - [ ] **6.5.5** Test E2E : panneau Brain structuré → modifier → sauvegarder → vérifier
 - [ ] **6.5.6** Test E2E : panneau Brain expert → modifier markdown → sauvegarder → vérifier
-- [ ] **6.5.7** Test E2E : validateur de persona → détecter une contradiction
+- [x] **6.5.7** Test E2E : validateur de persona → détecter une contradiction
 - [ ] **6.5.8** Test E2E : preview → lancer les 3 prompts de test → vérifier les réponses
-- [ ] **6.5.9** Test de non-régression : créer un agent sans personnaliser la persona → ça marche
+- [x] **6.5.9** Test de non-régression : créer un agent sans personnaliser la persona → ça marche
 - [ ] **6.5.10** Test de non-régression : les agents existants continuent de fonctionner
-- [ ] **6.5.11** Test mobile : le wizard est utilisable sur petit écran
+- [x] **6.5.11** Test mobile : le wizard est utilisable sur petit écran
 - [ ] **6.5.12** Test de charge : créer 10 agents en séquence sans erreur
 
 ### 6.6 — Documentation
 
-- [ ] **6.6.1** Mettre à jour `ARCHITECTURE.md` avec le nouveau système de fichiers
-- [ ] **6.6.2** Mettre à jour `docs/ui-guide.md` avec les nouveaux flows
-- [ ] **6.6.3** Documenter l'API `/api/persona-builder` (input/output)
-- [ ] **6.6.4** Documenter l'API `/api/persona-validator` (input/output)
-- [ ] **6.6.5** Documenter l'API `/api/persona-preview` (input/output)
-- [ ] **6.6.6** Ajouter des commentaires JSDoc sur les types clés
+- [x] **6.6.1** Mettre à jour `ARCHITECTURE.md` avec le nouveau système de fichiers
+- [x] **6.6.2** Mettre à jour `docs/ui-guide.md` avec les nouveaux flows
+- [x] **6.6.3** Documenter l'API `/api/persona-builder` (input/output)
+- [x] **6.6.4** Documenter l'API `/api/persona-validator` (input/output)
+- [x] **6.6.5** Documenter l'API `/api/persona-preview` (input/output)
+- [x] **6.6.6** Ajouter des commentaires JSDoc sur les types clés
   - `PersonalityBuilderDraft`, `PersonalityTraits`, `AgentTemplate` étendu
 
 ### 6.7 — Nettoyage

@@ -9,9 +9,25 @@ type ValidationIssue = {
   field: string;
 };
 
+// Simple in-memory cache (5 min TTL)
+const CACHE_TTL_MS = 5 * 60 * 1000;
+const cache = new Map<string, { issues: ValidationIssue[]; ts: number }>();
+
+function getCacheKey(body: unknown): string {
+  return JSON.stringify(body);
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+
+    // Check cache
+    const key = getCacheKey(body);
+    const cached = cache.get(key);
+    if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
+      return NextResponse.json({ issues: cached.issues });
+    }
+
     const { persona, directives } = body as {
       persona?: {
         traits?: Record<string, number>;
@@ -65,6 +81,15 @@ export async function POST(request: Request) {
             "Very low verbosity with high creativity may limit creative expression.",
           field: "persona.traits",
         });
+      }
+    }
+
+    // Store in cache (evict stale entries periodically)
+    cache.set(key, { issues, ts: Date.now() });
+    if (cache.size > 100) {
+      const now = Date.now();
+      for (const [k, v] of cache) {
+        if (now - v.ts > CACHE_TTL_MS) cache.delete(k);
       }
     }
 

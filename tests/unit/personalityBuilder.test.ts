@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createAgentFilesState } from "@/lib/agents/agentFiles";
 import {
   parsePersonalityFiles,
+  parseLegacyPersonalityFiles,
   serializePersonalityFiles,
   type PersonalityBuilderDraft,
 } from "@/lib/agents/personalityBuilder";
@@ -94,6 +95,91 @@ describe("personalityBuilder", () => {
     expect(draft.user.timezone).toBe("");
     expect(draft.user.notes).toBe("");
     expect(draft.user.context).toBe("");
+  });
+
+  it("parseLegacyPersonalityFiles_migrates_7_file_format_to_draft", () => {
+    const legacyFiles = {
+      "IDENTITY.md": {
+        exists: true,
+        content:
+          "# IDENTITY.md\n\n- Name: LegacyBot\n- Creature: robot\n- Vibe: calm\n- Emoji: 🤖\n- Avatar: avatar.png\n",
+      },
+      "SOUL.md": {
+        exists: true,
+        content:
+          "# SOUL.md\n\n## Vibe\n\nSteady and reliable.\n\n## Core Truths\n\nAlways be honest.\n\n## Boundaries\n\n- No harm.\n\n## Continuity\n\nLearn and adapt.\n",
+      },
+      "AGENTS.md": {
+        exists: true,
+        content: "Be helpful and follow instructions.",
+      },
+      "TOOLS.md": {
+        exists: true,
+        content: "Use tools wisely.",
+      },
+      "USER.md": {
+        exists: true,
+        content:
+          "# USER.md - About Your Human\n\n- Name: Alice\n- What to call them: Al\n- Pronouns: she/her\n- Timezone: Europe/Paris\n- Notes: Likes clarity.\n\n## Context\n\nBuilding a startup.\n",
+      },
+      "HEARTBEAT.md": {
+        exists: true,
+        content: "Heartbeat data.",
+      },
+      "MEMORY.md": {
+        exists: true,
+        content: "Some memories.",
+      },
+    };
+
+    const draft = parseLegacyPersonalityFiles(legacyFiles);
+
+    expect(draft.persona.name).toBe("LegacyBot");
+    expect(draft.persona.creature).toBe("robot");
+    expect(draft.persona.vibe).toBe("calm");
+    expect(draft.persona.coreTruths).toBe("Always be honest.");
+    expect(draft.persona.boundaries).toBe("- No harm.");
+    expect(draft.persona.continuity).toBe("Learn and adapt.");
+    expect(draft.directives.rules).toBe("Be helpful and follow instructions.");
+    expect(draft.directives.toolNotes).toBe("Use tools wisely.");
+    expect(draft.user.name).toBe("Alice");
+    expect(draft.user.callThem).toBe("Al");
+    expect(draft.user.pronouns).toBe("she/her");
+    expect(draft.user.timezone).toBe("Europe/Paris");
+    expect(draft.heartbeat).toBe("Heartbeat data.");
+    expect(draft.memory).toBe("Some memories.");
+  });
+
+  it("parseLegacyPersonalityFiles_roundtrips_through_serialize", () => {
+    const legacyFiles = {
+      "IDENTITY.md": {
+        exists: true,
+        content:
+          "# IDENTITY.md\n\n- Name: Nova\n- Creature: fox spirit\n- Vibe: calm + direct\n- Emoji: 🦊\n- Avatar: avatars/nova.png\n",
+      },
+      "SOUL.md": {
+        exists: true,
+        content:
+          "# SOUL.md\n\n## Core Truths\n\nBe direct.\nAvoid filler.\n\n## Boundaries\n\n- Keep user data private.\n",
+      },
+      "AGENTS.md": { exists: true, content: "Operating rules." },
+      "TOOLS.md": { exists: true, content: "Tool conventions." },
+      "USER.md": {
+        exists: true,
+        content: "# USER.md\n\n- Name: George\n",
+      },
+      "HEARTBEAT.md": { exists: true, content: "" },
+      "MEMORY.md": { exists: true, content: "" },
+    };
+
+    const draft = parseLegacyPersonalityFiles(legacyFiles);
+    const newFiles = serializePersonalityFiles(draft);
+
+    expect(newFiles["PERSONA.md"]).toContain("- Name: Nova");
+    expect(newFiles["PERSONA.md"]).toContain("## Core Truths");
+    expect(newFiles["PERSONA.md"]).toContain("Be direct.");
+    expect(newFiles["DIRECTIVES.md"]).toContain("Operating rules.");
+    expect(newFiles["USER.md"]).toContain("- Name: George");
   });
 
   it("serializePersonalityFiles_emits_stable_markdown_for_persona_directives_user", () => {

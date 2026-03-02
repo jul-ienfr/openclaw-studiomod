@@ -1,6 +1,7 @@
 import type { PersonalityTraits } from "@/lib/agents/personalityTraits";
 import { TEMPLATE_PERSONALITIES } from "@/features/agents/templates/templatePersonalities";
 
+/** Persona slice of an agent template — personality traits and tone. */
 export type AgentTemplatePersona = {
   traits: PersonalityTraits;
   vibe: string;
@@ -8,6 +9,7 @@ export type AgentTemplatePersona = {
   boundaries: string;
 };
 
+/** Directives slice of an agent template — mission, rules, priorities. */
 export type AgentTemplateDirectives = {
   mission: string;
   rules: string;
@@ -15,6 +17,10 @@ export type AgentTemplateDirectives = {
   outputFormat: string;
 };
 
+/**
+ * A pre-built agent template that pre-fills the creation wizard.
+ * 14 templates ship out of the box (see `templatePersonalities.ts`).
+ */
 export type AgentTemplate = {
   id: string;
   icon: string;

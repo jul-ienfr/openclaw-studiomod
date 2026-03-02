@@ -17,7 +17,9 @@ const stubStudioApi = async (page: import("@playwright/test").Page) => {
 };
 
 test.describe("Agent Create Wizard", () => {
-  test("new agent button is visible on disconnected screen", async ({ page }) => {
+  test("new agent button is visible on disconnected screen", async ({
+    page,
+  }) => {
     await stubStudioApi(page);
     await page.goto("/");
     await expect(page.getByTestId("studio-menu-toggle")).toBeVisible();
@@ -34,5 +36,26 @@ test.describe("Agent Create Wizard", () => {
     await expect(page.getByTestId("skills-toggle")).toBeVisible();
     await expect(page.getByTestId("analytics-toggle")).toBeVisible();
     await expect(page.getByTestId("logs-toggle")).toBeVisible();
+  });
+
+  test("create button is disabled when disconnected", async ({ page }) => {
+    await stubStudioApi(page);
+    await page.goto("/");
+    const newAgentBtn = page.getByTestId("fleet-new-agent-button");
+    if (await newAgentBtn.isVisible()) {
+      await expect(newAgentBtn).toBeDisabled();
+    }
+  });
+});
+
+test.describe("Agent Create Wizard — Mobile", () => {
+  test.use({ viewport: { width: 375, height: 812 } });
+
+  test("studio menu is accessible on mobile", async ({ page }) => {
+    await stubStudioApi(page);
+    await page.goto("/");
+    await expect(page.getByTestId("studio-menu-toggle")).toBeVisible();
+    await page.getByTestId("studio-menu-toggle").click();
+    await expect(page.getByTestId("providers-toggle")).toBeVisible();
   });
 });
