@@ -1,4 +1,7 @@
+const crypto = require("node:crypto");
+const fs = require("node:fs");
 const http = require("node:http");
+const path = require("node:path");
 const next = require("next");
 
 const { createAccessGate } = require("./access-gate");
@@ -6,7 +9,64 @@ const { createGatewayProxy } = require("./gateway-proxy");
 const mobileTokenStore = require("./mobile-token-store");
 const tunnelDiscovery = require("./tunnel-discovery");
 const { assertPublicHostAllowed, resolveHosts } = require("./network-policy");
-const { loadUpstreamGatewaySettings } = require("./studio-settings");
+const { resolveStateDir, loadUpstreamGatewaySettings } = require("./studio-settings");
+
+// ── Auto-generate master token ────────────────────────────────────────
+// If STUDIO_ACCESS_TOKEN is not set or uses the well-known default,
+// generate a unique random token and persist it so it survives restarts.
+
+const KNOWN_DEFAULTS = new Set(["openclaw-studio-dev", "openclaw-studio"]);
+const MASTER_TOKEN_PATH = path.join(
+  resolveStateDir(),
+  "openclaw-studio",
+  "master-token",
+);
+
+function resolveAccessToken() {
+  const envToken = (process.env.STUDIO_ACCESS_TOKEN ?? "").trim();
+
+  // Explicit custom token — use as-is
+  if (envToken && !KNOWN_DEFAULTS.has(envToken)) {
+    return envToken;
+  }
+
+  // Try to load previously generated token
+  try {
+    const saved = fs.readFileSync(MASTER_TOKEN_PATH, "utf8").trim();
+    if (saved) return saved;
+  } catch {
+    /* not yet generated */
+  }
+
+  // Generate a new random token
+  const generated = crypto.randomBytes(24).toString("base64url");
+  const dir = path.dirname(MASTER_TOKEN_PATH);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(MASTER_TOKEN_PATH, generated, { mode: 0o600 });
+  console.info(
+    "\n╔══════════════════════════════════════════════════════════════╗",
+  );
+  console.info(
+    "║  New master access token generated (first launch)          ║",
+  );
+  console.info(
+    `║  Token: ${generated.padEnd(49)}║`,
+  );
+  console.info(
+    "║  Saved to: ~/.openclaw/openclaw-studio/master-token        ║",
+  );
+  console.info(
+    "║  Set STUDIO_ACCESS_TOKEN env to override.                  ║",
+  );
+  console.info(
+    "╚══════════════════════════════════════════════════════════════╝\n",
+  );
+  return generated;
+}
+
+const masterToken = resolveAccessToken();
+// Expose for network-policy assertPublicHostAllowed check
+process.env.STUDIO_ACCESS_TOKEN = masterToken;
 
 // Register tunnel URL change callback on globalThis BEFORE Next.js loads
 // the tunnel manager module (src/lib/tunnel/manager.ts reads this).
@@ -56,7 +116,7 @@ async function main() {
   const handle = app.getRequestHandler();
 
   const accessGate = createAccessGate({
-    token: process.env.STUDIO_ACCESS_TOKEN,
+    token: masterToken,
     tokenStore: mobileTokenStore,
   });
 
