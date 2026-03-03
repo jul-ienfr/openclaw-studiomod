@@ -112,22 +112,38 @@ async function publishTunnelUrl(url) {
   );
 
   if (config.gistId) {
-    // Update existing gist
-    try {
-      const res = await apiRequest("PATCH", `/gists/${config.gistId}`, pat, {
-        files: { "tunnel.json": { content } },
-      });
-      if (res.status === 200) {
-        console.info(`[tunnel-discovery] Gist updated with ${url}`);
-        return config.gistId;
+    // Update existing gist (retry once on 409 conflict)
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const res = await apiRequest(
+          "PATCH",
+          `/gists/${config.gistId}`,
+          pat,
+          { files: { "tunnel.json": { content } } },
+        );
+        if (res.status === 200) {
+          console.info(`[tunnel-discovery] Gist updated with ${url}`);
+          return config.gistId;
+        }
+        if (res.status === 409 && attempt === 0) {
+          // Conflict — wait briefly and retry
+          await new Promise((r) => setTimeout(r, 1000));
+          continue;
+        }
+        console.warn(
+          `[tunnel-discovery] Gist update failed (${res.status})`,
+        );
+      } catch (err) {
+        console.warn(
+          `[tunnel-discovery] Gist update error: ${err.message}`,
+        );
       }
-      console.warn(`[tunnel-discovery] Gist update failed (${res.status}), creating new one`);
-    } catch (err) {
-      console.warn(`[tunnel-discovery] Gist update error: ${err.message}`);
     }
+    // Don't create a new gist if one is configured — just log and bail
+    return null;
   }
 
-  // Create new gist
+  // Create new gist (only if no gistId configured at all)
   try {
     const res = await apiRequest("POST", "/gists", pat, {
       description: "OpenClaw Studio tunnel URL",
@@ -137,12 +153,19 @@ async function publishTunnelUrl(url) {
     if (res.status === 201 && res.data?.id) {
       config.gistId = res.data.id;
       saveConfig(config);
-      console.info(`[tunnel-discovery] Gist created: ${res.data.id} with ${url}`);
+      console.info(
+        `[tunnel-discovery] Gist created: ${res.data.id} with ${url}`,
+      );
       return res.data.id;
     }
-    console.error(`[tunnel-discovery] Gist creation failed (${res.status}):`, res.data);
+    console.error(
+      `[tunnel-discovery] Gist creation failed (${res.status}):`,
+      res.data,
+    );
   } catch (err) {
-    console.error(`[tunnel-discovery] Gist creation error: ${err.message}`);
+    console.error(
+      `[tunnel-discovery] Gist creation error: ${err.message}`,
+    );
   }
   return null;
 }
