@@ -36,29 +36,59 @@ export const VoiceControls = ({ agentId = "default" }: VoiceControlsProps) => {
 
   // Config state with lazy initializers
   const [provider, setProvider] = useState<VoiceProvider>(
-    () => loadedConfig?.provider ?? "browser"
+    () => loadedConfig?.provider ?? "browser",
   );
   const [language, setLanguage] = useState(
-    () => loadedConfig?.language ?? "en-US"
+    () => loadedConfig?.language ?? "en-US",
   );
   const [speed, setSpeed] = useState(() => loadedConfig?.speed ?? 1.0);
   const [autoListen, setAutoListen] = useState(
-    () => loadedConfig?.autoListen ?? false
+    () => loadedConfig?.autoListen ?? false,
   );
   const [voiceId, setVoiceId] = useState(() => loadedConfig?.voiceId ?? "");
 
-  // Reload config when agentId changes
+  // Reload config when agentId changes — use a single state object to avoid
+  // multiple synchronous setState calls inside the effect.
+  const [voiceConfig, setVoiceConfig] = useState(() => {
+    const configs = getVoiceConfigs();
+    const existing = configs.find((c) => c.agentId === agentId);
+    return {
+      provider: (existing?.provider ?? "browser") as VoiceProvider,
+      language: existing?.language ?? "en-US",
+      speed: existing?.speed ?? 1.0,
+      autoListen: existing?.autoListen ?? false,
+      voiceId: existing?.voiceId ?? "",
+    };
+  });
+
   useEffect(() => {
     const configs = getVoiceConfigs();
     const existing = configs.find((c) => c.agentId === agentId);
     if (existing) {
-      setProvider(existing.provider);
-      setLanguage(existing.language);
-      setSpeed(existing.speed);
-      setAutoListen(existing.autoListen);
-      setVoiceId(existing.voiceId);
+      setVoiceConfig({
+        provider: existing.provider,
+        language: existing.language,
+        speed: existing.speed,
+        autoListen: existing.autoListen,
+        voiceId: existing.voiceId,
+      });
     }
   }, [agentId]);
+
+  const provider = voiceConfig.provider;
+  const language = voiceConfig.language;
+  const speed = voiceConfig.speed;
+  const autoListen = voiceConfig.autoListen;
+  const voiceId = voiceConfig.voiceId;
+  const setProvider = (v: VoiceProvider) =>
+    setVoiceConfig((s) => ({ ...s, provider: v }));
+  const setLanguage = (v: string) =>
+    setVoiceConfig((s) => ({ ...s, language: v }));
+  const setSpeed = (v: number) => setVoiceConfig((s) => ({ ...s, speed: v }));
+  const setAutoListen = (v: boolean) =>
+    setVoiceConfig((s) => ({ ...s, autoListen: v }));
+  const setVoiceId = (v: string) =>
+    setVoiceConfig((s) => ({ ...s, voiceId: v }));
 
   const session = getVoiceSession(agentId);
 
@@ -95,7 +125,10 @@ export const VoiceControls = ({ agentId = "default" }: VoiceControlsProps) => {
 
   const toggleListening = useCallback(() => {
     const current = getVoiceSession(agentId).state;
-    setVoiceSessionState(agentId, current === "listening" ? "idle" : "listening");
+    setVoiceSessionState(
+      agentId,
+      current === "listening" ? "idle" : "listening",
+    );
     setRefreshKey((k) => k + 1);
   }, [agentId]);
 
@@ -120,7 +153,9 @@ export const VoiceControls = ({ agentId = "default" }: VoiceControlsProps) => {
         {isActive && (
           <span className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
-            {t(session.state as "idle" | "listening" | "processing" | "speaking")}
+            {t(
+              session.state as "idle" | "listening" | "processing" | "speaking",
+            )}
           </span>
         )}
         <button
@@ -134,9 +169,7 @@ export const VoiceControls = ({ agentId = "default" }: VoiceControlsProps) => {
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 py-4">
-        <p className="mb-4 text-xs text-muted-foreground">
-          {t("description")}
-        </p>
+        <p className="mb-4 text-xs text-muted-foreground">{t("description")}</p>
 
         {/* Control buttons */}
         <div className="flex gap-3">
@@ -177,26 +210,37 @@ export const VoiceControls = ({ agentId = "default" }: VoiceControlsProps) => {
 
         {/* Current config summary */}
         <div className="mt-4 rounded-lg bg-surface-2 px-3 py-2 text-[11px] text-muted-foreground">
-          {t("providerLabel")}: <span className="text-foreground">{selectedProvider?.label ?? provider}</span>
+          {t("providerLabel")}:{" "}
+          <span className="text-foreground">
+            {selectedProvider?.label ?? provider}
+          </span>
           {" · "}
-          {t("languageLabel")}: <span className="text-foreground">{language}</span>
+          {t("languageLabel")}:{" "}
+          <span className="text-foreground">{language}</span>
           {" · "}
           {t("speedLabel")}: <span className="text-foreground">{speed}x</span>
           {" · "}
-          {t("autoListen")}: <span className="text-foreground">{autoListen ? "On" : "Off"}</span>
+          {t("autoListen")}:{" "}
+          <span className="text-foreground">{autoListen ? "On" : "Off"}</span>
         </div>
 
         {/* Settings panel */}
         {showSettings && (
           <div className="mt-4 space-y-4 rounded-lg border border-border bg-surface-2/50 p-4">
-            <h3 className="text-xs font-semibold text-foreground">{t("settings")}</h3>
+            <h3 className="text-xs font-semibold text-foreground">
+              {t("settings")}
+            </h3>
 
             {/* Provider */}
             <div className="space-y-1">
-              <label className="text-[11px] font-medium text-muted-foreground">{t("providerLabel")}</label>
+              <label className="text-[11px] font-medium text-muted-foreground">
+                {t("providerLabel")}
+              </label>
               <select
                 value={provider}
-                onChange={(e) => handleProviderChange(e.target.value as VoiceProvider)}
+                onChange={(e) =>
+                  handleProviderChange(e.target.value as VoiceProvider)
+                }
                 className="ui-input w-full text-xs"
               >
                 {VOICE_PROVIDERS.map((p) => (
@@ -209,7 +253,9 @@ export const VoiceControls = ({ agentId = "default" }: VoiceControlsProps) => {
 
             {/* Language */}
             <div className="space-y-1">
-              <label className="text-[11px] font-medium text-muted-foreground">{t("languageLabel")}</label>
+              <label className="text-[11px] font-medium text-muted-foreground">
+                {t("languageLabel")}
+              </label>
               <select
                 value={language}
                 onChange={(e) => setLanguage(e.target.value)}
@@ -225,7 +271,9 @@ export const VoiceControls = ({ agentId = "default" }: VoiceControlsProps) => {
 
             {/* Voice ID */}
             <div className="space-y-1">
-              <label className="text-[11px] font-medium text-muted-foreground">Voice ID</label>
+              <label className="text-[11px] font-medium text-muted-foreground">
+                Voice ID
+              </label>
               <input
                 type="text"
                 value={voiceId}
