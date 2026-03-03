@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   AlertTriangle,
@@ -142,8 +135,6 @@ type AgentSettingsPanelProps = {
   ) => Promise<void> | void;
   onDelete: () => void;
   canDelete?: boolean;
-  onToolCallingToggle: (enabled: boolean) => void;
-  onThinkingTracesToggle: (enabled: boolean) => void;
   cronJobs: CronJobSummary[];
   cronLoading: boolean;
   cronError: string | null;
@@ -197,7 +188,8 @@ type AgentSettingsPanelProps = {
 
 const formatCronStateLine = (
   job: CronJobSummary,
-  t: (key: string, values?: any) => string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  t: (key: string, values?: Record<string, any>) => string,
 ): string | null => {
   if (
     typeof job.state.runningAtMs === "number" &&
@@ -398,8 +390,6 @@ export const AgentSettingsPanel = ({
   onUpdateAgentPermissions = () => {},
   onDelete,
   canDelete = true,
-  onToolCallingToggle,
-  onThinkingTracesToggle,
   cronJobs,
   cronLoading,
   cronError,
@@ -529,7 +519,7 @@ export const AgentSettingsPanel = ({
         setPermissionsSaving(false);
       }
     },
-    [onUpdateAgentPermissions, permissionsSaving],
+    [onUpdateAgentPermissions, permissionsSaving, t],
   );
 
   useEffect(() => {
@@ -777,7 +767,9 @@ export const AgentSettingsPanel = ({
                       >
                         {thinkingLevels.map((level) => (
                           <option key={level.value} value={level.value}>
-                            {t(thinkingLevelI18nKey[level.value] ?? level.value)}
+                            {t(
+                              thinkingLevelI18nKey[level.value] ?? level.value,
+                            )}
                           </option>
                         ))}
                       </select>
@@ -1632,7 +1624,7 @@ const useAgentFilesEditor = (params: {
     } finally {
       setAgentFilesLoading(false);
     }
-  }, [agentId, client]);
+  }, [agentId, client, t]);
 
   const saveAgentFiles = useCallback(async () => {
     setAgentFilesSaving(true);
@@ -1676,7 +1668,7 @@ const useAgentFilesEditor = (params: {
     } finally {
       setAgentFilesSaving(false);
     }
-  }, [agentFiles, agentId, client]);
+  }, [agentFiles, agentId, client, t]);
 
   const setAgentFileContent = useCallback(
     (name: AgentFileName, value: string) => {

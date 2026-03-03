@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import type { WatchItem, ScoreRecord, Decision } from "@/features/watcher/types";
+import type { WatchItem, ScoreRecord } from "@/features/watcher/types";
 import { DecisionBadge } from "./DecisionBadge";
 import { ScoreBar } from "./ScoreBar";
 import {
@@ -11,14 +11,12 @@ import {
   X,
   ExternalLink,
   Clock,
-  Shield,
-  Zap,
-  Star,
   Loader2,
   User,
 } from "lucide-react";
 
-type ReviewItem = WatchItem & Partial<ScoreRecord> & { title_fr?: string; impact?: string };
+type ReviewItem = WatchItem &
+  Partial<ScoreRecord> & { title_fr?: string; impact?: string };
 
 interface ReviewListProps {
   items: ReviewItem[];
@@ -115,7 +113,9 @@ function implementationAction(item: ReviewItem): string {
 
 function isActionable(item: ReviewItem): boolean {
   const cat = item.category;
-  return ["release", "npm_version", "npm_dist_tag", "clawhub_skill"].includes(cat);
+  return ["release", "npm_version", "npm_dist_tag", "clawhub_skill"].includes(
+    cat,
+  );
 }
 
 // ─── Score Detail Panel ──────────────────────────────────────────────────────
@@ -125,9 +125,13 @@ function ScoreDetail({ item }: { item: ReviewItem }) {
 
   useEffect(() => {
     if (item.author) {
-      fetch(`/api/watcher/author-score?author=${encodeURIComponent(item.author)}`)
+      fetch(
+        `/api/watcher/author-score?author=${encodeURIComponent(item.author)}`,
+      )
         .then((r) => r.json())
-        .then((data) => { if (!data.error) setAuthorScore(data); })
+        .then((data) => {
+          if (!data.error) setAuthorScore(data);
+        })
         .catch(() => {});
     }
   }, [item.author]);
@@ -143,21 +147,26 @@ function ScoreDetail({ item }: { item: ReviewItem }) {
     <div className="space-y-3 mt-2">
       {/* Ligne du haut : Score (1fr) | Auteur (1fr) | Détails (1fr) */}
       <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1.2fr] gap-3">
-
         {/* ── Score de confiance (compact) ── */}
         <div className="rounded-lg border border-border bg-sidebar/50 p-3">
           <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
             Score de confiance
           </h4>
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-xl font-bold text-foreground">{item.global ?? 0}%</span>
+            <span className="text-xl font-bold text-foreground">
+              {item.global ?? 0}%
+            </span>
           </div>
           <div className="space-y-1.5">
             {scores.map((s) => (
               <div key={s.key} className="flex items-center gap-1.5">
-                <span className="text-[10px] text-muted-foreground w-12 shrink-0">{s.label}</span>
+                <span className="text-[10px] text-muted-foreground w-12 shrink-0">
+                  {s.label}
+                </span>
                 <ScoreBar value={s.value} size="sm" className="flex-1" />
-                <span className="text-[10px] font-mono text-muted-foreground w-6 text-right">{s.value ?? 0}</span>
+                <span className="text-[10px] font-mono text-muted-foreground w-6 text-right">
+                  {s.value ?? 0}
+                </span>
               </div>
             ))}
           </div>
@@ -172,43 +181,63 @@ function ScoreDetail({ item }: { item: ReviewItem }) {
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                <span className="text-sm text-foreground truncate">{item.author}</span>
+                <span className="text-sm text-foreground truncate">
+                  {item.author}
+                </span>
               </div>
               {authorScore ? (
                 <>
                   <div className="flex items-center gap-2">
-                    <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium ${ROLE_COLORS[authorScore.role] ?? "bg-muted text-muted-foreground"}`}>
+                    <span
+                      className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium ${ROLE_COLORS[authorScore.role] ?? "bg-muted text-muted-foreground"}`}
+                    >
                       {ROLE_LABELS[authorScore.role] ?? authorScore.role}
                     </span>
-                    <span className={`text-lg font-bold ${
-                      authorScore.score >= 75 ? "text-green-400" : authorScore.score >= 50 ? "text-yellow-400" : "text-red-400"
-                    }`}>
+                    <span
+                      className={`text-lg font-bold ${
+                        authorScore.score >= 75
+                          ? "text-green-400"
+                          : authorScore.score >= 50
+                            ? "text-yellow-400"
+                            : "text-red-400"
+                      }`}
+                    >
                       {authorScore.score}%
                     </span>
                   </div>
                   <div className="space-y-0.5 text-[10px] text-muted-foreground">
                     <div className="flex justify-between">
                       <span>Contributions</span>
-                      <span className="text-foreground">{authorScore.contributions}</span>
+                      <span className="text-foreground">
+                        {authorScore.contributions}
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span>AUTO acceptés</span>
-                      <span className="text-foreground">{authorScore.auto_count}</span>
+                      <span className="text-foreground">
+                        {authorScore.auto_count}
+                      </span>
                     </div>
                     {authorScore.block_count > 0 && (
                       <div className="flex justify-between">
                         <span>Bloqués</span>
-                        <span className="text-red-400">{authorScore.block_count}</span>
+                        <span className="text-red-400">
+                          {authorScore.block_count}
+                        </span>
                       </div>
                     )}
                   </div>
                 </>
               ) : (
-                <span className="text-[10px] text-muted-foreground">Chargement…</span>
+                <span className="text-[10px] text-muted-foreground">
+                  Chargement…
+                </span>
               )}
             </div>
           ) : (
-            <span className="text-xs text-muted-foreground">Auteur inconnu</span>
+            <span className="text-xs text-muted-foreground">
+              Auteur inconnu
+            </span>
           )}
         </div>
 
@@ -220,11 +249,15 @@ function ScoreDetail({ item }: { item: ReviewItem }) {
           <div className="space-y-1 text-xs">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Source</span>
-              <span className="text-foreground">{SOURCE_LABELS[item.source] ?? item.source}</span>
+              <span className="text-foreground">
+                {SOURCE_LABELS[item.source] ?? item.source}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Catégorie</span>
-              <span className="text-foreground">{CATEGORY_LABELS[item.category] ?? item.category}</span>
+              <span className="text-foreground">
+                {CATEGORY_LABELS[item.category] ?? item.category}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Date</span>
@@ -233,7 +266,9 @@ function ScoreDetail({ item }: { item: ReviewItem }) {
             {isActionable(item) && (
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Action</span>
-                <span className="text-foreground font-mono text-[10px]">{implementationAction(item)}</span>
+                <span className="text-foreground font-mono text-[10px]">
+                  {implementationAction(item)}
+                </span>
               </div>
             )}
           </div>
@@ -278,7 +313,8 @@ function ReviewItemRow({
   onReject: () => void;
   isProcessing: boolean;
 }) {
-  const catColor = CATEGORY_COLORS[item.category] ?? "bg-muted text-muted-foreground";
+  const catColor =
+    CATEGORY_COLORS[item.category] ?? "bg-muted text-muted-foreground";
 
   return (
     <div className="rounded-lg border border-border bg-card overflow-hidden transition-colors hover:border-border/80">
@@ -295,7 +331,9 @@ function ReviewItemRow({
         )}
 
         {/* Category badge */}
-        <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${catColor}`}>
+        <span
+          className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${catColor}`}
+        >
           {CATEGORY_LABELS[item.category] ?? item.category}
         </span>
 
@@ -329,7 +367,10 @@ function ReviewItemRow({
         </span>
 
         {/* Action buttons */}
-        <div className="flex items-center gap-1.5 ml-2" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="flex items-center gap-1.5 ml-2"
+          onClick={(e) => e.stopPropagation()}
+        >
           {isActionable(item) && (
             <button
               onClick={onAccept}
@@ -393,41 +434,51 @@ export function ReviewList({ items, onRefresh }: ReviewListProps) {
     });
   }, []);
 
-  const handleAccept = useCallback(async (item: ReviewItem) => {
-    setProcessing((p) => new Set(p).add(item.id));
-    try {
-      const res = await fetch("/api/watcher/actions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "implement", itemId: item.id }),
+  const handleAccept = useCallback(
+    async (item: ReviewItem) => {
+      setProcessing((p) => new Set(p).add(item.id));
+      try {
+        const res = await fetch("/api/watcher/actions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "implement", itemId: item.id }),
+        });
+        const data = await res.json();
+        if (data.ok) onRefresh();
+      } catch {
+        /* ignore */
+      }
+      setProcessing((p) => {
+        const next = new Set(p);
+        next.delete(item.id);
+        return next;
       });
-      const data = await res.json();
-      if (data.ok) onRefresh();
-    } catch { /* ignore */ }
-    setProcessing((p) => {
-      const next = new Set(p);
-      next.delete(item.id);
-      return next;
-    });
-  }, [onRefresh]);
+    },
+    [onRefresh],
+  );
 
-  const handleReject = useCallback(async (item: ReviewItem) => {
-    setProcessing((p) => new Set(p).add(item.id));
-    try {
-      const res = await fetch("/api/watcher/actions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "ignore", itemId: item.id }),
+  const handleReject = useCallback(
+    async (item: ReviewItem) => {
+      setProcessing((p) => new Set(p).add(item.id));
+      try {
+        const res = await fetch("/api/watcher/actions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "ignore", itemId: item.id }),
+        });
+        const data = await res.json();
+        if (data.ok) onRefresh();
+      } catch {
+        /* ignore */
+      }
+      setProcessing((p) => {
+        const next = new Set(p);
+        next.delete(item.id);
+        return next;
       });
-      const data = await res.json();
-      if (data.ok) onRefresh();
-    } catch { /* ignore */ }
-    setProcessing((p) => {
-      const next = new Set(p);
-      next.delete(item.id);
-      return next;
-    });
-  }, [onRefresh]);
+    },
+    [onRefresh],
+  );
 
   if (items.length === 0) {
     return (
@@ -439,7 +490,14 @@ export function ReviewList({ items, onRefresh }: ReviewListProps) {
   }
 
   // Group by decision priority: AUTO first, then PROPOSE, then rest
-  const priority: Record<string, number> = { AUTO: 0, PROPOSE: 1, NOTIFY: 2, SUSPECT: 3, BLOCK: 4, ARCHIVE: 5 };
+  const priority: Record<string, number> = {
+    AUTO: 0,
+    PROPOSE: 1,
+    NOTIFY: 2,
+    SUSPECT: 3,
+    BLOCK: 4,
+    ARCHIVE: 5,
+  };
   const sorted = [...items].sort((a, b) => {
     const pa = priority[a.decision ?? "NOTIFY"] ?? 9;
     const pb = priority[b.decision ?? "NOTIFY"] ?? 9;

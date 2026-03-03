@@ -6,7 +6,7 @@ const normalizedRunId = (value: unknown): string => {
 
 export const mergePendingLivePatch = (
   existing: Partial<AgentState> | undefined,
-  incoming: Partial<AgentState>
+  incoming: Partial<AgentState>,
 ): Partial<AgentState> => {
   if (!existing) return incoming;
 
@@ -18,7 +18,9 @@ export const mergePendingLivePatch = (
   }
 
   if (incomingRunId && !existingRunId) {
-    const { streamText: _dropStreamText, thinkingTrace: _dropThinkingTrace, ...rest } = existing;
+    const rest = { ...existing };
+    delete rest.streamText;
+    delete rest.thinkingTrace;
     return { ...rest, ...incoming };
   }
 

@@ -2,7 +2,6 @@ import { useState, useCallback } from "react";
 import type { PersonalityTraits } from "@/lib/agents/personalityTraits";
 import { DEFAULT_TRAITS } from "@/lib/agents/personalityTraits";
 import type { AgentTemplate } from "@/features/agents/templates/agentTemplates";
-import { getTemplateById } from "@/features/agents/templates/agentTemplates";
 import type { AgentCreateModalSubmitPayload } from "@/features/agents/creation/types";
 
 type CreationMode = "template" | "conversational" | "blank";

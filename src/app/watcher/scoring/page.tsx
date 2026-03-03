@@ -10,10 +10,15 @@ export default function ScoringPage() {
   const { state } = useWatcherStore();
 
   useEffect(() => {
-    loadScores(Object.fromEntries(Object.entries(state.filters ?? {}).filter(([,v]) => v != null).map(([k,v]) => [k, String(v)])));
-  }, []);
-
-  const total = state.scores?.length ?? 0;
+    loadScores(
+      Object.fromEntries(
+        Object.entries(state.filters ?? {})
+          .filter(([, v]) => v != null)
+          .map(([k, v]) => [k, String(v)]),
+      ),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadScores]);
 
   return (
     <div className="space-y-6">

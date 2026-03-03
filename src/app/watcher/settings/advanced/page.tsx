@@ -59,12 +59,18 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 }
 
 export default function SettingsAdvancedPage() {
-  const { configDirty, configSaving, configError, loadConfig, saveConfig, resetConfig } =
-    useWatcherConfigController();
+  const {
+    configDirty,
+    configSaving,
+    configError,
+    loadConfig,
+    saveConfig,
+    resetConfig,
+  } = useWatcherConfigController();
 
   useEffect(() => {
     loadConfig();
-  }, []);
+  }, [loadConfig]);
 
   return (
     <div className="space-y-8">

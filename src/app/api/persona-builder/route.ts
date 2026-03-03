@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server";
-import {
-  PERSONA_BUILDER_SYSTEM_PROMPT,
-  buildPersonaBuilderUserPrompt,
-} from "@/features/agents/creation/personaBuilderPrompt";
+import { buildPersonaBuilderUserPrompt } from "@/features/agents/creation/personaBuilderPrompt";
 import { parsePersonaBuilderResult } from "@/features/agents/creation/personaBuilderSchema";
 
 export const runtime = "nodejs";
@@ -35,10 +32,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const userPrompt = buildPersonaBuilderUserPrompt(
-      description.trim(),
-      feedback?.trim(),
-    );
+    buildPersonaBuilderUserPrompt(description.trim(), feedback?.trim());
 
     // Use fetch to call the gateway's LLM endpoint
     // This is a placeholder — in production, this would route through the gateway client

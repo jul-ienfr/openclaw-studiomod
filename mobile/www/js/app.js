@@ -1,5 +1,7 @@
 // app.js — Main application logic
 
+/** @type {object|null} Currently connected server (for disconnect state tracking). */
+// eslint-disable-next-line no-unused-vars
 let currentServer = null;
 
 // ─── DOM refs ───
@@ -83,7 +85,7 @@ async function connectToServer(server) {
 
     // Navigate the whole webview to the Studio URL
     window.location.href = url;
-  } catch (e) {
+  } catch {
     // Fallback: direct navigation
     window.location.href = url;
   }

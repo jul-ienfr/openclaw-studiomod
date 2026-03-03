@@ -25,17 +25,19 @@ export default function WatcherReviewPage() {
   });
 
   useEffect(() => {
-    const statusFilter = filters.status === "all" ? "scored,ignored" : filters.status;
+    const statusFilter =
+      filters.status === "all" ? "scored,ignored" : filters.status;
     loadItems({
       status: statusFilter,
       category: filters.category || undefined,
       min_score: filters.minScore || undefined,
       limit: "50",
     });
-  }, [filters]);
+  }, [filters, loadItems]);
 
   const refresh = () => {
-    const statusFilter = filters.status === "all" ? "scored,ignored" : filters.status;
+    const statusFilter =
+      filters.status === "all" ? "scored,ignored" : filters.status;
     loadItems({
       status: statusFilter,
       category: filters.category || undefined,
@@ -54,9 +56,12 @@ export default function WatcherReviewPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-base font-semibold text-foreground">Items à traiter</h2>
+          <h2 className="text-base font-semibold text-foreground">
+            Items à traiter
+          </h2>
           <p className="text-sm text-muted-foreground">
-            {state.itemsTotal} item{state.itemsTotal !== 1 ? "s" : ""} affiché{state.itemsTotal !== 1 ? "s" : ""}
+            {state.itemsTotal} item{state.itemsTotal !== 1 ? "s" : ""} affiché
+            {state.itemsTotal !== 1 ? "s" : ""}
           </p>
         </div>
         <button
@@ -71,15 +76,21 @@ export default function WatcherReviewPage() {
       <div className="rounded-lg border border-border bg-sidebar/50 p-3">
         <div className="flex items-center gap-2 mb-2">
           <Filter className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="text-xs font-medium text-muted-foreground">Filtres</span>
+          <span className="text-xs font-medium text-muted-foreground">
+            Filtres
+          </span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {/* Status */}
           <div>
-            <label className="text-[10px] text-muted-foreground block mb-1">Statut</label>
+            <label className="text-[10px] text-muted-foreground block mb-1">
+              Statut
+            </label>
             <select
               value={filters.status}
-              onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+              onChange={(e) =>
+                setFilters({ ...filters, status: e.target.value })
+              }
               className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
             >
               {Object.entries(statusLabels).map(([value, label]) => (
@@ -92,10 +103,14 @@ export default function WatcherReviewPage() {
 
           {/* Catégorie */}
           <div>
-            <label className="text-[10px] text-muted-foreground block mb-1">Catégorie</label>
+            <label className="text-[10px] text-muted-foreground block mb-1">
+              Catégorie
+            </label>
             <select
               value={filters.category}
-              onChange={(e) => setFilters({ ...filters, category: e.target.value })}
+              onChange={(e) =>
+                setFilters({ ...filters, category: e.target.value })
+              }
               className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
             >
               <option value={ACTIONABLE_CATEGORIES}>Implémentables</option>
@@ -108,13 +123,17 @@ export default function WatcherReviewPage() {
 
           {/* Score minimum */}
           <div>
-            <label className="text-[10px] text-muted-foreground block mb-1">Score min. (%)</label>
+            <label className="text-[10px] text-muted-foreground block mb-1">
+              Score min. (%)
+            </label>
             <input
               type="number"
               min="0"
               max="100"
               value={filters.minScore}
-              onChange={(e) => setFilters({ ...filters, minScore: e.target.value })}
+              onChange={(e) =>
+                setFilters({ ...filters, minScore: e.target.value })
+              }
               className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>

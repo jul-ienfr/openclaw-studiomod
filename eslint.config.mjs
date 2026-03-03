@@ -30,6 +30,16 @@ const eslintConfig = defineConfig([
 
     // Vendored third-party code (kept as-is; linting it adds noise).
     "src/lib/avatars/vendor/**",
+
+    // Build artifacts (bundled/minified SPAs).
+    "public/ai-manager/**",
+
+    // Mobile app (Capacitor — plain JS, not Next.js/React).
+    "mobile/**",
+
+    // Desktop app (Tauri — build output and Rust target).
+    "desktop/dist/**",
+    "desktop/src-tauri/target/**",
   ]),
   prettier,
 ]);

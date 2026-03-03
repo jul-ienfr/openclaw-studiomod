@@ -21,12 +21,24 @@ type AgentSkillsSetupModalProps = {
   apiKeyDraft: string;
   defaultAgentScopeWarning?: string | null;
   onClose: () => void;
-  onInstallSkill: (skillKey: string, name: string, installId: string) => Promise<void> | void;
-  onSetSkillGlobalEnabled: (skillKey: string, enabled: boolean) => Promise<void> | void;
-  onRemoveSkill: (
-    skill: { skillKey: string; source: string; baseDir: string }
+  onInstallSkill: (
+    skillKey: string,
+    name: string,
+    installId: string,
   ) => Promise<void> | void;
-  onSkillApiKeyChange: (skillKey: string, value: string) => Promise<void> | void;
+  onSetSkillGlobalEnabled: (
+    skillKey: string,
+    enabled: boolean,
+  ) => Promise<void> | void;
+  onRemoveSkill: (skill: {
+    skillKey: string;
+    source: string;
+    baseDir: string;
+  }) => Promise<void> | void;
+  onSkillApiKeyChange: (
+    skillKey: string,
+    value: string,
+  ) => Promise<void> | void;
   onSaveSkillApiKey: (skillKey: string) => Promise<void> | void;
 };
 
@@ -74,7 +86,10 @@ export const AgentSkillsSetupModal = ({
   }
 
   const readiness = deriveSkillReadinessState(skill);
-  const readinessLabel = t(`readiness${readiness.charAt(0).toUpperCase() + readiness.slice(1)}` as any);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const readinessLabel = t(
+    `readiness${readiness.charAt(0).toUpperCase() + readiness.slice(1)}` as any,
+  );
   const readinessClassName = READINESS_CLASSES[readiness];
   const missingDetails = buildSkillMissingDetails(skill);
   const installOption = resolvePreferredInstallOption(skill);
@@ -101,7 +116,9 @@ export const AgentSkillsSetupModal = ({
               {t("systemSetup")}
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-2">
-              <span className="text-base font-semibold text-foreground">{skill.name}</span>
+              <span className="text-base font-semibold text-foreground">
+                {skill.name}
+              </span>
               <span
                 className={`rounded border px-1.5 py-0.5 font-mono text-[10px] font-semibold ${readinessClassName}`}
               >
@@ -133,7 +150,10 @@ export const AgentSkillsSetupModal = ({
             </div>
           ) : null}
           {missingDetails.map((line) => (
-            <div key={`${skill.skillKey}:${line}`} className="text-[10px] text-muted-foreground/80">
+            <div
+              key={`${skill.skillKey}:${line}`}
+              className="text-[10px] text-muted-foreground/80"
+            >
               {line}
             </div>
           ))}
@@ -151,7 +171,11 @@ export const AgentSkillsSetupModal = ({
                 className="ui-btn-secondary w-full px-3 py-2 text-[10px] font-medium disabled:cursor-not-allowed disabled:opacity-65"
                 disabled={anySkillBusy}
                 onClick={() => {
-                  void onInstallSkill(skill.skillKey, skill.name, installOption.id);
+                  void onInstallSkill(
+                    skill.skillKey,
+                    skill.name,
+                    installOption.id,
+                  );
                 }}
               >
                 {busyForSkill ? t("working") : installOption.label}
@@ -177,11 +201,16 @@ export const AgentSkillsSetupModal = ({
                   type="password"
                   value={apiKeyDraft}
                   onChange={(event) => {
-                    void onSkillApiKeyChange(skill.skillKey, event.target.value);
+                    void onSkillApiKeyChange(
+                      skill.skillKey,
+                      event.target.value,
+                    );
                   }}
                   disabled={anySkillBusy}
                   className="w-full rounded-md border border-border/60 bg-surface-1 px-3 py-2 text-[10px] text-foreground outline-none transition focus:border-border"
-                  placeholder={t("setEnvPlaceholder", { envVar: skill.primaryEnv })}
+                  placeholder={t("setEnvPlaceholder", {
+                    envVar: skill.primaryEnv,
+                  })}
                   aria-label={t("apiKeyLabel", { name: skill.name })}
                 />
                 <button
@@ -195,7 +224,9 @@ export const AgentSkillsSetupModal = ({
                     void onSaveSkillApiKey(skill.skillKey);
                   }}
                 >
-                  {busyForSkill ? t("working") : t("saveEnv", { envVar: skill.primaryEnv })}
+                  {busyForSkill
+                    ? t("working")
+                    : t("saveEnv", { envVar: skill.primaryEnv })}
                 </button>
               </>
             ) : null}
@@ -206,7 +237,7 @@ export const AgentSkillsSetupModal = ({
                 disabled={anySkillBusy}
                 onClick={() => {
                   const approved = window.confirm(
-                    t("confirmRemove", { name: skill.name })
+                    t("confirmRemove", { name: skill.name }),
                   );
                   if (!approved) {
                     return;

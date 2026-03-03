@@ -17,16 +17,42 @@ import { useTranslations } from "next-intl";
 import type { AgentState as AgentRecord } from "@/features/agents/state/store";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Check, ChevronRight, Clock, Cog, CornerUpLeft, FileText, Forward, Mic, Paperclip, Pencil, Play, Shuffle, Trash2, X, Zap } from "lucide-react";
+import {
+  Check,
+  ChevronRight,
+  Clock,
+  Cog,
+  CornerUpLeft,
+  FileText,
+  Forward,
+  Mic,
+  Paperclip,
+  Pencil,
+  Play,
+  Shuffle,
+  Trash2,
+  X,
+  Zap,
+} from "lucide-react";
 import type { GatewayModelChoice } from "@/lib/gateway/models";
 import { getThinkingLevels } from "@/lib/gateway/models";
-import { classifyMessageDifficulty, isClaude46Model } from "@/lib/thinking/autoThinkingLevel";
+import {
+  classifyMessageDifficulty,
+  isClaude46Model,
+} from "@/lib/thinking/autoThinkingLevel";
 import { rewriteMediaLinesToMarkdown } from "@/lib/text/media-markdown";
 import { normalizeAssistantDisplayText } from "@/lib/text/assistantText";
 import { useVoiceRecorder } from "@/features/agents/hooks/useVoiceRecorder";
-import { useAttachments, type Attachment, type GatewayAttachment } from "@/features/agents/hooks/useAttachments";
+import {
+  useAttachments,
+  type Attachment,
+  type GatewayAttachment,
+} from "@/features/agents/hooks/useAttachments";
 import { isNearBottom } from "@/lib/dom";
-import { loadAgentUiPrefs, saveAgentUiPref } from "@/features/agents/state/agentUiPrefs";
+import {
+  loadAgentUiPrefs,
+  saveAgentUiPref,
+} from "@/features/agents/state/agentUiPrefs";
 import { AgentAvatar } from "./AgentAvatar";
 import {
   SPINE_LEFT,
@@ -34,10 +60,8 @@ import {
   ASSISTANT_MAX_WIDTH_DEFAULT_CLASS,
   ASSISTANT_MAX_WIDTH_EXPANDED_CLASS,
   CHAT_TOP_THRESHOLD_PX,
-  EMPTY_CHAT_INTRO_MESSAGES,
   formatChatTimestamp,
   formatDurationLabel,
-  stableStringHash,
   resolveEmptyChatIntroMessage,
   resolveAssistantMaxWidthClass,
 } from "./chat/chatUtils";
@@ -69,6 +93,7 @@ const ChatMarkdownImg = (props: React.ImgHTMLAttributes<HTMLImageElement>) => {
   const openLightbox = useContext(LightboxContext);
   const src = typeof props.src === "string" ? props.src : undefined;
   return (
+    // eslint-disable-next-line @next/next/no-img-element
     <img
       src={src}
       alt={props.alt ?? ""}
@@ -108,6 +133,7 @@ const ChatImageLightbox = memo(function ChatImageLightbox({
       >
         <X className="h-5 w-5" />
       </button>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={src}
         alt=""
@@ -140,7 +166,10 @@ const MessageActionBar = memo(function MessageActionBar({
   useEffect(() => {
     if (!forwardOpen) return;
     const handler = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node)
+      ) {
         setForwardOpen(false);
       }
     };
@@ -335,7 +364,11 @@ const ToolCallDetails = memo(function ToolCallDetails({
       </summary>
       {open && body ? (
         <div className="agent-markdown agent-tool-markdown mt-1 text-foreground">
-          <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={chatUrlTransform} components={chatMarkdownComponents}>
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            urlTransform={chatUrlTransform}
+            components={chatMarkdownComponents}
+          >
             {rewriteMediaLinesToMarkdown(body)}
           </ReactMarkdown>
         </div>
@@ -411,7 +444,11 @@ const ThinkingDetailsRow = memo(function ThinkingDetailsRow({
                 key={`thinking-event-${index}-${event.text.slice(0, 48)}`}
                 className="agent-markdown min-w-0 text-foreground/85"
               >
-                <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={chatUrlTransform} components={chatMarkdownComponents}>
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  urlTransform={chatUrlTransform}
+                  components={chatMarkdownComponents}
+                >
                   {event.text}
                 </ReactMarkdown>
               </div>
@@ -450,7 +487,11 @@ const UserMessageCard = memo(function UserMessageCard({
 
   return (
     <div className="group/msg relative ui-chat-user-card w-full max-w-[70ch] self-end overflow-hidden rounded-[var(--radius-small)] bg-[color:var(--chat-user-bg)]">
-      <MessageActionBar onReply={onReply} onForward={forwardWithText} otherAgents={otherAgents} />
+      <MessageActionBar
+        onReply={onReply}
+        onForward={forwardWithText}
+        otherAgents={otherAgents}
+      />
       <div className="flex items-center justify-between gap-3 bg-[color:var(--chat-user-header-bg)] px-3 py-2 dark:px-3.5 dark:py-2.5">
         <div className="type-meta min-w-0 truncate font-mono text-foreground/90">
           You
@@ -529,7 +570,11 @@ const AssistantMessageCard = memo(function AssistantMessageCard({
         className={`relative w-full ${widthClass} ${ASSISTANT_GUTTER_CLASS}`}
       >
         {showActions ? (
-          <MessageActionBar onReply={onReply} onForward={forwardWithText} otherAgents={otherAgents} />
+          <MessageActionBar
+            onReply={onReply}
+            onForward={forwardWithText}
+            otherAgents={otherAgents}
+          />
         ) : null}
         <div className="absolute left-[4px] top-[2px]">
           <AgentAvatar
@@ -617,7 +662,11 @@ const AssistantMessageCard = memo(function AssistantMessageCard({
                     }
                     return (
                       <div className="agent-markdown text-foreground">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={chatUrlTransform} components={chatMarkdownComponents}>
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          urlTransform={chatUrlTransform}
+                          components={chatMarkdownComponents}
+                        >
                           {rewritten}
                         </ReactMarkdown>
                       </div>
@@ -625,7 +674,11 @@ const AssistantMessageCard = memo(function AssistantMessageCard({
                   })()
                 ) : (
                   <div className="agent-markdown text-foreground">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={chatUrlTransform} components={chatMarkdownComponents}>
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      urlTransform={chatUrlTransform}
+                      components={chatMarkdownComponents}
+                    >
                       {rewriteMediaLinesToMarkdown(contentText)}
                     </ReactMarkdown>
                   </div>
@@ -736,7 +789,9 @@ const AgentChatFinalItems = memo(function AgentChatFinalItems({
             thinkingDurationMs={block.thinkingDurationMs}
             contentText={block.text}
             streaming={streaming}
-            onReply={onReply && block.text ? () => onReply(block.text!) : undefined}
+            onReply={
+              onReply && block.text ? () => onReply(block.text!) : undefined
+            }
             onForward={block.text ? onForward : undefined}
             otherAgents={otherAgents}
           />
@@ -1132,13 +1187,20 @@ const AgentChatComposer = memo(function AgentChatComposer({
       modelOptions.find((option) => option.value === modelValue)?.label ??
       modelValue
     );
-  }, [modelOptions, modelValue]);
-  const modelSelectWidthCh = Math.max(11, Math.min(44, modelSelectedLabel.length + 6));
-  const thinkingSelectedLabel = useMemo(
-    () => thinkingLevels.find((l) => l.value === thinkingValue)?.label ?? "Default",
-    [thinkingLevels, thinkingValue]
+  }, [modelOptions, modelValue, tc]);
+  const modelSelectWidthCh = Math.max(
+    11,
+    Math.min(44, modelSelectedLabel.length + 6),
   );
-  const thinkingSelectWidthCh = Math.max(9, Math.min(22, thinkingSelectedLabel.length + 6));
+  const thinkingSelectedLabel = useMemo(
+    () =>
+      thinkingLevels.find((l) => l.value === thinkingValue)?.label ?? "Default",
+    [thinkingLevels, thinkingValue],
+  );
+  const thinkingSelectWidthCh = Math.max(
+    9,
+    Math.min(22, thinkingSelectedLabel.length + 6),
+  );
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const handlePaste = useCallback(
     (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
@@ -1161,6 +1223,7 @@ const AgentChatComposer = memo(function AgentChatComposer({
               className="group relative flex items-center gap-1.5 rounded-md border border-border/70 bg-card/80 px-2 py-1"
             >
               {att.previewUrl ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
                 <img
                   src={att.previewUrl}
                   alt={att.fileName}
@@ -1319,10 +1382,20 @@ const AgentChatComposer = memo(function AgentChatComposer({
           type="button"
           onClick={onToggleVoice}
           disabled={voiceTranscribing}
-          aria-label={voiceRecording ? "Arrêter l'enregistrement" : "Enregistrer un vocal"}
-          title={voiceTranscribing ? "Transcription..." : voiceRecording ? "Cliquer pour envoyer" : "Vocal"}
+          aria-label={
+            voiceRecording ? "Arrêter l'enregistrement" : "Enregistrer un vocal"
+          }
+          title={
+            voiceTranscribing
+              ? "Transcription..."
+              : voiceRecording
+                ? "Cliquer pour envoyer"
+                : "Vocal"
+          }
         >
-          <Mic className={`h-3.5 w-3.5 ${voiceRecording ? "text-destructive animate-pulse" : voiceTranscribing ? "text-muted-foreground animate-pulse" : "text-muted-foreground"}`} />
+          <Mic
+            className={`h-3.5 w-3.5 ${voiceRecording ? "text-destructive animate-pulse" : voiceTranscribing ? "text-muted-foreground animate-pulse" : "text-muted-foreground"}`}
+          />
         </button>
       </div>
       <div className="mt-1 flex items-center justify-between gap-2">
@@ -1393,7 +1466,9 @@ const AgentChatComposer = memo(function AgentChatComposer({
                   }}
                 >
                   {thinkingLevels.map((level) => (
-                    <option key={level.value} value={level.value}>{level.label}</option>
+                    <option key={level.value} value={level.value}>
+                      {level.label}
+                    </option>
                   ))}
                 </select>
               </InlineHoverTooltip>
@@ -1435,7 +1510,11 @@ const AgentChatComposer = memo(function AgentChatComposer({
             role="switch"
             aria-label="Toggle system notices"
             aria-checked={hideSystemMessages}
-            title={hideSystemMessages ? "System notices visible" : "System notices hidden"}
+            title={
+              hideSystemMessages
+                ? "System notices visible"
+                : "System notices hidden"
+            }
             className={`inline-flex h-5 items-center rounded-sm border px-1.5 font-mono text-[10px] tracking-[0.01em] transition ${
               hideSystemMessages
                 ? "border-primary/45 bg-primary/14 text-foreground"
@@ -1507,7 +1586,10 @@ export const AgentChatPanel = ({
   const handleReply = useCallback(
     (text: string) => {
       const lines = text.replace(/^> /gm, "").trim();
-      const quoted = lines.split("\n").map((l) => `> ${l}`).join("\n");
+      const quoted = lines
+        .split("\n")
+        .map((l) => `> ${l}`)
+        .join("\n");
       const newDraft = `${quoted}\n\n`;
       setDraftValue(newDraft);
       plainDraftRef.current = newDraft;
@@ -1598,7 +1680,7 @@ export const AgentChatPanel = ({
     (message: string, extraAttachments?: GatewayAttachment[]) => {
       if (!canSend) return;
       const trimmed = message.trim();
-      const hasAttachments = (extraAttachments && extraAttachments.length > 0);
+      const hasAttachments = extraAttachments && extraAttachments.length > 0;
       if (!trimmed && !hasAttachments) return;
       plainDraftRef.current = "";
       setDraftValue("");
@@ -1611,7 +1693,10 @@ export const AgentChatPanel = ({
 
   const handleComposerSendWithAttachments = useCallback(() => {
     const gwAttachments = attachmentsBag.toGatewayFormat();
-    handleSend(draftValue, gwAttachments.length > 0 ? gwAttachments : undefined);
+    handleSend(
+      draftValue,
+      gwAttachments.length > 0 ? gwAttachments : undefined,
+    );
     attachmentsBag.clearAll();
   }, [draftValue, handleSend, attachmentsBag]);
 
@@ -1619,7 +1704,7 @@ export const AgentChatPanel = ({
     (text: string) => {
       handleSend(text);
     },
-    [handleSend]
+    [handleSend],
   );
   const voice = useVoiceRecorder(handleVoiceTranscribed);
 
@@ -1631,7 +1716,12 @@ export const AgentChatPanel = ({
         toolCallingEnabled: agent.toolCallingEnabled,
         hideSystemMessages: agent.hideSystemMessages,
       }),
-    [agent.outputLines, agent.showThinkingTraces, agent.toolCallingEnabled, agent.hideSystemMessages]
+    [
+      agent.outputLines,
+      agent.showThinkingTraces,
+      agent.toolCallingEnabled,
+      agent.hideSystemMessages,
+    ],
   );
   const running = agent.status === "running";
   const renderBlocks = useMemo(
@@ -1683,7 +1773,8 @@ export const AgentChatPanel = ({
   );
   const allowThinking = selectedModel?.reasoning !== false;
   // When no model is stored yet, use the first option in the list (what's displayed)
-  const effectiveModelStr = selectedModel?.value ?? modelOptionsWithFallback[0]?.value ?? "";
+  const effectiveModelStr =
+    selectedModel?.value ?? modelOptionsWithFallback[0]?.value ?? "";
 
   const thinkingLevels = useMemo(
     () => getThinkingLevels(effectiveModelStr, selectedModel?.reasoning),
@@ -1718,7 +1809,13 @@ export const AgentChatPanel = ({
       }
     }, 600);
     return () => clearTimeout(timer);
-  }, [draftValue, autoThinking, allowThinking, effectiveModelStr, onThinkingChange]);
+  }, [
+    draftValue,
+    autoThinking,
+    allowThinking,
+    effectiveModelStr,
+    onThinkingChange,
+  ]);
 
   // Reset tracking when auto is turned off
   useEffect(() => {
@@ -1739,7 +1836,8 @@ export const AgentChatPanel = ({
     () => resolveEmptyChatIntroMessage(agent.agentId, agent.sessionEpoch),
     [agent.agentId, agent.sessionEpoch],
   );
-  const sendDisabled = !canSend || (!draftValue.trim() && attachmentsBag.attachments.length === 0);
+  const sendDisabled =
+    !canSend || (!draftValue.trim() && attachmentsBag.attachments.length === 0);
 
   const handleComposerChange = useCallback(
     (event: ChangeEvent<HTMLTextAreaElement>) => {
@@ -1854,214 +1952,218 @@ export const AgentChatPanel = ({
 
   return (
     <LightboxContext.Provider value={setLightboxSrc}>
-    <div
-      data-agent-panel
-      className="group fade-up relative flex h-full w-full flex-col"
-    >
-      <div className="px-3 pt-2 sm:px-4 sm:pt-3">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex min-w-0 items-start gap-3">
-            <div className="group/avatar relative">
-              <AgentAvatar
-                seed={avatarSeed}
-                name={agent.name}
-                avatarUrl={agent.avatarUrl ?? null}
-                size={84}
-                isSelected={isSelected}
-              />
+      <div
+        data-agent-panel
+        className="group fade-up relative flex h-full w-full flex-col"
+      >
+        <div className="px-3 pt-2 sm:px-4 sm:pt-3">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex min-w-0 items-start gap-3">
+              <div className="group/avatar relative">
+                <AgentAvatar
+                  seed={avatarSeed}
+                  name={agent.name}
+                  avatarUrl={agent.avatarUrl ?? null}
+                  size={84}
+                  isSelected={isSelected}
+                />
+                <button
+                  className="nodrag ui-btn-icon ui-btn-icon-xs agent-avatar-shuffle-btn absolute bottom-0.5 right-0.5"
+                  type="button"
+                  aria-label={tc("shuffleAvatar")}
+                  data-testid="agent-avatar-shuffle"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    onAvatarShuffle();
+                  }}
+                >
+                  <Shuffle className="h-2.5 w-2.5" />
+                </button>
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <div className="flex min-w-0 items-center gap-2">
+                  <div className="min-w-0 w-[clamp(11rem,34vw,16rem)]">
+                    {renameEditing ? (
+                      <div
+                        ref={renameEditorRef}
+                        className="flex h-8 items-center gap-1.5"
+                      >
+                        <input
+                          ref={renameInputRef}
+                          className="ui-input agent-rename-input h-8 min-w-0 flex-1 rounded-md px-2 text-[12px] font-semibold text-foreground"
+                          aria-label={tc("editAgentName")}
+                          data-testid="agent-rename-input"
+                          value={renameDraft}
+                          disabled={renameSaving}
+                          onChange={(event) => {
+                            setRenameDraft(event.target.value);
+                            if (renameError) setRenameError(null);
+                          }}
+                          onKeyDown={handleRenameInputKeyDown}
+                        />
+                        <button
+                          className="ui-btn-icon ui-btn-icon-sm agent-rename-control"
+                          type="button"
+                          aria-label={tc("saveAgentName")}
+                          data-testid="agent-rename-save"
+                          onClick={() => {
+                            void submitRename();
+                          }}
+                          disabled={renameSaving}
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          className="ui-btn-icon ui-btn-icon-sm agent-rename-control"
+                          type="button"
+                          aria-label={tc("cancelRename")}
+                          data-testid="agent-rename-cancel"
+                          onClick={cancelRename}
+                          disabled={renameSaving}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex h-8 min-w-0 items-center gap-1.5">
+                        <div className="type-agent-name min-w-0 truncate text-foreground">
+                          {agent.name}
+                        </div>
+                        {onRename ? (
+                          <button
+                            className="ui-btn-icon ui-btn-icon-xs agent-rename-control shrink-0"
+                            type="button"
+                            aria-label={tc("renameAgent")}
+                            data-testid="agent-rename-toggle"
+                            onClick={beginRename}
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </button>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {renameError ? (
+                  <div className="ui-text-danger mt-1 text-[11px]">
+                    {renameError}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="mt-0.5 flex items-center gap-2">
               <button
-                className="nodrag ui-btn-icon ui-btn-icon-xs agent-avatar-shuffle-btn absolute bottom-0.5 right-0.5"
+                className="nodrag ui-btn-primary px-2.5 py-1.5 font-mono text-[11px] font-medium tracking-[0.02em] disabled:cursor-not-allowed disabled:border-border disabled:bg-muted disabled:text-muted-foreground"
                 type="button"
-                aria-label={tc("shuffleAvatar")}
-                data-testid="agent-avatar-shuffle"
-                onClick={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  onAvatarShuffle();
+                data-testid="agent-new-session-toggle"
+                aria-label={tc("startNewSession")}
+                title={tc("startNewSession")}
+                onClick={() => {
+                  void handleNewSession();
                 }}
+                disabled={newSessionDisabled}
               >
-                <Shuffle className="h-2.5 w-2.5" />
+                {newSessionBusy ? tc("starting") : tc("newSession")}
+              </button>
+              <button
+                className="nodrag ui-btn-icon"
+                type="button"
+                data-testid="agent-settings-toggle"
+                aria-label={tc("openBehavior")}
+                title={tc("behavior")}
+                onClick={onOpenSettings}
+              >
+                <Cog className="h-4 w-4" />
               </button>
             </div>
-
-            <div className="min-w-0 flex-1">
-              <div className="flex min-w-0 items-center gap-2">
-                <div className="min-w-0 w-[clamp(11rem,34vw,16rem)]">
-                  {renameEditing ? (
-                    <div
-                      ref={renameEditorRef}
-                      className="flex h-8 items-center gap-1.5"
-                    >
-                      <input
-                        ref={renameInputRef}
-                        className="ui-input agent-rename-input h-8 min-w-0 flex-1 rounded-md px-2 text-[12px] font-semibold text-foreground"
-                        aria-label={tc("editAgentName")}
-                        data-testid="agent-rename-input"
-                        value={renameDraft}
-                        disabled={renameSaving}
-                        onChange={(event) => {
-                          setRenameDraft(event.target.value);
-                          if (renameError) setRenameError(null);
-                        }}
-                        onKeyDown={handleRenameInputKeyDown}
-                      />
-                      <button
-                        className="ui-btn-icon ui-btn-icon-sm agent-rename-control"
-                        type="button"
-                        aria-label={tc("saveAgentName")}
-                        data-testid="agent-rename-save"
-                        onClick={() => {
-                          void submitRename();
-                        }}
-                        disabled={renameSaving}
-                      >
-                        <Check className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        className="ui-btn-icon ui-btn-icon-sm agent-rename-control"
-                        type="button"
-                        aria-label={tc("cancelRename")}
-                        data-testid="agent-rename-cancel"
-                        onClick={cancelRename}
-                        disabled={renameSaving}
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex h-8 min-w-0 items-center gap-1.5">
-                      <div className="type-agent-name min-w-0 truncate text-foreground">
-                        {agent.name}
-                      </div>
-                      {onRename ? (
-                        <button
-                          className="ui-btn-icon ui-btn-icon-xs agent-rename-control shrink-0"
-                          type="button"
-                          aria-label={tc("renameAgent")}
-                          data-testid="agent-rename-toggle"
-                          onClick={beginRename}
-                        >
-                          <Pencil className="h-3 w-3" />
-                        </button>
-                      ) : null}
-                    </div>
-                  )}
-                </div>
-              </div>
-              {renameError ? (
-                <div className="ui-text-danger mt-1 text-[11px]">
-                  {renameError}
-                </div>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="mt-0.5 flex items-center gap-2">
-            <button
-              className="nodrag ui-btn-primary px-2.5 py-1.5 font-mono text-[11px] font-medium tracking-[0.02em] disabled:cursor-not-allowed disabled:border-border disabled:bg-muted disabled:text-muted-foreground"
-              type="button"
-              data-testid="agent-new-session-toggle"
-              aria-label={tc("startNewSession")}
-              title={tc("startNewSession")}
-              onClick={() => {
-                void handleNewSession();
-              }}
-              disabled={newSessionDisabled}
-            >
-              {newSessionBusy ? tc("starting") : tc("newSession")}
-            </button>
-            <button
-              className="nodrag ui-btn-icon"
-              type="button"
-              data-testid="agent-settings-toggle"
-              aria-label={tc("openBehavior")}
-              title={tc("behavior")}
-              onClick={onOpenSettings}
-            >
-              <Cog className="h-4 w-4" />
-            </button>
           </div>
         </div>
-      </div>
 
-      <div className="mt-3 flex min-h-0 flex-1 flex-col px-3 pb-3 sm:px-4 sm:pb-4">
-        <AgentChatTranscript
-          key={agent.agentId}
-          agentId={agent.agentId}
-          name={agent.name}
-          avatarSeed={avatarSeed}
-          avatarUrl={agent.avatarUrl ?? null}
-          status={agent.status}
-          historyMaybeTruncated={agent.historyMaybeTruncated}
-          historyFetchedCount={agent.historyFetchedCount}
-          historyFetchLimit={agent.historyFetchLimit}
-          onLoadMoreHistory={onLoadMoreHistory}
-          chatItems={chatItems}
-          liveThinkingText={liveThinkingText}
-          liveAssistantText={liveAssistantText}
-          showTypingIndicator={showTypingIndicator}
-          outputLineCount={agent.outputLines.length}
-          liveAssistantCharCount={liveAssistantText.length}
-          liveThinkingCharCount={liveThinkingText.length}
-          runStartedAt={agent.runStartedAt}
-          scrollToBottomNextOutputRef={scrollToBottomNextOutputRef}
-          pendingExecApprovals={pendingExecApprovals}
-          onResolveExecApproval={onResolveExecApproval}
-          emptyStateTitle={emptyStateTitle}
-          onReply={handleReply}
-          onForward={handleForward}
-          otherAgents={otherAgents}
-        />
-
-        <div className="mt-3">
-          <AgentChatComposer
-            value={draftValue}
-            inputRef={handleDraftRef}
-            onChange={handleComposerChange}
-            onKeyDown={handleComposerKeyDown}
-            onSend={handleComposerSend}
-            onStop={onStopRun}
-            canSend={canSend}
-            stopBusy={stopBusy}
-            stopDisabledReason={stopDisabledReason}
-            running={running}
-            sendDisabled={sendDisabled}
-            queuedMessages={agent.queuedMessages ?? []}
-            onRemoveQueuedMessage={onRemoveQueuedMessage}
-            onSendQueuedNow={onSendQueuedNow}
-            modelOptions={modelOptionsWithFallback.map((option) => ({
-              value: option.value,
-              label: option.label,
-            }))}
-            modelValue={modelValue}
-            allowThinking={allowThinking}
-            thinkingValue={agent.thinkingLevel ?? ""}
-            thinkingLevels={thinkingLevels}
-            onModelChange={onModelChange}
-            onThinkingChange={onThinkingChange}
-            autoThinking={autoThinking}
-            onAutoThinkingToggle={() => setAutoThinking((v) => {
-              const next = !v;
-              saveAgentUiPref(agent.agentId, "autoThinking", next);
-              return next;
-            })}
-            toolCallingEnabled={agent.toolCallingEnabled}
-            showThinkingTraces={agent.showThinkingTraces}
-            hideSystemMessages={agent.hideSystemMessages}
-            onToolCallingToggle={onToolCallingToggle}
-            onThinkingTracesToggle={onThinkingTracesToggle}
-            onHideSystemMessagesToggle={onHideSystemMessagesToggle}
-            voiceRecording={voice.isRecording}
-            voiceTranscribing={voice.isTranscribing}
-            onToggleVoice={voice.toggleRecording}
-            attachments={attachmentsBag.attachments}
-            onAddFiles={attachmentsBag.addFiles}
-            onRemoveAttachment={attachmentsBag.removeAttachment}
+        <div className="mt-3 flex min-h-0 flex-1 flex-col px-3 pb-3 sm:px-4 sm:pb-4">
+          <AgentChatTranscript
+            key={agent.agentId}
+            agentId={agent.agentId}
+            name={agent.name}
+            avatarSeed={avatarSeed}
+            avatarUrl={agent.avatarUrl ?? null}
+            status={agent.status}
+            historyMaybeTruncated={agent.historyMaybeTruncated}
+            historyFetchedCount={agent.historyFetchedCount}
+            historyFetchLimit={agent.historyFetchLimit}
+            onLoadMoreHistory={onLoadMoreHistory}
+            chatItems={chatItems}
+            liveThinkingText={liveThinkingText}
+            liveAssistantText={liveAssistantText}
+            showTypingIndicator={showTypingIndicator}
+            outputLineCount={agent.outputLines.length}
+            liveAssistantCharCount={liveAssistantText.length}
+            liveThinkingCharCount={liveThinkingText.length}
+            runStartedAt={agent.runStartedAt}
+            scrollToBottomNextOutputRef={scrollToBottomNextOutputRef}
+            pendingExecApprovals={pendingExecApprovals}
+            onResolveExecApproval={onResolveExecApproval}
+            emptyStateTitle={emptyStateTitle}
+            onReply={handleReply}
+            onForward={handleForward}
+            otherAgents={otherAgents}
           />
+
+          <div className="mt-3">
+            <AgentChatComposer
+              value={draftValue}
+              inputRef={handleDraftRef}
+              onChange={handleComposerChange}
+              onKeyDown={handleComposerKeyDown}
+              onSend={handleComposerSend}
+              onStop={onStopRun}
+              canSend={canSend}
+              stopBusy={stopBusy}
+              stopDisabledReason={stopDisabledReason}
+              running={running}
+              sendDisabled={sendDisabled}
+              queuedMessages={agent.queuedMessages ?? []}
+              onRemoveQueuedMessage={onRemoveQueuedMessage}
+              onSendQueuedNow={onSendQueuedNow}
+              modelOptions={modelOptionsWithFallback.map((option) => ({
+                value: option.value,
+                label: option.label,
+              }))}
+              modelValue={modelValue}
+              allowThinking={allowThinking}
+              thinkingValue={agent.thinkingLevel ?? ""}
+              thinkingLevels={thinkingLevels}
+              onModelChange={onModelChange}
+              onThinkingChange={onThinkingChange}
+              autoThinking={autoThinking}
+              onAutoThinkingToggle={() =>
+                setAutoThinking((v) => {
+                  const next = !v;
+                  saveAgentUiPref(agent.agentId, "autoThinking", next);
+                  return next;
+                })
+              }
+              toolCallingEnabled={agent.toolCallingEnabled}
+              showThinkingTraces={agent.showThinkingTraces}
+              hideSystemMessages={agent.hideSystemMessages}
+              onToolCallingToggle={onToolCallingToggle}
+              onThinkingTracesToggle={onThinkingTracesToggle}
+              onHideSystemMessagesToggle={onHideSystemMessagesToggle}
+              voiceRecording={voice.isRecording}
+              voiceTranscribing={voice.isTranscribing}
+              onToggleVoice={voice.toggleRecording}
+              attachments={attachmentsBag.attachments}
+              onAddFiles={attachmentsBag.addFiles}
+              onRemoveAttachment={attachmentsBag.removeAttachment}
+            />
+          </div>
         </div>
       </div>
-    </div>
-    {lightboxSrc ? <ChatImageLightbox src={lightboxSrc} onClose={closeLightbox} /> : null}
+      {lightboxSrc ? (
+        <ChatImageLightbox src={lightboxSrc} onClose={closeLightbox} />
+      ) : null}
     </LightboxContext.Provider>
   );
 };

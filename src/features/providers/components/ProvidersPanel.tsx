@@ -20,9 +20,14 @@ import {
   generateStorageKey,
 } from "../providerStore";
 import { PROVIDER_REGISTRY } from "../providerRegistry";
-import type { ProviderId, ProviderConfig, ProviderWithStatus } from "../types";
+import type { ProviderConfig, ProviderWithStatus } from "../types";
 
-type ProviderCategory = "all" | "commercial" | "open-source" | "self-hosted" | "gateway";
+type ProviderCategory =
+  | "all"
+  | "commercial"
+  | "open-source"
+  | "self-hosted"
+  | "gateway";
 
 const CATEGORY_LABELS: Record<ProviderCategory, string> = {
   all: "All",
@@ -106,12 +111,13 @@ function ProvidersPanelInner() {
 
   // Resolve modal context from state
   const modalProvider = modalState
-    ? providersWithStatus.find((p) => p.id === modalState.providerId) ?? null
+    ? (providersWithStatus.find((p) => p.id === modalState.providerId) ?? null)
     : null;
 
-  const modalExistingConfig = modalState?.mode === "edit"
-    ? store.configs[modalState.storageKey]
-    : undefined;
+  const modalExistingConfig =
+    modalState?.mode === "edit"
+      ? store.configs[modalState.storageKey]
+      : undefined;
 
   const isNewKey = modalState?.mode === "add";
 
@@ -119,7 +125,11 @@ function ProvidersPanelInner() {
     // Find which provider this storageKey belongs to
     const config = store.configs[storageKey];
     const providerId = config?.id ?? storageKey;
-    setModalState({ mode: "edit", storageKey, providerId: providerId as string });
+    setModalState({
+      mode: "edit",
+      storageKey,
+      providerId: providerId as string,
+    });
   };
 
   const handleAddKey = (providerId: string) => {
@@ -155,7 +165,8 @@ function ProvidersPanelInner() {
     store.saveProvider(finalConfig);
     setModalState(null);
 
-    const providerName = PROVIDER_REGISTRY.find((p) => p.id === config.id)?.name ?? config.id;
+    const providerName =
+      PROVIDER_REGISTRY.find((p) => p.id === config.id)?.name ?? config.id;
     const label = config.label ? ` (${config.label})` : "";
     toast.success(`${providerName}${label} configuré`);
   };
@@ -188,7 +199,11 @@ function ProvidersPanelInner() {
         body: JSON.stringify({ providers: body }),
       });
       const data = (await res.json()) as {
-        results: Array<{ providerId: string; valid: boolean; error?: string | null }>;
+        results: Array<{
+          providerId: string;
+          valid: boolean;
+          error?: string | null;
+        }>;
       };
       const next: Record<string, HealthStatus> = {};
       let healthy = 0;
@@ -237,10 +252,10 @@ function ProvidersPanelInner() {
         <div className="flex items-center gap-3">
           <Layers className="h-5 w-5 text-muted-foreground" />
           <div>
-            <h1 className="console-title type-page-title text-foreground">{t("title")}</h1>
-            <p className="text-sm text-muted-foreground">
-              {t("description")}
-            </p>
+            <h1 className="console-title type-page-title text-foreground">
+              {t("title")}
+            </h1>
+            <p className="text-sm text-muted-foreground">{t("description")}</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -268,7 +283,9 @@ function ProvidersPanelInner() {
             {t("importEnv")}
           </button>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span className="font-semibold text-foreground">{configuredCount}</span>
+            <span className="font-semibold text-foreground">
+              {configuredCount}
+            </span>
             <span>/</span>
             <span>{totalCount}</span>
             <span>{t("configuredSection").toLowerCase()}</span>
@@ -301,7 +318,9 @@ function ProvidersPanelInner() {
         <section>
           <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              {configuredProviders.length > 0 ? t("availableSection") : t("title")}
+              {configuredProviders.length > 0
+                ? t("availableSection")
+                : t("title")}
             </h2>
             <div className="flex items-center gap-2">
               {/* Search */}
@@ -320,20 +339,22 @@ function ProvidersPanelInner() {
               </div>
               {/* Category filter */}
               <div className="flex items-center gap-1">
-                {(Object.keys(CATEGORY_LABELS) as ProviderCategory[]).map((cat) => (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => setActiveCategory(cat)}
-                    className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                      activeCategory === cat
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-surface-2 text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {CATEGORY_LABELS[cat]}
-                  </button>
-                ))}
+                {(Object.keys(CATEGORY_LABELS) as ProviderCategory[]).map(
+                  (cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setActiveCategory(cat)}
+                      className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                        activeCategory === cat
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-surface-2 text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {CATEGORY_LABELS[cat]}
+                    </button>
+                  ),
+                )}
               </div>
             </div>
           </div>
@@ -392,7 +413,11 @@ function ProvidersPanelInner() {
 // Provider store context provider — loads from openclaw.json via API
 function ProviderStoreProvider({ children }: { children: React.ReactNode }) {
   const [configs, setConfigs] = useState<Record<string, ProviderConfig>>(() =>
-    typeof window !== "undefined" ? JSON.parse(localStorage.getItem("openclaw-studio-providers") ?? "{}") as Record<string, ProviderConfig> : {}
+    typeof window !== "undefined"
+      ? (JSON.parse(
+          localStorage.getItem("openclaw-studio-providers") ?? "{}",
+        ) as Record<string, ProviderConfig>)
+      : {},
   );
 
   // Load from gateway on mount

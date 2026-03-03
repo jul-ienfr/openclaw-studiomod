@@ -4,15 +4,29 @@ import { useState } from "react";
 import { useWatcherController } from "@/features/watcher/operations/useWatcherController";
 import { useWatcherStore } from "@/features/watcher/state/store";
 import { ReviewList } from "@/features/watcher/components/ReviewList";
-import { Search as SearchIcon, Globe, Database, AlertCircle } from "lucide-react";
+import {
+  Search as SearchIcon,
+  Globe,
+  Database,
+  AlertCircle,
+} from "lucide-react";
+import type { WatchItem } from "@/features/watcher/types";
+
+interface ClawHubSkill {
+  slug: string;
+  displayName: string;
+  summary: string;
+  version?: string;
+  score: number;
+}
 
 export default function WatcherSearchPage() {
-  const { loadItems } = useWatcherController();
-  const { state } = useWatcherStore();
+  useWatcherController();
+  useWatcherStore();
   const [query, setQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
-  const [localResults, setLocalResults] = useState<any[]>([]);
-  const [clawhubResults, setClawhubResults] = useState<any[]>([]);
+  const [localResults, setLocalResults] = useState<WatchItem[]>([]);
+  const [clawhubResults, setClawhubResults] = useState<ClawHubSkill[]>([]);
   const [clawhubError, setClawhubError] = useState<string | null>(null);
 
   const handleSearch = async () => {
@@ -27,13 +41,17 @@ export default function WatcherSearchPage() {
 
     try {
       // Recherche locale
-      const localRes = await fetch(`/api/watcher/search?q=${encodeURIComponent(query)}&limit=20`);
+      const localRes = await fetch(
+        `/api/watcher/search?q=${encodeURIComponent(query)}&limit=20`,
+      );
       const localData = await localRes.json();
       setLocalResults(localData.items || []);
 
       // Recherche ClawHub
       try {
-        const clawhubRes = await fetch(`/api/watcher/search/clawhub?q=${encodeURIComponent(query)}&limit=10`);
+        const clawhubRes = await fetch(
+          `/api/watcher/search/clawhub?q=${encodeURIComponent(query)}&limit=10`,
+        );
         const clawhubData = await clawhubRes.json();
         if (clawhubData.error) {
           setClawhubError(clawhubData.error);
@@ -59,7 +77,9 @@ export default function WatcherSearchPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-base font-semibold text-foreground">Recherche</h2>
-          <p className="text-sm text-muted-foreground">Chercher des items par thème ou mot-clé</p>
+          <p className="text-sm text-muted-foreground">
+            Chercher des items par thème ou mot-clé
+          </p>
         </div>
       </div>
 
@@ -82,7 +102,9 @@ export default function WatcherSearchPage() {
           disabled={isSearching || !query.trim()}
           className="ui-btn-primary flex items-center gap-2 px-4 py-2.5 text-sm"
         >
-          <SearchIcon className={`h-4 w-4 ${isSearching ? "animate-pulse" : ""}`} />
+          <SearchIcon
+            className={`h-4 w-4 ${isSearching ? "animate-pulse" : ""}`}
+          />
           Rechercher
         </button>
       </div>
@@ -114,7 +136,8 @@ export default function WatcherSearchPage() {
               </div>
               <div className="rounded-lg border border-border bg-sidebar/50 p-4">
                 <p className="text-xs text-muted-foreground mb-3">
-                  Ces skills ne sont pas encore dans votre veille. Vous pouvez les consulter sur ClawHub.
+                  Ces skills ne sont pas encore dans votre veille. Vous pouvez
+                  les consulter sur ClawHub.
                 </p>
                 {clawhubResults.map((skill) => (
                   <div
@@ -149,7 +172,9 @@ export default function WatcherSearchPage() {
         </div>
       ) : query && !isSearching ? (
         <div className="text-center py-8">
-          <p className="text-sm text-muted-foreground">Aucun résultat pour &quot;{query}&quot;</p>
+          <p className="text-sm text-muted-foreground">
+            Aucun résultat pour &quot;{query}&quot;
+          </p>
         </div>
       ) : clawhubError && localResults.length === 0 ? (
         <div className="flex items-center gap-2 text-sm text-amber-500 bg-amber-500/10 px-3 py-2 rounded-lg">

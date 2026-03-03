@@ -1,11 +1,5 @@
 import { NextResponse } from "next/server";
 
-/* eslint-disable @typescript-eslint/no-require-imports */
-const {
-  validateProviderKey,
-} = require("../../../../../server/provider-validators");
-/* eslint-enable @typescript-eslint/no-require-imports */
-
 export const runtime = "nodejs";
 
 type ValidateBody = {
@@ -38,7 +32,10 @@ const PROVIDER_BASE_URLS: Record<string, string> = {
 
 // Anthropic validation: try GET /v1/models first, fall back to a minimal POST /v1/messages
 // (some proxies like anthrouter only support the messages endpoint)
-async function validateAnthropic(apiKey: string, baseUrl: string): Promise<{ valid: boolean; error?: string }> {
+async function validateAnthropic(
+  apiKey: string,
+  baseUrl: string,
+): Promise<{ valid: boolean; error?: string }> {
   const base = baseUrl.replace(/\/$/, "");
 
   // First try GET /v1/models (works with api.anthropic.com)
@@ -71,12 +68,21 @@ async function validateAnthropic(apiKey: string, baseUrl: string): Promise<{ val
     if (messagesRes.ok) return { valid: true };
     const text = await messagesRes.text().catch(() => "");
     // 401 = bad key, 429 = rate limited (but key works), 529 = overloaded (but key works)
-    if (messagesRes.status === 429 || messagesRes.status === 529) return { valid: true };
-    return { valid: false, error: `HTTP ${messagesRes.status}: ${text.slice(0, 200)}` };
+    if (messagesRes.status === 429 || messagesRes.status === 529)
+      return { valid: true };
+    return {
+      valid: false,
+      error: `HTTP ${messagesRes.status}: ${text.slice(0, 200)}`,
+    };
   }
 
-  const text = modelsRes ? await modelsRes.text().catch(() => "") : "Connection failed";
-  return { valid: false, error: modelsRes ? `HTTP ${modelsRes.status}: ${text.slice(0, 200)}` : text };
+  const text = modelsRes
+    ? await modelsRes.text().catch(() => "")
+    : "Connection failed";
+  return {
+    valid: false,
+    error: modelsRes ? `HTTP ${modelsRes.status}: ${text.slice(0, 200)}` : text,
+  };
 }
 
 // OpenAI-compatible validation: GET /v1/models with Bearer token
@@ -97,7 +103,9 @@ async function validateOpenAI(
 }
 
 // Ollama: GET /api/tags (no auth)
-async function validateOllama(baseUrl: string): Promise<{ valid: boolean; error?: string }> {
+async function validateOllama(
+  baseUrl: string,
+): Promise<{ valid: boolean; error?: string }> {
   const url = `${baseUrl.replace(/\/$/, "")}/api/tags`;
   const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
   if (res.ok) return { valid: true };
@@ -105,7 +113,9 @@ async function validateOllama(baseUrl: string): Promise<{ valid: boolean; error?
 }
 
 // Gemini: GET models with key param
-async function validateGemini(apiKey: string): Promise<{ valid: boolean; error?: string }> {
+async function validateGemini(
+  apiKey: string,
+): Promise<{ valid: boolean; error?: string }> {
   const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
   const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
   if (res.ok) return { valid: true };
@@ -114,7 +124,9 @@ async function validateGemini(apiKey: string): Promise<{ valid: boolean; error?:
 }
 
 // Cohere: GET /v2/models with Bearer
-async function validateCohere(apiKey: string): Promise<{ valid: boolean; error?: string }> {
+async function validateCohere(
+  apiKey: string,
+): Promise<{ valid: boolean; error?: string }> {
   const res = await fetch("https://api.cohere.ai/v2/models", {
     method: "GET",
     headers: { Authorization: `Bearer ${apiKey}` },
@@ -131,11 +143,14 @@ export async function POST(request: Request) {
     const { providerId, apiKey, accessToken, baseUrl } = body;
 
     const secret = apiKey?.trim() || accessToken?.trim() || "";
-    const effectiveBase = baseUrl?.trim() || PROVIDER_BASE_URLS[providerId] || "";
+    const effectiveBase =
+      baseUrl?.trim() || PROVIDER_BASE_URLS[providerId] || "";
 
     // Providers that need no key (local)
     if (providerId === "ollama") {
-      const result = await validateOllama(effectiveBase || "http://localhost:11434");
+      const result = await validateOllama(
+        effectiveBase || "http://localhost:11434",
+      );
       return NextResponse.json(result);
     }
 
@@ -175,14 +190,25 @@ export async function POST(request: Request) {
       return NextResponse.json(result);
     }
 
-    return NextResponse.json({ valid: false, error: "Unknown provider — no base URL configured" });
+    return NextResponse.json({
+      valid: false,
+      error: "Unknown provider — no base URL configured",
+    });
   } catch (err) {
     // Timeout or fetch error
     const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes("timeout") || msg.includes("abort") || msg.includes("ETIMEDOUT")) {
+    if (
+      msg.includes("timeout") ||
+      msg.includes("abort") ||
+      msg.includes("ETIMEDOUT")
+    ) {
       return NextResponse.json({ valid: false, error: "Connection timed out" });
     }
-    if (msg.includes("ECONNREFUSED") || msg.includes("ENOTFOUND") || msg.includes("fetch failed")) {
+    if (
+      msg.includes("ECONNREFUSED") ||
+      msg.includes("ENOTFOUND") ||
+      msg.includes("fetch failed")
+    ) {
       return NextResponse.json({ valid: false, error: "Host unreachable" });
     }
     return NextResponse.json({ valid: false, error: msg.slice(0, 200) });

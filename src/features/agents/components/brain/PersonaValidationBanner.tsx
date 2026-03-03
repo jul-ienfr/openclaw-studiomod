@@ -54,7 +54,7 @@ export const PersonaValidationBanner = ({
     } finally {
       setLoading(false);
     }
-  }, [draft]);
+  }, [draft, t]);
 
   return (
     <div className="space-y-2">

@@ -25,7 +25,10 @@ import {
   type SummaryStatusSnapshot,
 } from "@/features/agents/state/runtimeEventBridge";
 import type { AgentState } from "@/features/agents/state/store";
-import { TRANSCRIPT_V2_ENABLED, logTranscriptDebugMetric } from "@/features/agents/state/transcript";
+import {
+  TRANSCRIPT_V2_ENABLED,
+  logTranscriptDebugMetric,
+} from "@/features/agents/state/transcript";
 import { randomUUID } from "@/lib/uuid";
 
 type RuntimeSyncDispatchAction = {
@@ -36,7 +39,9 @@ type RuntimeSyncDispatchAction = {
 
 type GatewayClientLike = {
   call: <T = unknown>(method: string, params: unknown) => Promise<T>;
-  onGap: (handler: (info: { expected: number; received: number }) => void) => () => void;
+  onGap: (
+    handler: (info: { expected: number; received: number }) => void,
+  ) => () => void;
 };
 
 export type UseRuntimeSyncControllerParams = {
@@ -54,21 +59,26 @@ export type UseRuntimeSyncControllerParams = {
 
 export type RuntimeSyncController = {
   loadSummarySnapshot: () => Promise<void>;
-  loadAgentHistory: (agentId: string, options?: { limit?: number }) => Promise<void>;
+  loadAgentHistory: (
+    agentId: string,
+    options?: { limit?: number },
+  ) => Promise<void>;
   loadMoreAgentHistory: (agentId: string) => void;
   reconcileRunningAgents: () => Promise<void>;
   clearHistoryInFlight: (sessionKey: string) => void;
 };
 
 export function useRuntimeSyncController(
-  params: UseRuntimeSyncControllerParams
+  params: UseRuntimeSyncControllerParams,
 ): RuntimeSyncController {
   const agentsRef = useRef(params.agents);
   const historyInFlightRef = useRef<Set<string>>(new Set());
   const reconcileRunInFlightRef = useRef<Set<string>>(new Set());
 
-  const defaultHistoryLimit = params.defaultHistoryLimit ?? RUNTIME_SYNC_DEFAULT_HISTORY_LIMIT;
-  const maxHistoryLimit = params.maxHistoryLimit ?? RUNTIME_SYNC_MAX_HISTORY_LIMIT;
+  const defaultHistoryLimit =
+    params.defaultHistoryLimit ?? RUNTIME_SYNC_DEFAULT_HISTORY_LIMIT;
+  const maxHistoryLimit =
+    params.maxHistoryLimit ?? RUNTIME_SYNC_MAX_HISTORY_LIMIT;
 
   useEffect(() => {
     agentsRef.current = params.agents;
@@ -113,7 +123,7 @@ export function useRuntimeSyncController(
         console.error("Failed to load summary snapshot.", error);
       }
     }
-  }, [params.client, params.dispatch, params.isDisconnectLikeError]);
+  }, [params]);
 
   const loadAgentHistory = useCallback(
     async (agentId: string, options?: { limit?: number }) => {
@@ -122,7 +132,8 @@ export function useRuntimeSyncController(
         agentId,
         requestedLimit: options?.limit,
         getAgent: (targetAgentId) =>
-          agentsRef.current.find((entry) => entry.agentId === targetAgentId) ?? null,
+          agentsRef.current.find((entry) => entry.agentId === targetAgentId) ??
+          null,
         inFlightSessionKeys: historyInFlightRef.current,
         requestId: randomUUID(),
         loadedAt: Date.now(),
@@ -144,12 +155,13 @@ export function useRuntimeSyncController(
       params.client,
       params.dispatch,
       params.isDisconnectLikeError,
-    ]
+    ],
   );
 
   const loadMoreAgentHistory = useCallback(
     (agentId: string) => {
-      const agent = agentsRef.current.find((entry) => entry.agentId === agentId) ?? null;
+      const agent =
+        agentsRef.current.find((entry) => entry.agentId === agentId) ?? null;
       const nextLimit = resolveRuntimeSyncLoadMoreHistoryLimit({
         currentLimit: agent?.historyFetchLimit ?? null,
         defaultLimit: defaultHistoryLimit,
@@ -157,7 +169,7 @@ export function useRuntimeSyncController(
       });
       void loadAgentHistory(agentId, { limit: nextLimit });
     },
-    [defaultHistoryLimit, loadAgentHistory, maxHistoryLimit]
+    [defaultHistoryLimit, loadAgentHistory, maxHistoryLimit],
   );
 
   const reconcileRunningAgents = useCallback(async () => {
@@ -248,12 +260,19 @@ export function useRuntimeSyncController(
     return () => {
       window.clearInterval(timer);
     };
-  }, [loadAgentHistory, params.focusedAgentId, params.focusedAgentRunning, params.status]);
+  }, [
+    loadAgentHistory,
+    params.focusedAgentId,
+    params.focusedAgentRunning,
+    params.status,
+  ]);
 
   useEffect(() => {
     return params.client.onGap((info) => {
       const recoveryIntent = resolveRuntimeSyncGapRecoveryIntent();
-      console.warn(`Gateway event gap expected ${info.expected}, received ${info.received}.`);
+      console.warn(
+        `Gateway event gap expected ${info.expected}, received ${info.received}.`,
+      );
       if (recoveryIntent.refreshSummarySnapshot) {
         void loadSummarySnapshot();
       }

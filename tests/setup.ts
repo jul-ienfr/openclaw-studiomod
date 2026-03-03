@@ -26,10 +26,13 @@ vi.mock("next-intl", async (importOriginal) => {
         ? (messages as Record<string, unknown>)[namespace]
         : messages;
       return (key: string, values?: Record<string, unknown>) => {
-        const raw = typeof ns === "object" && ns ? resolve(ns as Record<string, unknown>, key) : key;
+        const raw =
+          typeof ns === "object" && ns
+            ? resolve(ns as Record<string, unknown>, key)
+            : key;
         if (!values) return raw;
         return raw.replace(/\{(\w+)\}/g, (_, k: string) =>
-          values[k] != null ? String(values[k]) : `{${k}}`
+          values[k] != null ? String(values[k]) : `{${k}}`,
         );
       };
     },
@@ -40,7 +43,9 @@ vi.mock("next-intl", async (importOriginal) => {
 
 const ensureLocalStorage = () => {
   if (typeof window === "undefined") return;
-  const existing = window.localStorage as unknown as Record<string, unknown> | undefined;
+  const existing = window.localStorage as unknown as
+    | Record<string, unknown>
+    | undefined;
   if (
     existing &&
     typeof existing.getItem === "function" &&
@@ -60,7 +65,7 @@ const ensureLocalStorage = () => {
       store.clear();
     },
     getItem(key: string) {
-      return store.has(String(key)) ? store.get(String(key)) ?? null : null;
+      return store.has(String(key)) ? (store.get(String(key)) ?? null) : null;
     },
     key(index: number) {
       return Array.from(store.keys())[index] ?? null;
@@ -83,6 +88,5 @@ ensureLocalStorage();
 
 // JSDOM does not implement scrollIntoView — stub it globally for all tests
 if (typeof window !== "undefined" && typeof Element !== "undefined") {
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
   Element.prototype.scrollIntoView = function () {};
 }

@@ -27,7 +27,9 @@ export type UseSettingsRouteControllerParams = {
   flushPendingDraft: (agentId: string | null) => void;
   dispatchSelectAgent: (agentId: string | null) => void;
   setInspectSidebar: (
-    next: InspectSidebarState | ((current: InspectSidebarState) => InspectSidebarState)
+    next:
+      | InspectSidebarState
+      | ((current: InspectSidebarState) => InspectSidebarState),
   ) => void;
   setMobilePaneChat: () => void;
   setPersonalityHasUnsavedChanges: (next: boolean) => void;
@@ -54,7 +56,7 @@ const executeSettingsRouteCommands = (
     | "flushPendingDraft"
     | "push"
     | "replace"
-  >
+  >,
 ) => {
   for (const command of commands) {
     switch (command.kind) {
@@ -88,7 +90,7 @@ const executeSettingsRouteCommands = (
 };
 
 export function useSettingsRouteController(
-  params: UseSettingsRouteControllerParams
+  params: UseSettingsRouteControllerParams,
 ): SettingsRouteController {
   const applyCommands = useCallback(
     (commands: SettingsRouteNavCommand[]) => {
@@ -102,15 +104,7 @@ export function useSettingsRouteController(
         replace: params.replace,
       });
     },
-    [
-      params.dispatchSelectAgent,
-      params.flushPendingDraft,
-      params.push,
-      params.replace,
-      params.setInspectSidebar,
-      params.setMobilePaneChat,
-      params.setPersonalityHasUnsavedChanges,
-    ]
+    [params],
   );
 
   const handleBackToChat = useCallback(() => {
@@ -119,7 +113,9 @@ export function useSettingsRouteController(
       activeTab: params.activeTab,
       personalityHasUnsavedChanges: params.personalityHasUnsavedChanges,
     });
-    const discardConfirmed = needsDiscardConfirmation ? params.confirmDiscard() : true;
+    const discardConfirmed = needsDiscardConfirmation
+      ? params.confirmDiscard()
+      : true;
     const commands = planBackToChatCommands({
       settingsRouteActive: params.settingsRouteActive,
       activeTab: params.activeTab,
@@ -127,13 +123,7 @@ export function useSettingsRouteController(
       discardConfirmed,
     });
     applyCommands(commands);
-  }, [
-    applyCommands,
-    params.activeTab,
-    params.confirmDiscard,
-    params.personalityHasUnsavedChanges,
-    params.settingsRouteActive,
-  ]);
+  }, [applyCommands, params]);
 
   const handleSettingsRouteTabChange = useCallback(
     (nextTab: SettingsRouteTab) => {
@@ -146,7 +136,9 @@ export function useSettingsRouteController(
           activeTab: currentTab,
           personalityHasUnsavedChanges: params.personalityHasUnsavedChanges,
         });
-      const discardConfirmed = needsDiscardConfirmation ? params.confirmDiscard() : true;
+      const discardConfirmed = needsDiscardConfirmation
+        ? params.confirmDiscard()
+        : true;
 
       const commands = planSettingsTabChangeCommands({
         nextTab,
@@ -158,14 +150,7 @@ export function useSettingsRouteController(
       });
       applyCommands(commands);
     },
-    [
-      applyCommands,
-      params.confirmDiscard,
-      params.inspectSidebar,
-      params.personalityHasUnsavedChanges,
-      params.settingsRouteActive,
-      params.settingsRouteAgentId,
-    ]
+    [applyCommands, params],
   );
 
   const handleOpenAgentSettingsRoute = useCallback(
@@ -177,7 +162,7 @@ export function useSettingsRouteController(
       });
       applyCommands(commands);
     },
-    [applyCommands, params.focusedAgentId, params.inspectSidebar]
+    [applyCommands, params.focusedAgentId, params.inspectSidebar],
   );
 
   const handleFleetSelectAgent = useCallback(
@@ -189,7 +174,7 @@ export function useSettingsRouteController(
       });
       applyCommands(commands);
     },
-    [applyCommands, params.focusedAgentId, params.inspectSidebar]
+    [applyCommands, params.focusedAgentId, params.inspectSidebar],
   );
 
   useEffect(() => {
@@ -225,7 +210,9 @@ export function useSettingsRouteController(
       ? params.agents.some((agent) => agent.agentId === params.selectedAgentId)
       : false;
     const hasInspectSidebarAgent = params.inspectSidebar?.agentId
-      ? params.agents.some((agent) => agent.agentId === params.inspectSidebar?.agentId)
+      ? params.agents.some(
+          (agent) => agent.agentId === params.inspectSidebar?.agentId,
+        )
       : false;
 
     const commands = planNonRouteSelectionSyncCommands({

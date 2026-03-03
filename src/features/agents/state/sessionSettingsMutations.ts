@@ -132,7 +132,11 @@ export const applySessionSettingMutation = async ({
         dispatch({
           type: "updateAgent",
           agentId,
-          patch: { sessionSettingsSynced: true, sessionCreated: true, thinkingLevel: null },
+          patch: {
+            sessionSettingsSynced: true,
+            sessionCreated: true,
+            thinkingLevel: null,
+          },
         });
         dispatch({
           type: "appendOutput",
@@ -177,20 +181,6 @@ export const applySessionSettingMutation = async ({
       line: `${STUDIO_NOTICE_PREFIX}${buildErrorPrefix(field)}: ${msg}`,
     });
   }
-};
-
-const hasExplicitOverrideInResult = (
-  result: GatewaySessionsPatchResult,
-): boolean => {
-  const provider =
-    typeof result.entry?.providerOverride === "string"
-      ? result.entry.providerOverride.trim()
-      : "";
-  const model =
-    typeof result.entry?.modelOverride === "string"
-      ? result.entry.modelOverride.trim()
-      : "";
-  return provider.length > 0 && model.length > 0;
 };
 
 const resolveModelFromPatchResult = (

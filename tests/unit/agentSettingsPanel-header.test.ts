@@ -51,8 +51,6 @@ describe("AgentSettingsPanel header", () => {
         agent: createAgent(),
         onClose: vi.fn(),
         onDelete: vi.fn(),
-        onToolCallingToggle: vi.fn(),
-        onThinkingTracesToggle: vi.fn(),
         cronJobs: [],
         cronLoading: false,
         cronError: null,
@@ -60,7 +58,7 @@ describe("AgentSettingsPanel header", () => {
         cronDeleteBusyJobId: null,
         onRunCronJob: vi.fn(),
         onDeleteCronJob: vi.fn(),
-      })
+      }),
     );
 
     expect(screen.queryByText("Capabilities")).not.toBeInTheDocument();

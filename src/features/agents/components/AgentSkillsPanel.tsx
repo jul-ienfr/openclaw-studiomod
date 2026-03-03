@@ -22,11 +22,12 @@ type AgentSkillsPanelProps = {
   skillsBusy?: boolean;
   skillsBusyKey?: string | null;
   skillsAllowlist?: string[] | undefined;
-  onSetSkillEnabled: (skillName: string, enabled: boolean) => Promise<void> | void;
+  onSetSkillEnabled: (
+    skillName: string,
+    enabled: boolean,
+  ) => Promise<void> | void;
   onOpenSystemSetup: (skillKey?: string) => void;
 };
-
-const FILTERS: Array<{ id: SkillRowFilter; label: string }> = [];
 
 const DISPLAY_CLASSES: Record<AgentSkillDisplayState, string> = {
   ready: "ui-badge-status-running",
@@ -37,7 +38,7 @@ const DISPLAY_CLASSES: Record<AgentSkillDisplayState, string> = {
 const resolveHint = (
   skill: SkillStatusReport["skills"][number],
   displayState: AgentSkillDisplayState,
-  t: ReturnType<typeof useTranslations>
+  t: ReturnType<typeof useTranslations>,
 ): string | null => {
   if (displayState === "ready") {
     return null;
@@ -46,7 +47,11 @@ const resolveHint = (
     if (skill.blockedByAllowlist) {
       return t("hintBlockedByPolicy");
     }
-    return buildSkillMissingDetails(skill).find((line) => line.startsWith("Requires OS:")) ?? t("hintNotSupported");
+    return (
+      buildSkillMissingDetails(skill).find((line) =>
+        line.startsWith("Requires OS:"),
+      ) ?? t("hintNotSupported")
+    );
   }
   const readiness = deriveSkillReadinessState(skill);
   if (readiness === "disabled-globally") {
@@ -69,16 +74,26 @@ export const AgentSkillsPanel = ({
   const [skillsFilter, setSkillsFilter] = useState("");
   const [rowFilter, setRowFilter] = useState<SkillRowFilter>("all");
 
-  const skillEntries = useMemo(() => skillsReport?.skills ?? [], [skillsReport]);
+  const skillEntries = useMemo(
+    () => skillsReport?.skills ?? [],
+    [skillsReport],
+  );
   const accessMode = deriveAgentSkillsAccessMode(skillsAllowlist);
-  const allowlistSet = useMemo(() => buildAgentSkillsAllowlistSet(skillsAllowlist), [skillsAllowlist]);
+  const allowlistSet = useMemo(
+    () => buildAgentSkillsAllowlistSet(skillsAllowlist),
+    [skillsAllowlist],
+  );
   const anySkillBusy = skillsBusy || Boolean(skillsBusyKey);
 
   const rows = useMemo(() => {
     return skillEntries.map((skill) => {
       const normalizedName = skill.name.trim();
       const allowed =
-        accessMode === "all" ? true : accessMode === "none" ? false : allowlistSet.has(normalizedName);
+        accessMode === "all"
+          ? true
+          : accessMode === "none"
+            ? false
+            : allowlistSet.has(normalizedName);
       const readiness = deriveSkillReadinessState(skill);
       return {
         skill,
@@ -94,10 +109,15 @@ export const AgentSkillsPanel = ({
       return rows;
     }
     return rows.filter((entry) =>
-      [entry.skill.name, entry.skill.description, entry.skill.source, entry.skill.skillKey]
+      [
+        entry.skill.name,
+        entry.skill.description,
+        entry.skill.source,
+        entry.skill.skillKey,
+      ]
         .join(" ")
         .toLowerCase()
-        .includes(query)
+        .includes(query),
     );
   }, [rows, skillsFilter]);
 
@@ -108,18 +128,24 @@ export const AgentSkillsPanel = ({
     return searchedRows.filter((entry) => entry.displayState === rowFilter);
   }, [rowFilter, searchedRows]);
 
-  const filters = useMemo<Array<{ id: SkillRowFilter; label: string }>>(() => [
-    { id: "all", label: t("filterAll") },
-    { id: "ready", label: t("filterReady") },
-    { id: "setup-required", label: t("filterSetupRequired") },
-    { id: "not-supported", label: t("filterNotSupported") },
-  ], [t]);
+  const filters = useMemo<Array<{ id: SkillRowFilter; label: string }>>(
+    () => [
+      { id: "all", label: t("filterAll") },
+      { id: "ready", label: t("filterReady") },
+      { id: "setup-required", label: t("filterSetupRequired") },
+      { id: "not-supported", label: t("filterNotSupported") },
+    ],
+    [t],
+  );
 
-  const displayLabels = useMemo<Record<AgentSkillDisplayState, string>>(() => ({
-    ready: t("displayReady"),
-    "setup-required": t("displaySetupRequired"),
-    "not-supported": t("displayNotSupported"),
-  }), [t]);
+  const displayLabels = useMemo<Record<AgentSkillDisplayState, string>>(
+    () => ({
+      ready: t("displayReady"),
+      "setup-required": t("displaySetupRequired"),
+      "not-supported": t("displayNotSupported"),
+    }),
+    [t],
+  );
 
   const filterCounts = useMemo(
     () =>
@@ -134,14 +160,14 @@ export const AgentSkillsPanel = ({
           ready: 0,
           "setup-required": 0,
           "not-supported": 0,
-        } satisfies Record<SkillRowFilter, number>
+        } satisfies Record<SkillRowFilter, number>,
       ),
-    [searchedRows]
+    [searchedRows],
   );
 
   const enabledCount = useMemo(
     () => rows.reduce((count, entry) => count + (entry.allowed ? 1 : 0), 0),
-    [rows]
+    [rows],
   );
 
   return (
@@ -152,7 +178,9 @@ export const AgentSkillsPanel = ({
           {enabledCount}/{skillEntries.length}
         </div>
       </div>
-      <div className="mt-2 text-[11px] text-muted-foreground">{t("accessControls")}</div>
+      <div className="mt-2 text-[11px] text-muted-foreground">
+        {t("accessControls")}
+      </div>
       {accessMode === "selected" ? (
         <div className="mt-2 text-[10px] text-muted-foreground/80">
           {t("selectedOnly")}
@@ -186,20 +214,30 @@ export const AgentSkillsPanel = ({
           );
         })}
       </div>
-      {skillsLoading ? <div className="mt-3 text-[11px] text-muted-foreground">{t("loadingSkills")}</div> : null}
+      {skillsLoading ? (
+        <div className="mt-3 text-[11px] text-muted-foreground">
+          {t("loadingSkills")}
+        </div>
+      ) : null}
       {!skillsLoading && skillsError ? (
-        <div className="ui-alert-danger mt-3 rounded-md px-3 py-2 text-xs">{skillsError}</div>
+        <div className="ui-alert-danger mt-3 rounded-md px-3 py-2 text-xs">
+          {skillsError}
+        </div>
       ) : null}
       {!skillsLoading && !skillsError && filteredRows.length === 0 ? (
-        <div className="mt-3 text-[11px] text-muted-foreground">{t("noMatchingSkills")}</div>
+        <div className="mt-3 text-[11px] text-muted-foreground">
+          {t("noMatchingSkills")}
+        </div>
       ) : null}
       {!skillsLoading && !skillsError && filteredRows.length > 0 ? (
         <div className="mt-3 flex flex-col gap-2">
           {filteredRows.map((entry) => {
             const statusLabel = displayLabels[entry.displayState];
             const statusClassName = DISPLAY_CLASSES[entry.displayState];
-            const canConfigureInSystem = entry.displayState === "setup-required";
-            const switchDisabled = anySkillBusy || entry.displayState === "not-supported";
+            const canConfigureInSystem =
+              entry.displayState === "setup-required";
+            const switchDisabled =
+              anySkillBusy || entry.displayState === "not-supported";
             return (
               <div
                 key={`${entry.skill.source}:${entry.skill.skillKey}`}
@@ -207,7 +245,9 @@ export const AgentSkillsPanel = ({
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="truncate text-[11px] font-medium text-foreground/88">{entry.skill.name}</span>
+                    <span className="truncate text-[11px] font-medium text-foreground/88">
+                      {entry.skill.name}
+                    </span>
                     <span className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground">
                       {entry.skill.source}
                     </span>
@@ -217,7 +257,9 @@ export const AgentSkillsPanel = ({
                       {statusLabel}
                     </span>
                   </div>
-                  <div className="mt-1 text-[10px] text-muted-foreground/70">{entry.skill.description}</div>
+                  <div className="mt-1 text-[10px] text-muted-foreground/70">
+                    {entry.skill.description}
+                  </div>
                   {entry.displayState !== "ready" ? (
                     <div className="mt-1 text-[10px] text-muted-foreground/80">
                       {resolveHint(entry.skill, entry.displayState, t)}

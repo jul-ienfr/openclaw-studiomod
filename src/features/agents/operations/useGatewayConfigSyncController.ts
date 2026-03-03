@@ -24,7 +24,9 @@ export type UseGatewayConfigSyncControllerParams = {
   settingsRouteActive: boolean;
   inspectSidebarAgentId: string | null;
   gatewayConfigSnapshot: GatewayModelPolicySnapshot | null;
-  setGatewayConfigSnapshot: (snapshot: GatewayModelPolicySnapshot | null) => void;
+  setGatewayConfigSnapshot: (
+    snapshot: GatewayModelPolicySnapshot | null,
+  ) => void;
   setGatewayModels: (models: GatewayModelChoice[]) => void;
   setGatewayModelsError: (message: string | null) => void;
   enqueueConfigMutation: (params: {
@@ -43,7 +45,7 @@ export type GatewayConfigSyncController = {
 };
 
 export function useGatewayConfigSyncController(
-  params: UseGatewayConfigSyncControllerParams
+  params: UseGatewayConfigSyncControllerParams,
 ): GatewayConfigSyncController {
   const sandboxRepairAttemptedRef = useRef(false);
 
@@ -52,7 +54,10 @@ export function useGatewayConfigSyncController(
   const refreshGatewayConfigSnapshot = useCallback(async () => {
     if (params.status !== "connected") return null;
     try {
-      const snapshot = await params.client.call<GatewayModelPolicySnapshot>("config.get", {});
+      const snapshot = await params.client.call<GatewayModelPolicySnapshot>(
+        "config.get",
+        {},
+      );
       params.setGatewayConfigSnapshot(snapshot);
       return snapshot;
     } catch (err) {
@@ -61,13 +66,7 @@ export function useGatewayConfigSyncController(
       }
       return null;
     }
-  }, [
-    params.client,
-    params.isDisconnectLikeError,
-    params.setGatewayConfigSnapshot,
-    params.status,
-    logError,
-  ]);
+  }, [params, logError]);
 
   useEffect(() => {
     const repairIntent = resolveSandboxRepairIntent({
@@ -100,13 +99,7 @@ export function useGatewayConfigSyncController(
         await params.loadAgents();
       },
     });
-  }, [
-    params.client,
-    params.enqueueConfigMutation,
-    params.gatewayConfigSnapshot,
-    params.loadAgents,
-    params.status,
-  ]);
+  }, [params]);
 
   useEffect(() => {
     if (
@@ -119,15 +112,12 @@ export function useGatewayConfigSyncController(
       return;
     }
     void refreshGatewayConfigSnapshot();
-  }, [
-    params.inspectSidebarAgentId,
-    params.settingsRouteActive,
-    params.status,
-    refreshGatewayConfigSnapshot,
-  ]);
+  }, [params, refreshGatewayConfigSnapshot]);
 
   useEffect(() => {
-    const syncIntent = resolveGatewayModelsSyncIntent({ status: params.status });
+    const syncIntent = resolveGatewayModelsSyncIntent({
+      status: params.status,
+    });
     if (syncIntent.kind === "clear") {
       params.setGatewayModels([]);
       params.setGatewayModelsError(null);
@@ -139,7 +129,10 @@ export function useGatewayConfigSyncController(
     const loadModels = async () => {
       let configSnapshot: GatewayModelPolicySnapshot | null = null;
       try {
-        configSnapshot = await params.client.call<GatewayModelPolicySnapshot>("config.get", {});
+        configSnapshot = await params.client.call<GatewayModelPolicySnapshot>(
+          "config.get",
+          {},
+        );
         if (!cancelled) {
           params.setGatewayConfigSnapshot(configSnapshot);
         }
@@ -150,17 +143,19 @@ export function useGatewayConfigSyncController(
       }
 
       try {
-        const result = await params.client.call<{ models: GatewayModelChoice[] }>(
-          "models.list",
-          {}
-        );
+        const result = await params.client.call<{
+          models: GatewayModelChoice[];
+        }>("models.list", {});
         if (cancelled) return;
         const catalog = Array.isArray(result.models) ? result.models : [];
-        params.setGatewayModels(buildGatewayModelChoices(catalog, configSnapshot));
+        params.setGatewayModels(
+          buildGatewayModelChoices(catalog, configSnapshot),
+        );
         params.setGatewayModelsError(null);
       } catch (err) {
         if (cancelled) return;
-        const message = err instanceof Error ? err.message : "Failed to load models.";
+        const message =
+          err instanceof Error ? err.message : "Failed to load models.";
         params.setGatewayModelsError(message);
         params.setGatewayModels([]);
         if (!params.isDisconnectLikeError(err)) {
@@ -173,15 +168,7 @@ export function useGatewayConfigSyncController(
     return () => {
       cancelled = true;
     };
-  }, [
-    params.client,
-    params.isDisconnectLikeError,
-    params.setGatewayConfigSnapshot,
-    params.setGatewayModels,
-    params.setGatewayModelsError,
-    params.status,
-    logError,
-  ]);
+  }, [params, logError]);
 
   return {
     refreshGatewayConfigSnapshot,

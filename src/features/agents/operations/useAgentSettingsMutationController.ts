@@ -470,13 +470,7 @@ export function useAgentSettingsMutationController(
       cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [
-    params.agents,
-    params.loadAgents,
-    params.setMobilePaneChat,
-    params.status,
-    restartingMutationBlock,
-  ]);
+  }, [params, restartingMutationBlock]);
 
   const handleDeleteAgent = useCallback(
     async (agentId: string) => {

@@ -2,7 +2,14 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
-import { Plus, GitBranch, Pencil, Trash2, ToggleLeft, ToggleRight } from "lucide-react";
+import {
+  Plus,
+  GitBranch,
+  Pencil,
+  Trash2,
+  ToggleLeft,
+  ToggleRight,
+} from "lucide-react";
 import { toast } from "sonner";
 import type { RoutingConfig, RoutingRule } from "../types";
 import {
@@ -25,7 +32,10 @@ const DEFAULT_AGENTS: Agent[] = [
 
 export function RoutingPanel({ agents }: { agents?: Agent[] }) {
   const t = useTranslations("routing");
-  const [config, setConfig] = useState<RoutingConfig>({ rules: [], defaultAgentId: "" });
+  const [config, setConfig] = useState<RoutingConfig>({
+    rules: [],
+    defaultAgentId: "",
+  });
   const [editingRule, setEditingRule] = useState<RoutingRule | null>(null);
   const [showEditor, setShowEditor] = useState(false);
 
@@ -45,33 +55,44 @@ export function RoutingPanel({ agents }: { agents?: Agent[] }) {
     setShowEditor(true);
   }, []);
 
-  const handleSave = useCallback((rule: RoutingRule) => {
-    let next: RoutingConfig;
-    if (editingRule) {
-      next = updateRoutingRule(config, rule.id, rule);
-      toast.success(t("ruleUpdated"));
-    } else {
-      next = addRoutingRule(config, rule);
-      toast.success(t("ruleCreated"));
-    }
-    setConfig(next);
-    persistRoutingConfig(next);
-    setShowEditor(false);
-    setEditingRule(null);
-  }, [editingRule, config]);
+  const handleSave = useCallback(
+    (rule: RoutingRule) => {
+      let next: RoutingConfig;
+      if (editingRule) {
+        next = updateRoutingRule(config, rule.id, rule);
+        toast.success(t("ruleUpdated"));
+      } else {
+        next = addRoutingRule(config, rule);
+        toast.success(t("ruleCreated"));
+      }
+      setConfig(next);
+      persistRoutingConfig(next);
+      setShowEditor(false);
+      setEditingRule(null);
+    },
+    [editingRule, config, t],
+  );
 
-  const handleToggle = useCallback((rule: RoutingRule) => {
-    const next = updateRoutingRule(config, rule.id, { enabled: !rule.enabled });
-    setConfig(next);
-    persistRoutingConfig(next);
-  }, [config]);
+  const handleToggle = useCallback(
+    (rule: RoutingRule) => {
+      const next = updateRoutingRule(config, rule.id, {
+        enabled: !rule.enabled,
+      });
+      setConfig(next);
+      persistRoutingConfig(next);
+    },
+    [config],
+  );
 
-  const handleDelete = useCallback((ruleId: string) => {
-    const next = removeRoutingRule(config, ruleId);
-    setConfig(next);
-    persistRoutingConfig(next);
-    toast.success(t("ruleRemoved"));
-  }, [config]);
+  const handleDelete = useCallback(
+    (ruleId: string) => {
+      const next = removeRoutingRule(config, ruleId);
+      setConfig(next);
+      persistRoutingConfig(next);
+      toast.success(t("ruleRemoved"));
+    },
+    [config, t],
+  );
 
   const handleCloseEditor = useCallback(() => {
     setShowEditor(false);
@@ -129,10 +150,13 @@ export function RoutingPanel({ agents }: { agents?: Agent[] }) {
               </button>
 
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-foreground">{rule.name}</p>
+                <p className="truncate text-sm font-medium text-foreground">
+                  {rule.name}
+                </p>
                 <p className="truncate text-xs text-muted-foreground">
-                  {t("priority")} {rule.priority} &middot; {rule.conditions.length} {t("conditionsLabel")} &middot; &rarr;{" "}
-                  {getAgentName(rule.targetAgentId)}
+                  {t("priority")} {rule.priority} &middot;{" "}
+                  {rule.conditions.length} {t("conditionsLabel")} &middot;
+                  &rarr; {getAgentName(rule.targetAgentId)}
                 </p>
               </div>
 

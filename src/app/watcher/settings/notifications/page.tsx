@@ -48,12 +48,18 @@ function SaveBar({
 }
 
 export default function SettingsNotificationsPage() {
-  const { configDirty, configSaving, configError, loadConfig, saveConfig, resetConfig } =
-    useWatcherConfigController();
+  const {
+    configDirty,
+    configSaving,
+    configError,
+    loadConfig,
+    saveConfig,
+    resetConfig,
+  } = useWatcherConfigController();
 
   useEffect(() => {
     loadConfig();
-  }, []);
+  }, [loadConfig]);
 
   return (
     <div className="space-y-6">

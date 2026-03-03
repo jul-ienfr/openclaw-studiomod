@@ -29,7 +29,9 @@ export function useWatcherSSE(dispatch: Dispatch) {
       // Ensure the session cookie is set before opening EventSource.
       // EventSource cannot set custom headers, so we rely on the cookie.
       fetch("/api/watcher/session")
-        .catch(() => {/* best-effort — dev-token bypasses auth anyway */})
+        .catch(() => {
+          /* best-effort — dev-token bypasses auth anyway */
+        })
         .finally(() => {
           if (!mounted) return;
 
@@ -45,9 +47,14 @@ export function useWatcherSSE(dispatch: Dispatch) {
                 sources: unknown[];
               };
               if (Array.isArray(sources)) {
-                dispatch({ type: "HYDRATE_SOURCES", sources: sources as never });
+                dispatch({
+                  type: "HYDRATE_SOURCES",
+                  sources: sources as never,
+                });
               }
-            } catch { /* malformed event — ignore */ }
+            } catch {
+              /* malformed event — ignore */
+            }
           });
 
           es.addEventListener("new-items", (e: MessageEvent) => {
@@ -58,7 +65,9 @@ export function useWatcherSSE(dispatch: Dispatch) {
               if (typeof count === "number") {
                 dispatch({ type: "SET_NEW_ITEMS_COUNT", count });
               }
-            } catch { /* malformed event — ignore */ }
+            } catch {
+              /* malformed event — ignore */
+            }
           });
 
           es.addEventListener("implementation-status", () => {
@@ -74,7 +83,9 @@ export function useWatcherSSE(dispatch: Dispatch) {
                   });
                 }
               })
-              .catch(() => { /* silent — non-critical */ });
+              .catch(() => {
+                /* silent — non-critical */
+              });
           });
 
           es.onerror = () => {
@@ -97,7 +108,6 @@ export function useWatcherSSE(dispatch: Dispatch) {
       if (reconnectTimer) clearTimeout(reconnectTimer);
       es?.close();
     };
-  // dispatch is guaranteed stable by React's useReducer
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // dispatch is guaranteed stable by React's useReducer
   }, [dispatch]);
 }

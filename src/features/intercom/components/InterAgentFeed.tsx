@@ -27,9 +27,9 @@ export const InterAgentFeed = ({ agentId }: InterAgentFeedProps) => {
     return () => clearInterval(interval);
   }, []);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const messages = useMemo(
     () => getIntercomMessages(agentId),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [agentId, refreshKey],
   );
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useReducer, type ReactNode } from "react";
+import { createContext, useContext, useReducer, type ReactNode } from "react";
 import { useWatcherSSE } from "@/features/watcher/operations/useWatcherSSE";
 import type {
   SourceState,
@@ -9,7 +9,6 @@ import type {
   Implementation,
   WatcherConfig,
   Filters,
-  Decision,
 } from "@/features/watcher/types";
 
 // ─── State ───
@@ -56,9 +55,17 @@ type WatcherAction =
   | { type: "SET_LOADING"; loading: boolean }
   | { type: "SET_ERROR"; error: string | null }
   | { type: "HYDRATE_SOURCES"; sources: SourceState[] }
-  | { type: "HYDRATE_ITEMS"; items: (WatchItem & Partial<ScoreRecord>)[]; total: number }
+  | {
+      type: "HYDRATE_ITEMS";
+      items: (WatchItem & Partial<ScoreRecord>)[];
+      total: number;
+    }
   | { type: "HYDRATE_SCORES"; scores: ScoreRecord[]; total: number }
-  | { type: "HYDRATE_IMPLEMENTATIONS"; implementations: Implementation[]; total: number }
+  | {
+      type: "HYDRATE_IMPLEMENTATIONS";
+      implementations: Implementation[];
+      total: number;
+    }
   | { type: "SET_CONFIG"; config: WatcherConfig }
   | { type: "PATCH_CONFIG"; patch: Partial<WatcherConfig> }
   | { type: "SET_CONFIG_DIRTY"; dirty: boolean }
@@ -80,12 +87,28 @@ function reducer(state: WatcherState, action: WatcherAction): WatcherState {
     case "HYDRATE_SCORES":
       return { ...state, scores: action.scores, scoresTotal: action.total };
     case "HYDRATE_IMPLEMENTATIONS":
-      return { ...state, implementations: action.implementations, implementationsTotal: action.total };
+      return {
+        ...state,
+        implementations: action.implementations,
+        implementationsTotal: action.total,
+      };
     case "SET_CONFIG":
-      return { ...state, config: action.config, configDirty: false, configError: null };
+      return {
+        ...state,
+        config: action.config,
+        configDirty: false,
+        configError: null,
+      };
     case "PATCH_CONFIG":
       if (!state.config) return state;
-      return { ...state, config: deepMerge(state.config as unknown as Record<string, unknown>, action.patch as unknown as Record<string, unknown>) as unknown as WatcherConfig, configDirty: true };
+      return {
+        ...state,
+        config: deepMerge(
+          state.config as unknown as Record<string, unknown>,
+          action.patch as unknown as Record<string, unknown>,
+        ) as unknown as WatcherConfig,
+        configDirty: true,
+      };
     case "SET_CONFIG_DIRTY":
       return { ...state, configDirty: action.dirty };
     case "SET_CONFIG_SAVING":
@@ -101,13 +124,26 @@ function reducer(state: WatcherState, action: WatcherAction): WatcherState {
   }
 }
 
-function deepMerge(target: Record<string, unknown>, source: Record<string, unknown>): Record<string, unknown> {
+function deepMerge(
+  target: Record<string, unknown>,
+  source: Record<string, unknown>,
+): Record<string, unknown> {
   const result = { ...target };
   for (const key of Object.keys(source)) {
     const sv = source[key];
     const tv = target[key];
-    if (sv && typeof sv === "object" && !Array.isArray(sv) && tv && typeof tv === "object" && !Array.isArray(tv)) {
-      result[key] = deepMerge(tv as Record<string, unknown>, sv as Record<string, unknown>);
+    if (
+      sv &&
+      typeof sv === "object" &&
+      !Array.isArray(sv) &&
+      tv &&
+      typeof tv === "object" &&
+      !Array.isArray(tv)
+    ) {
+      result[key] = deepMerge(
+        tv as Record<string, unknown>,
+        sv as Record<string, unknown>,
+      );
     } else {
       result[key] = sv;
     }
@@ -139,7 +175,8 @@ export function WatcherProvider({ children }: { children: ReactNode }) {
 
 export function useWatcherStore() {
   const ctx = useContext(WatcherContext);
-  if (!ctx) throw new Error("useWatcherStore must be used within WatcherProvider");
+  if (!ctx)
+    throw new Error("useWatcherStore must be used within WatcherProvider");
   return ctx;
 }
 

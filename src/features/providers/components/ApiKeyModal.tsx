@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useTranslations } from "next-intl";
 import {
   X,
   Eye,
@@ -161,9 +160,7 @@ export const ApiKeyModal = ({
               fallbackColor={provider.iconColor}
               size={28}
             />
-            <h2 className="text-sm font-semibold text-foreground">
-              {title}
-            </h2>
+            <h2 className="text-sm font-semibold text-foreground">{title}</h2>
           </div>
           <button
             type="button"
@@ -192,7 +189,10 @@ export const ApiKeyModal = ({
                 className="ui-input w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-xs"
                 placeholder="ex: Proxy, Personnel, Production..."
                 value={label}
-                onChange={(e) => { setLabel(e.target.value); setError(null); }}
+                onChange={(e) => {
+                  setLabel(e.target.value);
+                  setError(null);
+                }}
                 onKeyDown={handleKeyDown}
                 autoComplete="off"
               />
@@ -303,7 +303,9 @@ export const ApiKeyModal = ({
                 type="url"
                 className="ui-input w-full rounded-lg border border-border bg-surface-2 px-3 py-2 font-mono text-xs"
                 placeholder={
-                  isOllama ? "http://localhost:11434" : "https://api.example.com"
+                  isOllama
+                    ? "http://localhost:11434"
+                    : "https://api.example.com"
                 }
                 value={baseUrl}
                 onChange={(e) => setBaseUrl(e.target.value)}

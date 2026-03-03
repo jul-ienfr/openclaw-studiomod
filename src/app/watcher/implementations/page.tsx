@@ -16,7 +16,7 @@ export default function ImplementationsPage() {
 
   useEffect(() => {
     loadImplementations();
-  }, []);
+  }, [loadImplementations]);
 
   async function handleRollback(id: string) {
     await rollback(id);

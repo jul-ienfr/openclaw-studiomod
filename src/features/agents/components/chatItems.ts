@@ -19,9 +19,21 @@ type ItemMeta = {
 
 export type AgentChatItem =
   | { kind: "user"; text: string; timestampMs?: number }
-  | { kind: "assistant"; text: string; live?: boolean; timestampMs?: number; thinkingDurationMs?: number }
+  | {
+      kind: "assistant";
+      text: string;
+      live?: boolean;
+      timestampMs?: number;
+      thinkingDurationMs?: number;
+    }
   | { kind: "tool"; text: string; timestampMs?: number }
-  | { kind: "thinking"; text: string; live?: boolean; timestampMs?: number; thinkingDurationMs?: number };
+  | {
+      kind: "thinking";
+      text: string;
+      live?: boolean;
+      timestampMs?: number;
+      thinkingDurationMs?: number;
+    };
 
 export type AssistantTraceEvent =
   | { kind: "thinking"; text: string }
@@ -68,7 +80,6 @@ export const buildFinalAgentChatItems = ({
 > & { hideSystemMessages?: boolean }): AgentChatItem[] => {
   const items: AgentChatItem[] = [];
   let currentMeta: ItemMeta | null = null;
-  let lastWasMemoryFlush = false;
   const appendThinking = (text: string) => {
     const normalized = text.trim();
     if (!normalized) return;
@@ -77,7 +88,12 @@ export const buildFinalAgentChatItems = ({
       items.push({
         kind: "thinking",
         text: normalized,
-        ...(currentMeta ? { timestampMs: currentMeta.timestampMs, thinkingDurationMs: currentMeta.thinkingDurationMs } : {}),
+        ...(currentMeta
+          ? {
+              timestampMs: currentMeta.timestampMs,
+              thinkingDurationMs: currentMeta.thinkingDurationMs,
+            }
+          : {}),
       });
       return;
     }
@@ -114,7 +130,9 @@ export const buildFinalAgentChatItems = ({
         currentMeta = {
           role: parsed.role,
           timestampMs: parsed.timestamp,
-          ...(typeof parsed.thinkingDurationMs === "number" ? { thinkingDurationMs: parsed.thinkingDurationMs } : {}),
+          ...(typeof parsed.thinkingDurationMs === "number"
+            ? { thinkingDurationMs: parsed.thinkingDurationMs }
+            : {}),
         };
       }
       continue;
@@ -140,10 +158,8 @@ export const buildFinalAgentChatItems = ({
       const text = trimmed.replace(/^>\s?/, "").trim();
       if (text) {
         if (!hideSystemMessages && isMemoryFlushPrompt(text)) {
-          lastWasMemoryFlush = true;
           continue;
         }
-        lastWasMemoryFlush = false;
         const normalized = normalizeUserDisplayText(text);
         const currentTimestamp =
           currentMeta?.role === "user" ? currentMeta.timestampMs : undefined;
@@ -158,9 +174,7 @@ export const buildFinalAgentChatItems = ({
               previousTimestamp === currentTimestamp) ||
               (previousTimestamp === undefined &&
                 typeof currentTimestamp === "number"));
-          if (
-            shouldCollapse
-          ) {
+          if (shouldCollapse) {
             previous.text = normalized;
             if (typeof currentTimestamp === "number") {
               previous.timestampMs = currentTimestamp;
@@ -174,7 +188,9 @@ export const buildFinalAgentChatItems = ({
         items.push({
           kind: "user",
           text: normalized,
-          ...(typeof currentTimestamp === "number" ? { timestampMs: currentTimestamp } : {}),
+          ...(typeof currentTimestamp === "number"
+            ? { timestampMs: currentTimestamp }
+            : {}),
         });
         if (currentMeta?.role === "user") {
           currentMeta = null;
@@ -185,14 +201,17 @@ export const buildFinalAgentChatItems = ({
     const normalizedAssistant = normalizeAssistantDisplayText(line);
     if (!normalizedAssistant) continue;
     if (!hideSystemMessages && isNoReplyResponse(normalizedAssistant)) {
-      lastWasMemoryFlush = false;
       continue;
     }
-    lastWasMemoryFlush = false;
     items.push({
       kind: "assistant",
       text: normalizedAssistant,
-      ...(currentMeta ? { timestampMs: currentMeta.timestampMs, thinkingDurationMs: currentMeta.thinkingDurationMs } : {}),
+      ...(currentMeta
+        ? {
+            timestampMs: currentMeta.timestampMs,
+            thinkingDurationMs: currentMeta.thinkingDurationMs,
+          }
+        : {}),
     });
   }
   return items;
@@ -216,7 +235,12 @@ export const buildAgentChatItems = ({
         kind: "thinking",
         text: normalized,
         live,
-        ...(currentMeta ? { timestampMs: currentMeta.timestampMs, thinkingDurationMs: currentMeta.thinkingDurationMs } : {}),
+        ...(currentMeta
+          ? {
+              timestampMs: currentMeta.timestampMs,
+              thinkingDurationMs: currentMeta.thinkingDurationMs,
+            }
+          : {}),
       });
       return;
     }
@@ -245,7 +269,9 @@ export const buildAgentChatItems = ({
         currentMeta = {
           role: parsed.role,
           timestampMs: parsed.timestamp,
-          ...(typeof parsed.thinkingDurationMs === "number" ? { thinkingDurationMs: parsed.thinkingDurationMs } : {}),
+          ...(typeof parsed.thinkingDurationMs === "number"
+            ? { thinkingDurationMs: parsed.thinkingDurationMs }
+            : {}),
         };
       }
       continue;
@@ -275,7 +301,9 @@ export const buildAgentChatItems = ({
         items.push({
           kind: "user",
           text: normalizeUserDisplayText(text),
-          ...(typeof currentTimestamp === "number" ? { timestampMs: currentTimestamp } : {}),
+          ...(typeof currentTimestamp === "number"
+            ? { timestampMs: currentTimestamp }
+            : {}),
         });
         if (currentMeta?.role === "user") {
           currentMeta = null;
@@ -288,14 +316,20 @@ export const buildAgentChatItems = ({
     items.push({
       kind: "assistant",
       text: normalizedAssistant,
-      ...(currentMeta ? { timestampMs: currentMeta.timestampMs, thinkingDurationMs: currentMeta.thinkingDurationMs } : {}),
+      ...(currentMeta
+        ? {
+            timestampMs: currentMeta.timestampMs,
+            thinkingDurationMs: currentMeta.thinkingDurationMs,
+          }
+        : {}),
     });
   }
 
   const liveStream = streamText?.trim();
 
   if (showThinkingTraces) {
-    const normalizedLiveThinking = normalizeThinkingDisplayText(liveThinkingTrace);
+    const normalizedLiveThinking =
+      normalizeThinkingDisplayText(liveThinkingTrace);
     if (normalizedLiveThinking) {
       appendThinking(normalizedLiveThinking, true);
     }
@@ -318,7 +352,10 @@ const mergeIncrementalText = (existing: string, next: string): string => {
   return `${existing}\n\n${next}`;
 };
 
-const appendThinkingTraceEvent = (events: AssistantTraceEvent[], text: string) => {
+const appendThinkingTraceEvent = (
+  events: AssistantTraceEvent[],
+  text: string,
+) => {
   const normalized = text.trim();
   if (!normalized) return;
   const previous = events[events.length - 1];
@@ -329,19 +366,19 @@ const appendThinkingTraceEvent = (events: AssistantTraceEvent[], text: string) =
   previous.text = mergeIncrementalText(previous.text, normalized);
 };
 
-const hasMismatchedTimestamps = (
-  left?: number,
-  right?: number
-): boolean => {
+const hasMismatchedTimestamps = (left?: number, right?: number): boolean => {
   if (typeof left !== "number" || typeof right !== "number") return false;
   return left !== right;
 };
 
 export const buildAgentChatRenderBlocks = (
-  chatItems: AgentChatItem[]
+  chatItems: AgentChatItem[],
 ): AgentChatRenderBlock[] => {
   const blocks: AgentChatRenderBlock[] = [];
-  let currentAssistant: Extract<AgentChatRenderBlock, { kind: "assistant" }> | null = null;
+  let currentAssistant: Extract<
+    AgentChatRenderBlock,
+    { kind: "assistant" }
+  > | null = null;
 
   const flushAssistant = () => {
     if (!currentAssistant) return;
@@ -360,7 +397,9 @@ export const buildAgentChatRenderBlocks = (
         kind: "assistant",
         text: null,
         traceEvents: [],
-        ...(typeof meta?.timestampMs === "number" ? { timestampMs: meta.timestampMs } : {}),
+        ...(typeof meta?.timestampMs === "number"
+          ? { timestampMs: meta.timestampMs }
+          : {}),
         ...(typeof meta?.thinkingDurationMs === "number"
           ? { thinkingDurationMs: meta.thinkingDurationMs }
           : {}),
@@ -376,7 +415,9 @@ export const buildAgentChatRenderBlocks = (
         kind: "assistant",
         text: null,
         traceEvents: [],
-        ...(typeof meta?.timestampMs === "number" ? { timestampMs: meta.timestampMs } : {}),
+        ...(typeof meta?.timestampMs === "number"
+          ? { timestampMs: meta.timestampMs }
+          : {}),
         ...(typeof meta?.thinkingDurationMs === "number"
           ? { thinkingDurationMs: meta.thinkingDurationMs }
           : {}),
@@ -398,7 +439,11 @@ export const buildAgentChatRenderBlocks = (
   for (const item of chatItems) {
     if (item.kind === "user") {
       flushAssistant();
-      blocks.push({ kind: "user", text: item.text, timestampMs: item.timestampMs });
+      blocks.push({
+        kind: "user",
+        text: item.text,
+        timestampMs: item.timestampMs,
+      });
       continue;
     }
 
@@ -434,7 +479,7 @@ export const buildAgentChatRenderBlocks = (
 };
 
 const stripTrailingToolCallId = (
-  label: string
+  label: string,
 ): { toolLabel: string; toolCallId: string | null } => {
   const trimmed = label.trim();
   const match = trimmed.match(/^(.*?)\s*\(([^)]+)\)\s*$/);
@@ -447,7 +492,10 @@ const stripTrailingToolCallId = (
 const toDisplayToolName = (label: string): string => {
   const cleaned = label.trim();
   if (!cleaned) return "tool";
-  const segments = cleaned.split(/[.:/]/).map((s) => s.trim()).filter(Boolean);
+  const segments = cleaned
+    .split(/[.:/]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
   return segments[segments.length - 1] ?? cleaned;
 };
 
@@ -490,13 +538,15 @@ const extractToolArgSummary = (body: string): string | null => {
 };
 
 export const summarizeToolLabel = (
-  line: string
+  line: string,
 ): { summaryText: string; body: string; inlineOnly?: boolean } => {
   const parsed = parseToolMarkdown(line);
   const { toolLabel } = stripTrailingToolCallId(parsed.label);
   const toolName = toDisplayToolName(toolLabel).toUpperCase();
-  const metaLine = parsed.kind === "result" ? extractToolMetaLine(parsed.body) : null;
-  const argSummary = parsed.kind === "call" ? extractToolArgSummary(parsed.body) : null;
+  const metaLine =
+    parsed.kind === "result" ? extractToolMetaLine(parsed.body) : null;
+  const argSummary =
+    parsed.kind === "call" ? extractToolArgSummary(parsed.body) : null;
   const toolIsRead = toolName === "READ";
   if (toolIsRead && parsed.kind === "call" && argSummary) {
     return {
@@ -510,10 +560,12 @@ export const summarizeToolLabel = (
   const execSummary =
     parsed.kind === "call"
       ? argSummary
-      : metaLine ?? extractFirstCodeBlockLine(parsed.body);
+      : (metaLine ?? extractFirstCodeBlockLine(parsed.body));
   const summaryText = toolIsExec
     ? (execSummary ?? metaLine ?? toolName)
-    : (suffix ? `${toolName} · ${suffix}` : toolName);
+    : suffix
+      ? `${toolName} · ${suffix}`
+      : toolName;
   return {
     summaryText,
     body: parsed.body,

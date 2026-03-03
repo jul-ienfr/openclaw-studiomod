@@ -1,16 +1,28 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Lock, Plus, Trash2, Eye, EyeOff, ChevronDown } from "lucide-react";
+import { Lock, Plus, Trash2, Eye, EyeOff } from "lucide-react";
 
 type Credential = { key: string; value: string };
-type AgentCredentials = { agentId: string; credentials: Credential[] };
-
 const TEMPLATES: Record<string, Credential[]> = {
-  GitHub: [{ key: "GITHUB_TOKEN", value: "" }, { key: "GITHUB_USERNAME", value: "" }],
-  Slack: [{ key: "SLACK_BOT_TOKEN", value: "" }, { key: "SLACK_CHANNEL", value: "" }],
-  SMTP: [{ key: "SMTP_HOST", value: "" }, { key: "SMTP_PORT", value: "587" }, { key: "SMTP_USER", value: "" }, { key: "SMTP_PASS", value: "" }],
-  Twitter: [{ key: "TWITTER_API_KEY", value: "" }, { key: "TWITTER_API_SECRET", value: "" }],
+  GitHub: [
+    { key: "GITHUB_TOKEN", value: "" },
+    { key: "GITHUB_USERNAME", value: "" },
+  ],
+  Slack: [
+    { key: "SLACK_BOT_TOKEN", value: "" },
+    { key: "SLACK_CHANNEL", value: "" },
+  ],
+  SMTP: [
+    { key: "SMTP_HOST", value: "" },
+    { key: "SMTP_PORT", value: "587" },
+    { key: "SMTP_USER", value: "" },
+    { key: "SMTP_PASS", value: "" },
+  ],
+  Twitter: [
+    { key: "TWITTER_API_KEY", value: "" },
+    { key: "TWITTER_API_SECRET", value: "" },
+  ],
   Custom: [{ key: "MY_KEY", value: "" }],
 };
 
@@ -41,9 +53,11 @@ export default function CredentialsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/credentials?agentId=${encodeURIComponent(selectedAgent)}`);
+      const res = await fetch(
+        `/api/credentials?agentId=${encodeURIComponent(selectedAgent)}`,
+      );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json() as { credentials: Credential[] };
+      const data = (await res.json()) as { credentials: Credential[] };
       setCredentials(data.credentials ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erreur");
@@ -52,7 +66,9 @@ export default function CredentialsPage() {
     }
   }, [selectedAgent]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const save = async () => {
     setSaving(true);
@@ -85,15 +101,30 @@ export default function CredentialsPage() {
     <div className="flex h-full flex-col overflow-y-auto">
       <header className="flex items-center justify-between border-b border-border px-6 py-4">
         <div>
-          <h1 className="console-title type-page-title text-foreground">Credentials</h1>
-          <p className="text-sm text-muted-foreground">Vault chiffré AES-256 par agent</p>
+          <h1 className="console-title type-page-title text-foreground">
+            Credentials
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Vault chiffré AES-256 par agent
+          </p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => setShowValues((v) => !v)} className="ui-btn-secondary flex items-center gap-2 px-3 py-2 text-sm">
-            {showValues ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          <button
+            onClick={() => setShowValues((v) => !v)}
+            className="ui-btn-secondary flex items-center gap-2 px-3 py-2 text-sm"
+          >
+            {showValues ? (
+              <EyeOff className="h-4 w-4" />
+            ) : (
+              <Eye className="h-4 w-4" />
+            )}
             {showValues ? "Masquer" : "Afficher"}
           </button>
-          <button onClick={save} disabled={saving || !selectedAgent} className="ui-btn-primary px-4 py-2 text-sm">
+          <button
+            onClick={save}
+            disabled={saving || !selectedAgent}
+            className="ui-btn-primary px-4 py-2 text-sm"
+          >
             {saving ? "Sauvegarde..." : "Sauvegarder"}
           </button>
         </div>
@@ -101,7 +132,9 @@ export default function CredentialsPage() {
 
       <main className="flex-1 p-6 space-y-4">
         {error && (
-          <div className="ui-card border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</div>
+          <div className="ui-card border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+            {error}
+          </div>
         )}
 
         <div className="flex flex-wrap gap-3">
@@ -112,7 +145,11 @@ export default function CredentialsPage() {
               onChange={(e) => setSelectedAgent(e.target.value)}
               className="h-8 rounded-md border border-border bg-surface-2 px-2 text-sm text-foreground focus:outline-none"
             >
-              {agents.map((a) => <option key={a} value={a}>{a}</option>)}
+              {agents.map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
+              ))}
             </select>
           </div>
           <div className="flex items-center gap-2">
@@ -123,9 +160,17 @@ export default function CredentialsPage() {
               className="h-8 rounded-md border border-border bg-surface-2 px-2 text-sm text-foreground focus:outline-none"
             >
               <option value="">— Choisir —</option>
-              {Object.keys(TEMPLATES).map((t) => <option key={t} value={t}>{t}</option>)}
+              {Object.keys(TEMPLATES).map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
             </select>
-            <button onClick={applyTemplate} disabled={!template} className="ui-btn-secondary px-3 py-1.5 text-sm">
+            <button
+              onClick={applyTemplate}
+              disabled={!template}
+              className="ui-btn-secondary px-3 py-1.5 text-sm"
+            >
               Appliquer
             </button>
           </div>
@@ -137,19 +182,33 @@ export default function CredentialsPage() {
               <input
                 type="text"
                 value={cred.key}
-                onChange={(e) => setCredentials((prev) => prev.map((c, j) => j === i ? { ...c, key: e.target.value } : c))}
+                onChange={(e) =>
+                  setCredentials((prev) =>
+                    prev.map((c, j) =>
+                      j === i ? { ...c, key: e.target.value } : c,
+                    ),
+                  )
+                }
                 placeholder="CLE"
                 className="h-8 w-48 rounded-md border border-border bg-surface-2 px-3 font-mono text-sm text-foreground focus:outline-none"
               />
               <input
                 type={showValues ? "text" : "password"}
                 value={cred.value}
-                onChange={(e) => setCredentials((prev) => prev.map((c, j) => j === i ? { ...c, value: e.target.value } : c))}
+                onChange={(e) =>
+                  setCredentials((prev) =>
+                    prev.map((c, j) =>
+                      j === i ? { ...c, value: e.target.value } : c,
+                    ),
+                  )
+                }
                 placeholder="Valeur"
                 className="h-8 flex-1 rounded-md border border-border bg-surface-2 px-3 font-mono text-sm text-foreground focus:outline-none"
               />
               <button
-                onClick={() => setCredentials((prev) => prev.filter((_, j) => j !== i))}
+                onClick={() =>
+                  setCredentials((prev) => prev.filter((_, j) => j !== i))
+                }
                 className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
               >
                 <Trash2 className="h-4 w-4" />
@@ -157,7 +216,9 @@ export default function CredentialsPage() {
             </div>
           ))}
           <button
-            onClick={() => setCredentials((prev) => [...prev, { key: "", value: "" }])}
+            onClick={() =>
+              setCredentials((prev) => [...prev, { key: "", value: "" }])
+            }
             className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
           >
             <Plus className="h-4 w-4" />

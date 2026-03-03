@@ -76,13 +76,19 @@ const SOURCE_LABELS: Record<string, string> = {
 };
 
 export default function SettingsSourcesPage() {
-  const { configDirty, configSaving, configError, loadConfig, saveConfig, resetConfig } =
-    useWatcherConfigController();
+  const {
+    configDirty,
+    configSaving,
+    configError,
+    loadConfig,
+    saveConfig,
+    resetConfig,
+  } = useWatcherConfigController();
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     loadConfig();
-  }, []);
+  }, [loadConfig]);
 
   function toggleSection(key: string) {
     setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -105,7 +111,9 @@ export default function SettingsSourcesPage() {
               onClick={() => toggleSection(key)}
               className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-white/5 transition-colors"
             >
-              <span className="font-medium text-foreground">{SOURCE_LABELS[key]}</span>
+              <span className="font-medium text-foreground">
+                {SOURCE_LABELS[key]}
+              </span>
               <span className="text-muted-foreground text-sm">
                 {openSections[key] ? "▲" : "▼"}
               </span>
