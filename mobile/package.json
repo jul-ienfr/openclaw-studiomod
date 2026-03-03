@@ -1,0 +1,20 @@
+{
+  "name": "openclaw-studio-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "description": "OpenClaw Studio mobile client (Capacitor)",
+  "scripts": {
+    "sync:android": "npx cap sync android",
+    "build:android": "npx cap sync android && cd android && ./gradlew assembleDebug",
+    "open:android": "npx cap open android"
+  },
+  "dependencies": {
+    "@capacitor/core": "^7",
+    "@capawesome/capacitor-mlkit-barcode-scanning": "^7",
+    "@capacitor/preferences": "^7"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7",
+    "@capacitor/android": "^7"
+  }
+}

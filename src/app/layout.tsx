@@ -11,6 +11,13 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "OpenClaw Studio",
   description: "Focused operator studio for the OpenClaw gateway.",
+  manifest: "/manifest.json",
+  other: {
+    "mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-status-bar-style": "black-translucent",
+    "apple-mobile-web-app-title": "OpenClaw Studio",
+  },
 };
 
 const display = Bebas_Neue({
@@ -49,7 +56,9 @@ export default async function RootLayout({
           }}
         />
       </head>
-      <body className={`${display.variable} ${sans.variable} ${mono.variable} antialiased`}>
+      <body
+        className={`${display.variable} ${sans.variable} ${mono.variable} antialiased`}
+      >
         <NextIntlClientProvider messages={messages} locale={locale}>
           <div className="flex h-screen w-full overflow-hidden">
             <AppNav />

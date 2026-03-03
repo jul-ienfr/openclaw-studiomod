@@ -28,27 +28,7 @@ export const VoiceControls = ({ agentId = "default" }: VoiceControlsProps) => {
     initVoiceStore();
   }, []);
 
-  // Load initial config
-  const loadedConfig = (() => {
-    const configs = getVoiceConfigs();
-    return configs.find((c) => c.agentId === agentId);
-  })();
-
-  // Config state with lazy initializers
-  const [provider, setProvider] = useState<VoiceProvider>(
-    () => loadedConfig?.provider ?? "browser",
-  );
-  const [language, setLanguage] = useState(
-    () => loadedConfig?.language ?? "en-US",
-  );
-  const [speed, setSpeed] = useState(() => loadedConfig?.speed ?? 1.0);
-  const [autoListen, setAutoListen] = useState(
-    () => loadedConfig?.autoListen ?? false,
-  );
-  const [voiceId, setVoiceId] = useState(() => loadedConfig?.voiceId ?? "");
-
-  // Reload config when agentId changes — use a single state object to avoid
-  // multiple synchronous setState calls inside the effect.
+  // Single config state — avoids multiple synchronous setState calls inside the effect.
   const [voiceConfig, setVoiceConfig] = useState(() => {
     const configs = getVoiceConfigs();
     const existing = configs.find((c) => c.agentId === agentId);
@@ -61,7 +41,10 @@ export const VoiceControls = ({ agentId = "default" }: VoiceControlsProps) => {
     };
   });
 
-  useEffect(() => {
+  // Reset config when agentId changes (React recommended pattern for derived state).
+  const [trackedAgentId, setTrackedAgentId] = useState(agentId);
+  if (trackedAgentId !== agentId) {
+    setTrackedAgentId(agentId);
     const configs = getVoiceConfigs();
     const existing = configs.find((c) => c.agentId === agentId);
     if (existing) {
@@ -73,7 +56,7 @@ export const VoiceControls = ({ agentId = "default" }: VoiceControlsProps) => {
         voiceId: existing.voiceId,
       });
     }
-  }, [agentId]);
+  }
 
   const provider = voiceConfig.provider;
   const language = voiceConfig.language;

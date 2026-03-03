@@ -72,3 +72,13 @@ test-results
 # bv (beads viewer) local config and caches
 .bv/
 certs/
+
+# Mobile (Capacitor) — build artifacts
+/mobile/node_modules/
+/mobile/android/
+/mobile/ios/
+
+# Desktop (Tauri) — build artifacts
+/desktop/node_modules/
+/desktop/dist/
+/desktop/src-tauri/target/

@@ -16,6 +16,7 @@ import {
   MessagesSquare,
   LayoutDashboard,
   Brain,
+  Smartphone,
 } from "lucide-react";
 import { WatcherNavIcon } from "@/components/WatcherNavIcon";
 
@@ -34,6 +35,7 @@ const NAV_ITEMS = [
   { href: "/canvas", label: "Canvas", icon: LayoutDashboard },
   { href: "/watcher", label: "Watcher", icon: null },
   { href: "/ai-manager", label: "AI Manager", icon: Brain },
+  { href: "/mobile-access", label: "Mobile", icon: Smartphone },
 ];
 
 export function AppNav() {
@@ -69,7 +71,13 @@ export function AppNav() {
           </>
         );
         return (
-          <Link key={href} href={href} title={label} aria-label={label} className={className}>
+          <Link
+            key={href}
+            href={href}
+            title={label}
+            aria-label={label}
+            className={className}
+          >
             {children}
           </Link>
         );

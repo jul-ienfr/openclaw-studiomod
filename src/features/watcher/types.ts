@@ -155,6 +155,7 @@ export interface WatcherConfig {
     warn_on_obfuscated: boolean;
     scan_npm_dependencies: boolean;
     allow_deprecated_packages: boolean;
+    llm_proxy_provider?: string;
   };
   advanced: {
     circuit_breaker: {
