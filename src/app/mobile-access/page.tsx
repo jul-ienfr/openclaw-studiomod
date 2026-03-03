@@ -3,6 +3,7 @@
 import QRCode from "qrcode";
 import { headers } from "next/headers";
 import MobileAccessClient from "./MobileAccessClient";
+import { getTunnelStatus } from "@/lib/tunnel/manager";
 
 export default async function MobileAccessPage() {
   // Detect LAN IP from request host header
@@ -30,7 +31,13 @@ export default async function MobileAccessPage() {
     errorCorrectionLevel: "M",
   });
 
+  const initialTunnel = getTunnelStatus();
+
   return (
-    <MobileAccessClient qrDataUrl={qrDataUrl} connectionInfo={connectionInfo} />
+    <MobileAccessClient
+      qrDataUrl={qrDataUrl}
+      connectionInfo={connectionInfo}
+      initialTunnel={initialTunnel}
+    />
   );
 }

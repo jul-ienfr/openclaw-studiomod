@@ -78,6 +78,9 @@ certs/
 /mobile/android/
 /mobile/ios/
 
+# cloudflared tunnel binary (auto-downloaded)
+/.cloudflared/
+
 # Desktop (Tauri) — build artifacts
 /desktop/node_modules/
 /desktop/dist/
