@@ -4,8 +4,23 @@ const next = require("next");
 const { createAccessGate } = require("./access-gate");
 const { createGatewayProxy } = require("./gateway-proxy");
 const mobileTokenStore = require("./mobile-token-store");
+const tunnelDiscovery = require("./tunnel-discovery");
 const { assertPublicHostAllowed, resolveHosts } = require("./network-policy");
 const { loadUpstreamGatewaySettings } = require("./studio-settings");
+
+// Register tunnel URL change callback on globalThis BEFORE Next.js loads
+// the tunnel manager module (src/lib/tunnel/manager.ts reads this).
+globalThis.__tunnelUrlChangeCallback = (url) => {
+  if (url) {
+    tunnelDiscovery.publishTunnelUrl(url).catch((err) => {
+      console.warn("[tunnel-discovery] publish failed:", err.message);
+    });
+  } else {
+    tunnelDiscovery.clearTunnelUrl().catch((err) => {
+      console.warn("[tunnel-discovery] clear failed:", err.message);
+    });
+  }
+};
 
 const resolvePort = () => {
   const raw = process.env.PORT?.trim() || "3000";

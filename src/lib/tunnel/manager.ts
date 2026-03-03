@@ -52,6 +52,23 @@ function getBinaryPath(): string {
   return path.join(BIN_DIR, name);
 }
 
+// ── URL change notification via globalThis ────────────────────────────
+// server/index.js registers a callback on globalThis before this module loads.
+// This avoids importing server/ modules (which Turbopack cannot resolve).
+
+const CALLBACK_KEY = "__tunnelUrlChangeCallback";
+
+function notifyUrlChange(url: string | null) {
+  const fn = (globalThis as Record<string, unknown>)[CALLBACK_KEY];
+  if (typeof fn === "function") {
+    try {
+      fn(url);
+    } catch {
+      /* non-fatal */
+    }
+  }
+}
+
 // ── Singleton state ────────────────────────────────────────────────────
 
 let tunnelProcess: ChildProcess | null = null;
@@ -151,6 +168,7 @@ export async function startTunnel(port?: number): Promise<TunnelStatus> {
         tunnelUrl = match[0];
         resolved = true;
         clearTimeout(timeout);
+        notifyUrlChange(tunnelUrl);
         resolve({ active: true, url: tunnelUrl });
       }
     };
@@ -193,6 +211,7 @@ export function stopTunnel(): TunnelStatus {
   }
   tunnelUrl = undefined;
   tunnelError = undefined;
+  notifyUrlChange(null);
   return { active: false };
 }
 
