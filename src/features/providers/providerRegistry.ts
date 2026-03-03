@@ -11,6 +11,12 @@ export const PROVIDER_REGISTRY: ProviderDefinition[] = [
     supportsCustomEndpoint: true,
     supportsAccessToken: false,
     defaultBaseUrl: "https://api.anthropic.com",
+    signupUrl: "https://console.anthropic.com",
+    guideSteps: [
+      "Go to console.anthropic.com and create an account",
+      "Go to API Keys and click 'Create Key'",
+      "Copy the generated API key (sk-ant-...)",
+    ],
     models: [
       { id: "claude-opus-4-6-20260301", name: "Claude Opus 4.6", category: "reasoning", contextWindow: 200000, costTier: "high", badges: ["Reasoning", "Latest"] },
       { id: "claude-sonnet-4-6-20260301", name: "Claude Sonnet 4.6", category: "general", contextWindow: 200000, costTier: "mid", badges: ["Balanced", "Latest"] },
@@ -28,6 +34,12 @@ export const PROVIDER_REGISTRY: ProviderDefinition[] = [
     ocApi: "openai",
     supportsCustomEndpoint: true,
     supportsAccessToken: false,
+    signupUrl: "https://platform.openai.com/api-keys",
+    guideSteps: [
+      "Go to platform.openai.com/api-keys",
+      "Click 'Create new secret key'",
+      "Copy the generated key (sk-...)",
+    ],
     models: [
       { id: "gpt-4.1", name: "GPT-4.1", category: "general", contextWindow: 1047576, costTier: "mid", badges: ["1M Context", "Latest"] },
       { id: "gpt-4.1-mini", name: "GPT-4.1 Mini", category: "fast", contextWindow: 1047576, costTier: "low", badges: ["1M Context", "Fast"] },
@@ -46,6 +58,12 @@ export const PROVIDER_REGISTRY: ProviderDefinition[] = [
     defaultBaseUrl: "https://api.perplexity.ai",
     supportsCustomEndpoint: false,
     supportsAccessToken: false,
+    signupUrl: "https://www.perplexity.ai/settings/api",
+    guideSteps: [
+      "Go to perplexity.ai/settings/api",
+      "Generate a new API key",
+      "Copy the key (pplx-...)",
+    ],
     models: [
       { id: "sonar-pro", name: "Sonar Pro", category: "search", contextWindow: 200000, costTier: "mid", badges: ["Web Search", "Citations"] },
       { id: "sonar", name: "Sonar", category: "search", contextWindow: 128000, costTier: "low", badges: ["Web Search", "Fast"] },
@@ -60,6 +78,12 @@ export const PROVIDER_REGISTRY: ProviderDefinition[] = [
     ocApi: "google",
     supportsCustomEndpoint: false,
     supportsAccessToken: false,
+    signupUrl: "https://aistudio.google.com/app/apikey",
+    guideSteps: [
+      "Go to aistudio.google.com/app/apikey",
+      "Click 'Create API key'",
+      "Copy the generated key",
+    ],
     models: [
       { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro", category: "reasoning", contextWindow: 1000000, costTier: "high", badges: ["1M Context", "Reasoning"] },
       { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", category: "fast", contextWindow: 1000000, costTier: "low", badges: ["1M Context", "Fast", "Latest"] },
@@ -75,6 +99,12 @@ export const PROVIDER_REGISTRY: ProviderDefinition[] = [
     ocApi: "mistral",
     supportsCustomEndpoint: false,
     supportsAccessToken: false,
+    signupUrl: "https://console.mistral.ai/api-keys",
+    guideSteps: [
+      "Go to console.mistral.ai/api-keys",
+      "Click 'Create new key'",
+      "Copy the generated API key",
+    ],
     models: [
       { id: "mistral-large-latest", name: "Mistral Large", category: "general", contextWindow: 128000, costTier: "mid", badges: ["EU", "General"] },
       { id: "mistral-medium-latest", name: "Mistral Medium", category: "general", contextWindow: 128000, costTier: "mid", badges: ["EU", "Balanced"] },
@@ -92,6 +122,12 @@ export const PROVIDER_REGISTRY: ProviderDefinition[] = [
     defaultBaseUrl: "https://api.groq.com/openai/v1",
     supportsCustomEndpoint: false,
     supportsAccessToken: false,
+    signupUrl: "https://console.groq.com/keys",
+    guideSteps: [
+      "Go to console.groq.com/keys",
+      "Click 'Create API Key'",
+      "Copy the generated key (gsk_...)",
+    ],
     models: [
       { id: "llama-3.3-70b-versatile", name: "Llama 3.3 70B", category: "general", contextWindow: 128000, costTier: "low", badges: ["Fast", "Open Source"] },
       { id: "mixtral-8x7b-32768", name: "Mixtral 8x7B", category: "general", contextWindow: 32768, costTier: "low", badges: ["Fast", "MoE"] },
@@ -108,6 +144,12 @@ export const PROVIDER_REGISTRY: ProviderDefinition[] = [
     defaultBaseUrl: "https://openrouter.ai/api/v1",
     supportsCustomEndpoint: false,
     supportsAccessToken: false,
+    signupUrl: "https://openrouter.ai/keys",
+    guideSteps: [
+      "Go to openrouter.ai/keys",
+      "Click 'Create Key'",
+      "Copy the generated API key (sk-or-...)",
+    ],
     models: [
       { id: "openrouter/auto", name: "Auto (best available)", category: "general", contextWindow: 128000, costTier: "mid", badges: ["Auto-route"] },
     ],
@@ -122,6 +164,12 @@ export const PROVIDER_REGISTRY: ProviderDefinition[] = [
     defaultBaseUrl: "http://localhost:11434/v1",
     supportsCustomEndpoint: true,
     supportsAccessToken: false,
+    signupUrl: "https://ollama.com/download",
+    guideSteps: [
+      "Download and install Ollama from ollama.com/download",
+      "Run 'ollama pull llama3.3' in your terminal",
+      "Ollama serves at http://localhost:11434 by default",
+    ],
     models: [
       { id: "llama3.3", name: "Llama 3.3", category: "general", contextWindow: 128000, costTier: "low", badges: ["Local", "Free"] },
       { id: "codellama", name: "Code Llama", category: "code", contextWindow: 16384, costTier: "low", badges: ["Local", "Code"] },
@@ -138,6 +186,12 @@ export const PROVIDER_REGISTRY: ProviderDefinition[] = [
     defaultBaseUrl: "https://api.deepseek.com/v1",
     supportsCustomEndpoint: false,
     supportsAccessToken: false,
+    signupUrl: "https://platform.deepseek.com/api_keys",
+    guideSteps: [
+      "Go to platform.deepseek.com/api_keys",
+      "Create a new API key",
+      "Copy the generated key",
+    ],
     models: [
       { id: "deepseek-chat", name: "DeepSeek V3", category: "general", contextWindow: 128000, costTier: "low", badges: ["Balanced"] },
       { id: "deepseek-reasoner", name: "DeepSeek R1", category: "reasoning", contextWindow: 128000, costTier: "low", badges: ["Reasoning", "CoT"] },
@@ -153,6 +207,12 @@ export const PROVIDER_REGISTRY: ProviderDefinition[] = [
     defaultBaseUrl: "https://api.together.xyz/v1",
     supportsCustomEndpoint: false,
     supportsAccessToken: false,
+    signupUrl: "https://api.together.ai/settings/api-keys",
+    guideSteps: [
+      "Go to api.together.ai/settings/api-keys",
+      "Create a new API key",
+      "Copy the generated key",
+    ],
     models: [
       { id: "meta-llama/Llama-3.3-70B-Instruct-Turbo", name: "Llama 3.3 70B Turbo", category: "general", contextWindow: 128000, costTier: "low", badges: ["Fast", "Open Source"] },
       { id: "Qwen/Qwen2.5-72B-Instruct-Turbo", name: "Qwen 2.5 72B Turbo", category: "general", contextWindow: 128000, costTier: "low", badges: ["Multilingual"] },
@@ -168,6 +228,12 @@ export const PROVIDER_REGISTRY: ProviderDefinition[] = [
     defaultBaseUrl: "https://api.fireworks.ai/inference/v1",
     supportsCustomEndpoint: false,
     supportsAccessToken: false,
+    signupUrl: "https://fireworks.ai/account/api-keys",
+    guideSteps: [
+      "Go to fireworks.ai/account/api-keys",
+      "Create a new API key",
+      "Copy the generated key",
+    ],
     models: [
       { id: "accounts/fireworks/models/llama-v3p3-70b-instruct", name: "Llama 3.3 70B", category: "general", contextWindow: 128000, costTier: "low", badges: ["Fast"] },
     ],
@@ -182,6 +248,12 @@ export const PROVIDER_REGISTRY: ProviderDefinition[] = [
     defaultBaseUrl: "https://api.cohere.ai/compatibility/v1",
     supportsCustomEndpoint: false,
     supportsAccessToken: false,
+    signupUrl: "https://dashboard.cohere.com/api-keys",
+    guideSteps: [
+      "Go to dashboard.cohere.com/api-keys",
+      "Create a new API key (trial or production)",
+      "Copy the generated key",
+    ],
     models: [
       { id: "command-r-plus", name: "Command R+", category: "general", contextWindow: 128000, costTier: "mid", badges: ["RAG", "Enterprise"] },
       { id: "command-r", name: "Command R", category: "fast", contextWindow: 128000, costTier: "low", badges: ["RAG", "Fast"] },
@@ -196,6 +268,12 @@ export const PROVIDER_REGISTRY: ProviderDefinition[] = [
     ocApi: "bedrock",
     supportsCustomEndpoint: true,
     supportsAccessToken: false,
+    signupUrl: "https://console.aws.amazon.com/bedrock",
+    guideSteps: [
+      "Go to AWS Console > Amazon Bedrock",
+      "Enable model access for the models you want",
+      "Use your AWS access key or set up cross-account access",
+    ],
     models: [
       { id: "anthropic.claude-sonnet-4-5-20250414-v1:0", name: "Claude Sonnet 4.5 (Bedrock)", category: "general", contextWindow: 200000, costTier: "mid", badges: ["AWS", "Managed"] },
       { id: "amazon.titan-text-premier-v1:0", name: "Titan Text Premier", category: "general", contextWindow: 32000, costTier: "low", badges: ["AWS", "Native"] },
@@ -210,6 +288,12 @@ export const PROVIDER_REGISTRY: ProviderDefinition[] = [
     ocApi: "openai",
     supportsCustomEndpoint: true,
     supportsAccessToken: false,
+    signupUrl: "https://portal.azure.com",
+    guideSteps: [
+      "Go to Azure Portal > Create a resource > Azure OpenAI",
+      "Deploy the models you need",
+      "Go to Keys and Endpoint to get your API key and endpoint URL",
+    ],
     models: [
       { id: "gpt-4o", name: "GPT-4o (Azure)", category: "multimodal", contextWindow: 128000, costTier: "mid", badges: ["Azure", "Enterprise"] },
     ],
@@ -223,6 +307,12 @@ export const PROVIDER_REGISTRY: ProviderDefinition[] = [
     ocApi: "openai",
     supportsCustomEndpoint: true,
     supportsAccessToken: false,
+    signupUrl: "https://dash.cloudflare.com",
+    guideSteps: [
+      "Go to Cloudflare Dashboard > Workers & Pages > Workers AI",
+      "Create an API token with Workers AI permissions",
+      "Enter your Account ID as the base URL parameter",
+    ],
     models: [
       { id: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", name: "Llama 3.3 70B (Edge)", category: "general", contextWindow: 32000, costTier: "low", badges: ["Edge", "Fast"] },
     ],
@@ -237,6 +327,12 @@ export const PROVIDER_REGISTRY: ProviderDefinition[] = [
     defaultBaseUrl: "https://integrate.api.nvidia.com/v1",
     supportsCustomEndpoint: true,
     supportsAccessToken: false,
+    signupUrl: "https://build.nvidia.com",
+    guideSteps: [
+      "Go to build.nvidia.com",
+      "Create an NVIDIA account and get an API key",
+      "Select the model and endpoint to use",
+    ],
     models: [
       { id: "meta/llama-3.1-405b-instruct", name: "Llama 3.1 405B", category: "reasoning", contextWindow: 128000, costTier: "high", badges: ["405B", "Enterprise"] },
     ],
@@ -251,6 +347,12 @@ export const PROVIDER_REGISTRY: ProviderDefinition[] = [
     defaultBaseUrl: "https://api-inference.huggingface.co/v1",
     supportsCustomEndpoint: true,
     supportsAccessToken: false,
+    signupUrl: "https://huggingface.co/settings/tokens",
+    guideSteps: [
+      "Go to huggingface.co/settings/tokens",
+      "Create a new access token with 'read' permissions",
+      "Copy the generated token (hf_...)",
+    ],
     models: [
       { id: "meta-llama/Llama-3.3-70B-Instruct", name: "Llama 3.3 70B", category: "general", contextWindow: 128000, costTier: "low", badges: ["Open Source"] },
     ],
@@ -265,6 +367,12 @@ export const PROVIDER_REGISTRY: ProviderDefinition[] = [
     defaultBaseUrl: "https://api.x.ai/v1",
     supportsCustomEndpoint: false,
     supportsAccessToken: false,
+    signupUrl: "https://console.x.ai",
+    guideSteps: [
+      "Go to console.x.ai",
+      "Create an account and generate an API key",
+      "Copy the generated key",
+    ],
     models: [
       { id: "grok-3", name: "Grok 3", category: "reasoning", contextWindow: 131072, costTier: "mid", badges: ["Reasoning", "Latest"] },
       { id: "grok-3-mini", name: "Grok 3 Mini", category: "fast", contextWindow: 131072, costTier: "low", badges: ["Fast"] },

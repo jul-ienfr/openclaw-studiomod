@@ -4,12 +4,12 @@ import Link from "next/link";
 
 const TABS = [
   { id: "sources", label: "Sources" },
-  { id: "scoring", label: "Scoring" },
-  { id: "automation", label: "Automation" },
+  { id: "scoring", label: "Scores" },
+  { id: "automation", label: "Automatisation" },
   { id: "notifications", label: "Notifications" },
-  { id: "models", label: "Models" },
-  { id: "security", label: "Security" },
-  { id: "advanced", label: "Advanced" },
+  { id: "models", label: "Modèles" },
+  { id: "security", label: "Sécurité" },
+  { id: "advanced", label: "Avancé" },
 ] as const;
 
 type SettingsNavProps = {

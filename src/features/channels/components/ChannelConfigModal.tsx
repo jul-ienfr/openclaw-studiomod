@@ -57,7 +57,7 @@ export const ChannelConfigModal = ({
             </span>
             <h3 className="text-sm font-semibold text-foreground">{channel.name}</h3>
           </div>
-          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground" aria-label="Close">
+          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground" aria-label={t("close")}>
             <X className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -148,12 +148,12 @@ export const ChannelConfigModal = ({
         <div className="flex items-center justify-between border-t border-border px-5 py-3">
           {onRemove ? (
             <button type="button" onClick={onRemove} className="text-xs font-medium text-destructive hover:underline">
-              Remove
+              {t("remove")}
             </button>
           ) : <span />}
           <div className="flex gap-2">
             <button type="button" onClick={onClose} className="rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground">
-              Cancel
+              {t("cancel")}
             </button>
             <button
               type="button"
@@ -161,7 +161,7 @@ export const ChannelConfigModal = ({
               disabled={!hasRequiredFields}
               className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-50"
             >
-              Save
+              {t("save")}
             </button>
           </div>
         </div>

@@ -36,6 +36,7 @@ import {
 import type { GatewayClient } from "@/lib/gateway/GatewayClient";
 import type { SkillStatusReport } from "@/lib/skills/types";
 import type { GatewayModelChoice } from "@/lib/gateway/models";
+import { getThinkingLevels } from "@/lib/gateway/models";
 import {
   readGatewayAgentFile,
   writeGatewayAgentFile,
@@ -430,6 +431,24 @@ export const AgentSettingsPanel = ({
   connectedChannels = [],
 }: AgentSettingsPanelProps) => {
   const t = useTranslations("inspect");
+  const selectedModel = models.find(
+    (m) => `${m.provider}/${m.id}` === agent.model,
+  );
+  const thinkingLevels = getThinkingLevels(
+    agent.model ?? "",
+    selectedModel?.reasoning,
+  );
+  const allowThinking = selectedModel?.reasoning !== false;
+  const thinkingLevelI18nKey: Record<string, string> = {
+    "": "thinkingDefault",
+    adaptive: "thinkingAdaptive",
+    off: "thinkingOff",
+    minimal: "thinkingMinimal",
+    low: "thinkingLow",
+    medium: "thinkingMedium",
+    high: "thinkingHigh",
+    xhigh: "thinkingXHigh",
+  };
   const initialPermissionsDraft =
     permissionsDraft ??
     resolvePresetDefaultsForRole(resolveExecutionRoleFromAgent(agent));
@@ -741,30 +760,30 @@ export const AgentSettingsPanel = ({
                     </select>
                   </label>
                 </div>
-                <div className="px-1">
-                  <label className="sidebar-copy flex flex-col gap-1 text-[11px] text-muted-foreground">
-                    <span className="font-medium text-foreground/88">
-                      {t("thinkingLabel")}
-                    </span>
-                    <select
-                      className="ui-input mt-1 w-full rounded-md px-3 py-2 text-xs text-foreground"
-                      data-testid="agent-settings-thinking-select"
-                      value={agent.thinkingLevel ?? ""}
-                      onChange={(e) => {
-                        const next = e.target.value.trim();
-                        onThinkingChange?.(next || null);
-                      }}
-                    >
-                      <option value="">{t("thinkingDefault")}</option>
-                      <option value="off">{t("thinkingOff")}</option>
-                      <option value="minimal">{t("thinkingMinimal")}</option>
-                      <option value="low">{t("thinkingLow")}</option>
-                      <option value="medium">{t("thinkingMedium")}</option>
-                      <option value="high">{t("thinkingHigh")}</option>
-                      <option value="xhigh">{t("thinkingXHigh")}</option>
-                    </select>
-                  </label>
-                </div>
+                {allowThinking ? (
+                  <div className="px-1">
+                    <label className="sidebar-copy flex flex-col gap-1 text-[11px] text-muted-foreground">
+                      <span className="font-medium text-foreground/88">
+                        {t("thinkingLabel")}
+                      </span>
+                      <select
+                        className="ui-input mt-1 w-full rounded-md px-3 py-2 text-xs text-foreground"
+                        data-testid="agent-settings-thinking-select"
+                        value={agent.thinkingLevel ?? ""}
+                        onChange={(e) => {
+                          const next = e.target.value.trim();
+                          onThinkingChange?.(next || null);
+                        }}
+                      >
+                        {thinkingLevels.map((level) => (
+                          <option key={level.value} value={level.value}>
+                            {t(thinkingLevelI18nKey[level.value] ?? level.value)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                ) : null}
               </div>
             </section>
             <section

@@ -13,7 +13,7 @@ export function execWatcher(args: string[]): Promise<{ stdout: string; stderr: s
       resolve({
         stdout: stdout ?? "",
         stderr: stderr ?? "",
-        code: error ? (error as NodeJS.ErrnoException & { code?: number }).code ? 1 : 1 : 0,
+        code: error ? ((error as NodeJS.ErrnoException & { exitCode?: number }).exitCode ?? 1) : 0,
       });
     });
   });

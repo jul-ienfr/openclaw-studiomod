@@ -66,7 +66,7 @@ export function NotificationsPanel() {
         </div>
 
         <div className="flex items-center justify-between">
-          <label className="text-sm text-muted-foreground">Mode digest</label>
+          <label className="text-sm text-muted-foreground">Mode résumé</label>
           <Toggle value={n.digest_mode} onChange={(v) => updateField("notifications.digest_mode", v)} />
         </div>
 
@@ -75,7 +75,7 @@ export function NotificationsPanel() {
           label="Intervalle digest (minutes)" />
 
         <div className="flex items-center justify-between">
-          <label className="text-sm text-muted-foreground">Clavier inline</label>
+          <label className="text-sm text-muted-foreground">Clavier intégré</label>
           <Toggle value={n.inline_keyboard} onChange={(v) => updateField("notifications.inline_keyboard", v)} />
         </div>
       </section>

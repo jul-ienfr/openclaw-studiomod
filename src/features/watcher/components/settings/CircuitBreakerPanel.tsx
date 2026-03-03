@@ -99,7 +99,7 @@ export function CircuitBreakerPanel() {
   return (
     <div className="space-y-8">
       <section className="space-y-4">
-        <h3 className="text-sm font-semibold text-foreground">Circuit Breaker</h3>
+        <h3 className="text-sm font-semibold text-foreground">Coupe-circuit</h3>
 
         <Slider min={1} max={20} value={cb.max_consecutive_errors}
           onChange={(v) => updateField("advanced.circuit_breaker.max_consecutive_errors", v)}
@@ -114,12 +114,12 @@ export function CircuitBreakerPanel() {
         </div>
 
         <div className="flex items-center justify-between">
-          <label className="text-sm text-muted-foreground">Reset auto sur succès</label>
+          <label className="text-sm text-muted-foreground">Réactivation auto sur succès</label>
           <Toggle value={cb.auto_reset_on_success} onChange={(v) => updateField("advanced.circuit_breaker.auto_reset_on_success", v)} />
         </div>
 
         <div className="flex items-center justify-between">
-          <label className="text-sm text-muted-foreground">Notifier si source down</label>
+          <label className="text-sm text-muted-foreground">Notifier si source inactive</label>
           <Toggle value={cb.notify_on_source_down} onChange={(v) => updateField("advanced.circuit_breaker.notify_on_source_down", v)} />
         </div>
       </section>

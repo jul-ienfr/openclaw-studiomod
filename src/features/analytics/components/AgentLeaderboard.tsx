@@ -25,9 +25,9 @@ export const AgentLeaderboard = ({ agents }: AgentLeaderboardProps) => {
     return (
       <div className="ui-card p-3">
         <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
-          Agent Leaderboard
+          {t("agentLeaderboard")}
         </p>
-        <p className="mt-2 text-center text-xs text-muted-foreground">No activity recorded yet</p>
+        <p className="mt-2 text-center text-xs text-muted-foreground">{t("noActivity")}</p>
       </div>
     );
   }
@@ -35,7 +35,7 @@ export const AgentLeaderboard = ({ agents }: AgentLeaderboardProps) => {
   return (
     <div className="ui-card p-3">
       <p className="mb-2 text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
-        Agent Leaderboard
+        {t("agentLeaderboard")}
       </p>
       <div className="space-y-1.5">
         {agents.slice(0, 10).map((agent, i) => (
@@ -47,7 +47,7 @@ export const AgentLeaderboard = ({ agents }: AgentLeaderboardProps) => {
               {agent.agentName}
             </span>
             <span className="text-[10px] text-muted-foreground">
-              {agent.messageCount} messages
+              {agent.messageCount} {t("messages")}
             </span>
             <span className="text-[10px] text-muted-foreground">
               {formatTimeAgo(agent.lastActive)}

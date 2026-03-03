@@ -61,7 +61,7 @@ export function ScoringTable({ scores, total = scores.length, page = 1, onPageCh
             value={filterDecision}
             onChange={(e) => setFilterDecision(e.target.value)}
           >
-            <option value="">Toutes decisions</option>
+            <option value="">Toutes les décisions</option>
             {DECISIONS.map((d) => <option key={d} value={d}>{d}</option>)}
           </select>
           <select
@@ -69,7 +69,7 @@ export function ScoringTable({ scores, total = scores.length, page = 1, onPageCh
             value={filterCategory}
             onChange={(e) => setFilterCategory(e.target.value)}
           >
-            <option value="">Toutes categories</option>
+            <option value="">Toutes les catégories</option>
             {categories.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
@@ -86,7 +86,7 @@ export function ScoringTable({ scores, total = scores.length, page = 1, onPageCh
               <th className="px-3 py-2 font-medium">Fonct.</th>
               <th className="px-3 py-2 font-medium">Int.</th>
               <th className="px-3 py-2 font-medium">Global</th>
-              <th className="px-3 py-2 font-medium">Decision</th>
+              <th className="px-3 py-2 font-medium">Décision</th>
               <th className="px-3 py-2 font-medium">Date</th>
             </tr>
           </thead>
@@ -94,7 +94,7 @@ export function ScoringTable({ scores, total = scores.length, page = 1, onPageCh
             {visible.length === 0 && (
               <tr>
                 <td colSpan={9} className="px-3 py-8 text-center text-muted-foreground">
-                  Aucun item score.
+                  Aucun item scoré.
                 </td>
               </tr>
             )}
@@ -142,7 +142,7 @@ export function ScoringTable({ scores, total = scores.length, page = 1, onPageCh
             onClick={() => onPageChange?.(page - 1)}
             className="rounded border border-border px-3 py-1 text-xs font-medium text-foreground transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            Precedent
+            Précédent
           </button>
           <button
             type="button"

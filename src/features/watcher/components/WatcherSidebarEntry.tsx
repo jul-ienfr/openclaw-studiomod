@@ -9,7 +9,7 @@ export function WatcherSidebarEntry() {
   useEffect(() => {
     async function fetchCount() {
       try {
-        const res = await fetch("/api/watcher/items?status=new&limit=1");
+        const res = await fetch("/api/watcher/items?status=scored&category=release,npm_version,npm_dist_tag,clawhub_skill&min_score=65&limit=1");
         if (!res.ok) return;
         const data = await res.json();
         if (typeof data.total === "number") setCount(data.total);

@@ -99,7 +99,7 @@ export const LogViewer = () => {
     <div className="flex min-h-0 flex-1 flex-col" data-testid="log-viewer">
       <div className="flex items-center gap-2 border-b border-border px-5 py-3">
         <ScrollText className="h-4 w-4 text-primary" aria-hidden="true" />
-        <h2 className="text-sm font-semibold text-foreground">Logs</h2>
+        <h2 className="text-sm font-semibold text-foreground">{t("title")}</h2>
         <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
           {logCount}
         </span>
@@ -124,7 +124,7 @@ export const LogViewer = () => {
       >
         {entries.length === 0 ? (
           <p className="py-8 text-center text-xs text-muted-foreground">
-            No logs
+            {t("noLogs")}
           </p>
         ) : (
           entries.map((entry) => <LogRow key={entry.id} entry={entry} />)
@@ -141,7 +141,7 @@ export const LogViewer = () => {
           }}
           className="mx-5 mb-2 rounded-md bg-primary px-3 py-1 text-[10px] font-semibold text-primary-foreground"
         >
-          Scroll to bottom
+          {t("scrollToBottom")}
         </button>
       )}
     </div>

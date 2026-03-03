@@ -43,7 +43,7 @@ export type ChatInteractionController = {
   stopBusyAgentId: string | null;
   flushPendingDraft: (agentId: string | null) => void;
   handleDraftChange: (agentId: string, value: string) => void;
-  handleSend: (agentId: string, sessionKey: string, message: string) => Promise<void>;
+  handleSend: (agentId: string, sessionKey: string, message: string, attachments?: { type?: string; mimeType: string; content: string; fileName?: string }[], options?: { force?: boolean }) => Promise<void>;
   removeQueuedMessage: (agentId: string, index: number) => void;
   handleNewSession: (agentId: string) => Promise<void>;
   handleStopRun: (agentId: string, sessionKey: string) => Promise<void>;
@@ -186,9 +186,9 @@ export function useChatInteractionController(
   );
 
   const handleSend = useCallback(
-    async (agentId: string, sessionKey: string, message: string) => {
+    async (agentId: string, sessionKey: string, message: string, attachments?: { type?: string; mimeType: string; content: string; fileName?: string }[], options?: { force?: boolean }) => {
       const trimmed = message.trim();
-      if (!trimmed) return;
+      if (!trimmed && !(attachments && attachments.length > 0)) return;
       const pendingDraftTimer = pendingDraftTimersRef.current.get(agentId) ?? null;
       if (pendingDraftTimer !== null) {
         window.clearTimeout(pendingDraftTimer);
@@ -207,7 +207,7 @@ export function useChatInteractionController(
         });
         return;
       }
-      if (agent.status === "running") {
+      if (agent.status === "running" && !options?.force) {
         params.dispatch({
           type: "enqueueQueuedMessage",
           agentId,
@@ -224,6 +224,7 @@ export function useChatInteractionController(
         agentId,
         sessionKey,
         message: trimmed,
+        attachments: attachments?.length ? attachments : undefined,
         clearRunTracking: (runId) => params.clearRunTracking(runId),
       });
     },

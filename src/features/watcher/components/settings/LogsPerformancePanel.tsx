@@ -48,10 +48,10 @@ export function LogsPerformancePanel() {
     <div className="space-y-8">
       {/* Logs */}
       <section className="space-y-4">
-        <h3 className="text-sm font-semibold text-foreground">Logs</h3>
+        <h3 className="text-sm font-semibold text-foreground">Journaux</h3>
 
         <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Niveau de log</label>
+          <label className="text-xs text-muted-foreground">Niveau de journalisation</label>
           <select
             value={adv.log_level}
             onChange={(e) => updateField("advanced.log_level", e.target.value)}
@@ -65,7 +65,7 @@ export function LogsPerformancePanel() {
         </div>
 
         <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Format de log</label>
+          <label className="text-xs text-muted-foreground">Format de journalisation</label>
           <select
             value={adv.log_format}
             onChange={(e) => updateField("advanced.log_format", e.target.value)}
@@ -77,7 +77,7 @@ export function LogsPerformancePanel() {
         </div>
 
         <div className="flex items-center justify-between">
-          <label className="text-sm text-muted-foreground">Écrire les logs dans un fichier</label>
+          <label className="text-sm text-muted-foreground">Écrire les journaux dans un fichier</label>
           <Toggle value={adv.log_to_file} onChange={(v) => updateField("advanced.log_to_file", v)} />
         </div>
 

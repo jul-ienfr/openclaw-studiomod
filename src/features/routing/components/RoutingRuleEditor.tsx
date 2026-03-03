@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import { X, Plus, Trash2 } from "lucide-react";
 import type { RoutingRule, RoutingCondition, RoutingConditionType } from "../types";
 
@@ -31,6 +32,7 @@ const emptyCondition = (): RoutingCondition => ({
 });
 
 export function RoutingRuleEditor({ rule, agents, onSave, onClose }: Props) {
+  const t = useTranslations("routing");
   const [name, setName] = useState(rule?.name ?? "");
   const [priority, setPriority] = useState(rule?.priority ?? 50);
   const [targetAgentId, setTargetAgentId] = useState(rule?.targetAgentId ?? "");
@@ -44,7 +46,7 @@ export function RoutingRuleEditor({ rule, agents, onSave, onClose }: Props) {
     targetAgentId !== "" &&
     conditions.some((c) => c.value.trim() !== "");
 
-  const handleSave = () => {
+  const handleSave = useCallback(() => {
     if (!isValid) return;
     const filteredConditions = conditions.filter((c) => c.value.trim() !== "");
     onSave({
@@ -56,21 +58,21 @@ export function RoutingRuleEditor({ rule, agents, onSave, onClose }: Props) {
       targetAgentId,
       fallbackAgentId: fallbackAgentId || undefined,
     });
-  };
+  }, [isValid, conditions, rule, name, priority, targetAgentId, fallbackAgentId, onSave]);
 
-  const updateCondition = (index: number, patch: Partial<RoutingCondition>) => {
+  const updateCondition = useCallback((index: number, patch: Partial<RoutingCondition>) => {
     setConditions((prev) => prev.map((c, i) => (i === index ? { ...c, ...patch } : c)));
-  };
+  }, []);
 
-  const addCondition = () => {
+  const addCondition = useCallback(() => {
     setConditions((prev) => [...prev, emptyCondition()]);
-  };
+  }, []);
 
-  const removeCondition = (index: number) => {
+  const removeCondition = useCallback((index: number) => {
     setConditions((prev) => prev.filter((_, i) => i !== index));
-  };
+  }, []);
 
-  const title = rule ? "Edit Rule" : "New Rule";
+  const title = rule ? t("editRule") : t("addRule");
 
   return (
     <div
@@ -86,7 +88,7 @@ export function RoutingRuleEditor({ rule, agents, onSave, onClose }: Props) {
           <h2 className="text-base font-semibold text-foreground">{title}</h2>
           <button
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t("close")}
             className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
           >
             <X className="h-4 w-4" />
@@ -97,19 +99,19 @@ export function RoutingRuleEditor({ rule, agents, onSave, onClose }: Props) {
         <div className="space-y-4 overflow-y-auto px-6 py-4" style={{ maxHeight: "60vh" }}>
           {/* Name */}
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Name</label>
+            <label className="text-xs text-muted-foreground">{t("ruleName")}</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Rule name"
+              placeholder={t("ruleNamePlaceholder")}
               className="w-full rounded-md border border-border bg-surface-2 px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
 
           {/* Priority */}
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Priority (0–100)</label>
+            <label className="text-xs text-muted-foreground">{t("priority")} (0–100)</label>
             <input
               type="number"
               min={0}
@@ -122,13 +124,13 @@ export function RoutingRuleEditor({ rule, agents, onSave, onClose }: Props) {
 
           {/* Target agent */}
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Target Agent</label>
+            <label className="text-xs text-muted-foreground">{t("targetAgent")}</label>
             <select
               value={targetAgentId}
               onChange={(e) => setTargetAgentId(e.target.value)}
               className="w-full rounded-md border border-border bg-surface-2 px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             >
-              <option value="">Select agent…</option>
+              <option value="">{t("selectAgent")}</option>
               {agents.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.name}
@@ -139,13 +141,13 @@ export function RoutingRuleEditor({ rule, agents, onSave, onClose }: Props) {
 
           {/* Fallback agent */}
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Fallback Agent (optional)</label>
+            <label className="text-xs text-muted-foreground">{t("fallbackAgent")}</label>
             <select
               value={fallbackAgentId}
               onChange={(e) => setFallbackAgentId(e.target.value)}
               className="w-full rounded-md border border-border bg-surface-2 px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             >
-              <option value="">None</option>
+              <option value="">{t("none")}</option>
               {agents.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.name}
@@ -157,13 +159,13 @@ export function RoutingRuleEditor({ rule, agents, onSave, onClose }: Props) {
           {/* Conditions */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-xs text-muted-foreground">Conditions</label>
+              <label className="text-xs text-muted-foreground">{t("conditions")}</label>
               <button
                 onClick={addCondition}
                 className="flex items-center gap-1 text-xs text-primary hover:underline"
               >
                 <Plus className="h-3 w-3" />
-                Add condition
+                {t("addCondition")}
               </button>
             </div>
             {conditions.map((cond, i) => (
@@ -173,9 +175,9 @@ export function RoutingRuleEditor({ rule, agents, onSave, onClose }: Props) {
                   onChange={(e) => updateCondition(i, { type: e.target.value as RoutingConditionType })}
                   className="rounded-md border border-border bg-surface-2 px-2 py-1 text-xs text-foreground focus:outline-none"
                 >
-                  {CONDITION_TYPES.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
+                  {CONDITION_TYPES.map((ct) => (
+                    <option key={ct} value={ct}>
+                      {ct}
                     </option>
                   ))}
                 </select>
@@ -198,7 +200,7 @@ export function RoutingRuleEditor({ rule, agents, onSave, onClose }: Props) {
                   type="text"
                   value={cond.value}
                   onChange={(e) => updateCondition(i, { value: e.target.value })}
-                  placeholder="value"
+                  placeholder={t("conditionValue")}
                   className="min-w-0 flex-1 rounded-md border border-border bg-surface-2 px-2 py-1 text-xs text-foreground focus:outline-none"
                 />
                 <button
@@ -219,14 +221,14 @@ export function RoutingRuleEditor({ rule, agents, onSave, onClose }: Props) {
             onClick={onClose}
             className="ui-btn-secondary px-4 py-2 text-sm"
           >
-            Cancel
+            {t("cancel")}
           </button>
           <button
             onClick={handleSave}
             disabled={!isValid}
             className="ui-btn-primary px-4 py-2 text-sm disabled:opacity-50"
           >
-            Save
+            {t("save")}
           </button>
         </div>
       </div>

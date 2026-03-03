@@ -65,7 +65,7 @@ export function ScoringWeightsPanel() {
       </section>
 
       <section className="space-y-3">
-        <h3 className="text-sm font-semibold text-foreground">Fiabilité de base par tier</h3>
+        <h3 className="text-sm font-semibold text-foreground">Fiabilité de base par niveau</h3>
         {TIER_KEYS.map((tk, i) => (
           <div key={tk} className="space-y-1">
             <div className="flex justify-between text-xs text-muted-foreground">
@@ -86,7 +86,7 @@ export function ScoringWeightsPanel() {
         </div>
         <div className="space-y-1">
           <div className="flex justify-between text-xs text-muted-foreground">
-            <span>Plafond sécurité breaking change</span><span>{config.scoring?.breaking_change_security_ceiling ?? 50}</span>
+            <span>Plafond sécurité changement majeur</span><span>{config.scoring?.breaking_change_security_ceiling ?? 50}</span>
           </div>
           <input type="range" min={0} max={100} value={config.scoring?.breaking_change_security_ceiling ?? 50} onChange={(e) => updateField("scoring.breaking_change_security_ceiling", Number(e.target.value))} className="w-full" />
         </div>

@@ -93,17 +93,36 @@ function processModelsForSave(
   });
 }
 
-export async function saveWatcherConfigLocked(config: Record<string, unknown>): Promise<void> {
+function deepMerge(base: Record<string, unknown>, patch: Record<string, unknown>): Record<string, unknown> {
+  const result = { ...base };
+  for (const key of Object.keys(patch)) {
+    const bv = base[key];
+    const pv = patch[key];
+    if (pv !== null && typeof pv === "object" && !Array.isArray(pv) &&
+        bv !== null && typeof bv === "object" && !Array.isArray(bv)) {
+      result[key] = deepMerge(bv as Record<string, unknown>, pv as Record<string, unknown>);
+    } else {
+      result[key] = pv;
+    }
+  }
+  return result;
+}
+
+export async function saveWatcherConfigLocked(patch: Record<string, unknown>): Promise<void> {
   const lock = await acquireLock(CONFIG_PATH);
   try {
+    // Deep-merge avec la config existante pour ne pas écraser les sections non envoyées
     const existing = loadWatcherConfig();
+    const merged = deepMerge(existing, patch);
+
+    // Traitement spécial des modèles (gestion des clés API chiffrées)
     const existingModels = (existing.models ?? []) as Array<Record<string, unknown>>;
-    const newModels = (config.models ?? []) as Array<Record<string, unknown>>;
-    config.models = processModelsForSave(newModels, existingModels);
+    const newModels = (merged.models ?? []) as Array<Record<string, unknown>>;
+    merged.models = processModelsForSave(newModels, existingModels);
 
     const dir = path.dirname(CONFIG_PATH);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), "utf-8");
+    fs.writeFileSync(CONFIG_PATH, JSON.stringify(merged, null, 2), "utf-8");
   } finally {
     releaseLock(lock);
   }

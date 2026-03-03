@@ -27,7 +27,7 @@ export default function ImplementationsPage() {
     { value: "all", label: "Tous" },
     { value: "success", label: "Succès" },
     { value: "failed", label: "Échecs" },
-    { value: "rolled_back", label: "Rollback" },
+    { value: "rolled_back", label: "Annulé" },
   ];
 
   return (

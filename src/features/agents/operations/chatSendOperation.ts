@@ -68,13 +68,15 @@ export async function sendChatMessageViaStudio(params: {
   agentId: string;
   sessionKey: string;
   message: string;
+  attachments?: { type?: string; mimeType: string; content: string; fileName?: string }[];
   clearRunTracking?: (runId: string) => void;
   echoUserMessage?: boolean;
   now?: () => number;
   generateRunId?: () => string;
 }): Promise<void> {
   const trimmed = params.message.trim();
-  if (!trimmed) return;
+  const hasAttachments = params.attachments && params.attachments.length > 0;
+  if (!trimmed && !hasAttachments) return;
   const echoUserMessage = params.echoUserMessage !== false;
 
   const generateRunId = params.generateRunId ?? (() => randomUUID());
@@ -134,19 +136,32 @@ export async function sendChatMessageViaStudio(params: {
     },
   });
   if (echoUserMessage) {
-    params.dispatch({
-      type: "appendOutput",
-      agentId,
-      line: `> ${trimmed}`,
-      transcript: {
-        source: "local-send",
-        runId,
-        sessionKey: params.sessionKey,
-        timestampMs: optimisticUserOrderTimestamp,
-        role: "user",
-        kind: "user",
-      },
-    });
+    let echoLine = trimmed ? `> ${trimmed}` : "";
+    if (params.attachments && params.attachments.length > 0) {
+      const imageLines = params.attachments
+        .filter((a) => a.mimeType.startsWith("image/"))
+        .map((a) => `![${a.fileName ?? "image"}](data:${a.mimeType};base64,${a.content})`);
+      const fileLines = params.attachments
+        .filter((a) => !a.mimeType.startsWith("image/"))
+        .map((a) => `📎 ${a.fileName ?? "file"}`);
+      const extra = [...imageLines, ...fileLines].join("\n");
+      echoLine = echoLine ? `${echoLine}\n${extra}` : extra;
+    }
+    if (echoLine) {
+      params.dispatch({
+        type: "appendOutput",
+        agentId,
+        line: echoLine,
+        transcript: {
+          source: "local-send",
+          runId,
+          sessionKey: params.sessionKey,
+          timestampMs: optimisticUserOrderTimestamp,
+          role: "user",
+          kind: "user",
+        },
+      });
+    }
     pushEvent({ type: "message.sent", agentId });
   }
 
@@ -186,12 +201,16 @@ export async function sendChatMessageViaStudio(params: {
       }
     }
 
-    const sendResult = await params.client.call("chat.send", {
+    const sendPayload: Record<string, unknown> = {
       sessionKey: params.sessionKey,
       message: buildAgentInstruction({ message: trimmed }),
       deliver: false,
       idempotencyKey: runId,
-    });
+    };
+    if (params.attachments && params.attachments.length > 0) {
+      sendPayload.attachments = params.attachments;
+    }
+    const sendResult = await params.client.call("chat.send", sendPayload);
 
     if (!createdSession) {
       params.dispatch({

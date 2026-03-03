@@ -32,9 +32,9 @@ const STATUS_STYLES: Record<Implementation["status"], string> = {
 };
 
 const STATUS_LABELS: Record<Implementation["status"], string> = {
-  success: "Succes",
-  failed: "Echec",
-  rolled_back: "Annule",
+  success: "Succès",
+  failed: "Échec",
+  rolled_back: "Annulé",
 };
 
 export function ImplementationTimeline({
@@ -73,14 +73,14 @@ export function ImplementationTimeline({
   if (sorted.length === 0) {
     return (
       <p className="py-8 text-center text-sm text-muted-foreground">
-        Aucune implementation. {total > 0 && `(${total} total, filtre actif)`}
+        Aucune implémentation. {total > 0 && `(${total} au total, filtre actif)`}
       </p>
     );
   }
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-muted-foreground">{total} implementation{total > 1 ? "s" : ""} au total</p>
+      <p className="text-xs text-muted-foreground">{total}implémentation{total > 1 ? "s" : ""} au total</p>
       <div className="relative">
         <div className="absolute left-4 top-0 bottom-0 w-px bg-border" />
         <div className="space-y-4 pl-10">
@@ -118,7 +118,7 @@ export function ImplementationTimeline({
                       onClick={() => handleRollback(impl)}
                       className="shrink-0 rounded border border-yellow-500/30 bg-yellow-500/10 px-3 py-1.5 text-xs font-medium text-yellow-400 transition-colors hover:bg-yellow-500/20"
                     >
-                      Rollback
+                      Annuler
                     </button>
                   )}
                 </div>

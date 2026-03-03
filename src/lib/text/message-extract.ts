@@ -173,6 +173,28 @@ export const extractText = (message: unknown): string | null => {
   return null;
 };
 
+/**
+ * Extract inline image content blocks from a message as markdown image strings.
+ */
+export const extractImageMarkdown = (message: unknown): string[] => {
+  if (!message || typeof message !== "object") return [];
+  const m = message as Record<string, unknown>;
+  const content = m.content;
+  if (!Array.isArray(content)) return [];
+  const images: string[] = [];
+  for (const p of content) {
+    const item = p as Record<string, unknown>;
+    if (item.type === "image") {
+      const data = typeof item.data === "string" ? item.data : "";
+      const mime = typeof item.mimeType === "string" ? item.mimeType : "image/png";
+      if (data) {
+        images.push(`![image](data:${mime};base64,${data})`);
+      }
+    }
+  }
+  return images;
+};
+
 export const extractTextCached = (message: unknown): string | null => {
   if (!message || typeof message !== "object") return extractText(message);
   const obj = message as object;
@@ -522,6 +544,8 @@ const UI_METADATA_PREFIX_RE =
   /^(?:Project path:|Workspace path:|A new session was started via \/new or \/reset)/i;
 const HEARTBEAT_PROMPT_RE = /^Read HEARTBEAT\.md if it exists\b/i;
 const HEARTBEAT_PATH_RE = /Heartbeat file path:/i;
+const MEMORY_FLUSH_RE = /\bmemory[\/\s].*\bNO_REPLY\b|\bNO_REPLY\b.*\bmemory[\/\s]/i;
+const NO_REPLY_RE = /^\s*(?:NO_REPLY|NO)\s*$/;
 
 export const stripUiMetadata = (text: string) => {
   if (!text) return text;
@@ -547,6 +571,16 @@ export const isHeartbeatPrompt = (text: string) => {
   const trimmed = text.trim();
   if (!trimmed) return false;
   return HEARTBEAT_PROMPT_RE.test(trimmed) || HEARTBEAT_PATH_RE.test(trimmed);
+};
+
+export const isMemoryFlushPrompt = (text: string) => {
+  if (!text) return false;
+  return MEMORY_FLUSH_RE.test(text.trim());
+};
+
+export const isNoReplyResponse = (text: string) => {
+  if (!text) return false;
+  return NO_REPLY_RE.test(text);
 };
 
 export const isUiMetadataPrefix = (text: string) => UI_METADATA_PREFIX_RE.test(text);

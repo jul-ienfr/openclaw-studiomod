@@ -54,7 +54,7 @@ export function AutomationPanel() {
 
   return (
     <div className="space-y-8">
-      {/* Niveau d'automation */}
+      {/* Niveau d'automatisation */}
       <section className="space-y-3">
         <h3 className="text-sm font-semibold text-foreground">Niveau d&apos;automation</h3>
         <div className="space-y-2">
@@ -79,7 +79,7 @@ export function AutomationPanel() {
 
       {/* Dry-run */}
       <section className="space-y-4">
-        <h3 className="text-sm font-semibold text-foreground">Dry-run & Validation</h3>
+        <h3 className="text-sm font-semibold text-foreground">Simulation & Validation</h3>
         {[
           { path: "automation.dry_run_enabled", label: "Dry-run activé", value: a.dry_run_enabled },
           { path: "automation.zod_validation", label: "Validation Zod des changements", value: a.zod_validation },
@@ -94,7 +94,7 @@ export function AutomationPanel() {
 
       {/* Backup */}
       <section className="space-y-4">
-        <h3 className="text-sm font-semibold text-foreground">Backup & Rollback</h3>
+        <h3 className="text-sm font-semibold text-foreground">Sauvegarde & Retour arrière</h3>
         {[
           { path: "automation.backup_before_modification", label: "Backup avant modification", value: a.backup_before_modification },
           { path: "automation.auto_rollback_on_error", label: "Rollback automatique sur erreur", value: a.auto_rollback_on_error },
@@ -111,9 +111,9 @@ export function AutomationPanel() {
 
       {/* Feedback */}
       <section className="space-y-4">
-        <h3 className="text-sm font-semibold text-foreground">Feedback & Auto-calibration</h3>
+        <h3 className="text-sm font-semibold text-foreground">Retours & Auto-calibration</h3>
         <div className="flex items-center justify-between">
-          <label className="text-sm text-muted-foreground">Feedback activé</label>
+          <label className="text-sm text-muted-foreground">Retours activés</label>
           <Toggle value={a.feedback_enabled} onChange={(v) => updateField("automation.feedback_enabled", v)} />
         </div>
         <Slider min={10} max={500} value={a.feedback_auto_tune_threshold}
@@ -124,15 +124,15 @@ export function AutomationPanel() {
           label="Intervalle recalibration (jours)" />
       </section>
 
-      {/* Cross-check */}
+      {/* Vérification croisée */}
       <section className="space-y-4">
-        <h3 className="text-sm font-semibold text-foreground">Cross-check</h3>
+        <h3 className="text-sm font-semibold text-foreground">Vérification croisée</h3>
         <Slider min={0} max={1} step={0.1} value={a.correlation_similarity_threshold}
           onChange={(v) => updateField("automation.correlation_similarity_threshold", v)}
           label="Seuil similarité corrélation" />
         {[
-          { path: "automation.cross_check_github", label: "Cross-check GitHub", value: a.cross_check_github },
-          { path: "automation.cross_check_npm", label: "Cross-check npm", value: a.cross_check_npm },
+          { path: "automation.cross_check_github", label: "Vérification croisée GitHub", value: a.cross_check_github },
+          { path: "automation.cross_check_npm", label: "Vérification croisée npm", value: a.cross_check_npm },
         ].map(({ path, label, value }) => (
           <div key={path} className="flex items-center justify-between">
             <label className="text-sm text-muted-foreground">{label}</label>

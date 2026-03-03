@@ -4,6 +4,7 @@ export type AgentUiPrefs = {
   toolCallingEnabled?: boolean;
   showThinkingTraces?: boolean;
   hideSystemMessages?: boolean;
+  autoThinking?: boolean;
   model?: string | null;
 };
 

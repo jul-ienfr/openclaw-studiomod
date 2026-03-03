@@ -21,7 +21,9 @@ export type RoutingRule = {
   enabled: boolean;
   priority: number;
   conditions: RoutingCondition[];
+  /** ID of the agent that should handle matched messages */
   targetAgentId: string;
+  /** ID of the fallback agent if the primary is unavailable */
   fallbackAgentId?: string;
 };
 

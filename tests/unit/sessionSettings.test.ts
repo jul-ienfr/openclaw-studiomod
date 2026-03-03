@@ -70,8 +70,7 @@ describe("session settings sync helper", () => {
 
     expect(client.call).toHaveBeenCalledWith("sessions.patch", {
       key: "agent:1:studio:abc",
-      modelProvider: "openai",
-      model: "gpt-5",
+      model: "openai/gpt-5",
       thinkingLevel: "medium",
     });
   });
@@ -90,7 +89,6 @@ describe("session settings sync helper", () => {
     expect(client.call).toHaveBeenCalledWith("sessions.patch", {
       key: "agent:1:studio:abc",
       model: null,
-      modelProvider: null,
     });
   });
 

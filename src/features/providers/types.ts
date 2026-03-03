@@ -52,6 +52,8 @@ export type ProviderDefinition = {
   ocApi: OcApiType;
   /** Default baseUrl for OpenAI-compatible providers that have a fixed endpoint */
   defaultBaseUrl?: string;
+  signupUrl?: string;
+  guideSteps?: string[];
 };
 
 export type ProviderModelInfo = {

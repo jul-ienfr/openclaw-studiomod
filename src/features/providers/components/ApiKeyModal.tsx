@@ -155,13 +155,12 @@ export const ApiKeyModal = ({
       >
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <div className="flex items-center gap-2.5">
-            <div
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-[10px] font-bold text-white"
-              style={{ backgroundColor: provider.iconColor }}
-              aria-hidden="true"
-            >
-              {provider.name.slice(0, 2).toUpperCase()}
-            </div>
+            <ServiceLogo
+              serviceId={provider.id}
+              name={provider.name}
+              fallbackColor={provider.iconColor}
+              size={28}
+            />
             <h2 className="text-sm font-semibold text-foreground">
               {title}
             </h2>
@@ -354,16 +353,46 @@ export const ApiKeyModal = ({
             ) : null}
           </div>
 
-          {provider.docsUrl ? (
-            <a
-              href={provider.docsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
-            >
-              <ExternalLink className="h-3 w-3" aria-hidden="true" />
-              {provider.name} documentation
-            </a>
+          {provider.docsUrl || provider.signupUrl ? (
+            <div className="flex items-center gap-3">
+              {provider.docsUrl ? (
+                <a
+                  href={provider.docsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
+                >
+                  <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                  Documentation
+                </a>
+              ) : null}
+              {provider.signupUrl ? (
+                <a
+                  href={provider.signupUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
+                >
+                  <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                  Get API Key
+                </a>
+              ) : null}
+            </div>
+          ) : null}
+
+          {provider.guideSteps && provider.guideSteps.length > 0 ? (
+            <details className="group">
+              <summary className="cursor-pointer text-[11px] font-medium text-muted-foreground hover:text-foreground">
+                Setup guide
+              </summary>
+              <ol className="mt-2 ml-4 list-decimal space-y-1">
+                {provider.guideSteps.map((step, i) => (
+                  <li key={i} className="text-[11px] text-muted-foreground">
+                    {step}
+                  </li>
+                ))}
+              </ol>
+            </details>
           ) : null}
 
           {provider.models.length > 0 ? (

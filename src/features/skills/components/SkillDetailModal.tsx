@@ -41,7 +41,7 @@ export const SkillDetailModal = ({
               </p>
             </div>
           </div>
-          <button type="button" onClick={onClose} className="ui-btn-icon xs" aria-label="Close">
+          <button type="button" onClick={onClose} className="ui-btn-icon xs" aria-label={t("close")}>
             <X className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -54,12 +54,12 @@ export const SkillDetailModal = ({
               <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
               {skill.rating} / 5
             </span>
-            <span>{skill.installs.toLocaleString()} installs</span>
+            <span>{skill.installs.toLocaleString()} {t("installs")}</span>
             <span className="rounded-full bg-surface-2 px-2 py-0.5 capitalize">{skill.category}</span>
           </div>
 
           <div>
-            <p className="mb-1.5 text-xs font-medium text-foreground">Tags</p>
+            <p className="mb-1.5 text-xs font-medium text-foreground">{t("tags")}</p>
             <div className="flex flex-wrap gap-1.5">
               {skill.tags.map((tag) => (
                 <span
@@ -75,7 +75,7 @@ export const SkillDetailModal = ({
 
         <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-3">
           <button type="button" onClick={onClose} className="ui-btn-secondary text-xs">
-            Close
+            {t("close")}
           </button>
           <button
             type="button"
@@ -83,9 +83,9 @@ export const SkillDetailModal = ({
             className={installed ? "ui-btn-ghost text-xs text-destructive" : "ui-btn-primary text-xs"}
           >
             {installed ? (
-              <>Uninstall</>
+              <>{t("uninstall")}</>
             ) : (
-              <><Download className="mr-1 inline h-3 w-3" /> Install</>
+              <><Download className="mr-1 inline h-3 w-3" /> {t("install")}</>
             )}
           </button>
         </div>

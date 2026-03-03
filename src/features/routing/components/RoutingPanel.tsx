@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import { Plus, GitBranch, Pencil, Trash2, ToggleLeft, ToggleRight } from "lucide-react";
 import { toast } from "sonner";
 import type { RoutingConfig, RoutingRule } from "../types";
@@ -23,6 +24,7 @@ const DEFAULT_AGENTS: Agent[] = [
 ];
 
 export function RoutingPanel({ agents }: { agents?: Agent[] }) {
+  const t = useTranslations("routing");
   const [config, setConfig] = useState<RoutingConfig>({ rules: [], defaultAgentId: "" });
   const [editingRule, setEditingRule] = useState<RoutingRule | null>(null);
   const [showEditor, setShowEditor] = useState(false);
@@ -33,43 +35,48 @@ export function RoutingPanel({ agents }: { agents?: Agent[] }) {
     void fetchRoutingConfig().then(setConfig);
   }, []);
 
-  const handleAdd = () => {
+  const handleAdd = useCallback(() => {
     setEditingRule(null);
     setShowEditor(true);
-  };
+  }, []);
 
-  const handleEdit = (rule: RoutingRule) => {
+  const handleEdit = useCallback((rule: RoutingRule) => {
     setEditingRule(rule);
     setShowEditor(true);
-  };
+  }, []);
 
-  const handleSave = (rule: RoutingRule) => {
+  const handleSave = useCallback((rule: RoutingRule) => {
     let next: RoutingConfig;
     if (editingRule) {
       next = updateRoutingRule(config, rule.id, rule);
-      toast.success("Rule updated");
+      toast.success(t("ruleUpdated"));
     } else {
       next = addRoutingRule(config, rule);
-      toast.success("Rule added");
+      toast.success(t("ruleCreated"));
     }
     setConfig(next);
     persistRoutingConfig(next);
     setShowEditor(false);
     setEditingRule(null);
-  };
+  }, [editingRule, config]);
 
-  const handleToggle = (rule: RoutingRule) => {
+  const handleToggle = useCallback((rule: RoutingRule) => {
     const next = updateRoutingRule(config, rule.id, { enabled: !rule.enabled });
     setConfig(next);
     persistRoutingConfig(next);
-  };
+  }, [config]);
 
-  const handleDelete = (ruleId: string) => {
+  const handleDelete = useCallback((ruleId: string) => {
     const next = removeRoutingRule(config, ruleId);
     setConfig(next);
     persistRoutingConfig(next);
-    toast.success("Rule deleted");
-  };
+    toast.success(t("ruleRemoved"));
+  }, [config]);
+
+  const handleCloseEditor = useCallback(() => {
+    setShowEditor(false);
+    setEditingRule(null);
+  }, []);
 
   const getAgentName = (id: string) =>
     availableAgents.find((a) => a.id === id)?.name ?? id;
@@ -79,19 +86,19 @@ export function RoutingPanel({ agents }: { agents?: Agent[] }) {
       <header className="flex items-center justify-between border-b border-border px-6 py-4">
         <div>
           <h1 className="console-title type-page-title text-foreground flex items-center gap-2">
-            Routing
+            {t("title")}
             <span className="ml-2 inline-flex h-5 items-center rounded-full bg-muted px-2 text-xs text-muted-foreground">
               {config.rules.length}
             </span>
           </h1>
-          <p className="text-sm text-muted-foreground">Configure message routing rules</p>
+          <p className="text-sm text-muted-foreground">{t("description")}</p>
         </div>
         <button
           onClick={handleAdd}
           className="ui-btn-primary flex items-center gap-2 px-3 py-2 text-sm"
         >
           <Plus className="h-4 w-4" />
-          Add Rule
+          {t("addRule")}
         </button>
       </header>
 
@@ -99,7 +106,7 @@ export function RoutingPanel({ agents }: { agents?: Agent[] }) {
         {config.rules.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-16 text-muted-foreground">
             <GitBranch className="h-8 w-8" />
-            <p className="text-sm">No rules configured</p>
+            <p className="text-sm">{t("noRules")}</p>
           </div>
         ) : (
           config.rules.map((rule) => (
@@ -111,7 +118,7 @@ export function RoutingPanel({ agents }: { agents?: Agent[] }) {
             >
               <button
                 onClick={() => handleToggle(rule)}
-                aria-label={rule.enabled ? "Disable rule" : "Enable rule"}
+                aria-label={rule.enabled ? t("disable") : t("enable")}
                 className={`shrink-0 ${rule.enabled ? "text-primary" : "text-muted-foreground"}`}
               >
                 {rule.enabled ? (
@@ -124,22 +131,21 @@ export function RoutingPanel({ agents }: { agents?: Agent[] }) {
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-foreground">{rule.name}</p>
                 <p className="truncate text-xs text-muted-foreground">
-                  Priority {rule.priority} &middot; {rule.conditions.length} condition
-                  {rule.conditions.length !== 1 ? "s" : ""} &middot; &rarr;{" "}
+                  {t("priority")} {rule.priority} &middot; {rule.conditions.length} {t("conditionsLabel")} &middot; &rarr;{" "}
                   {getAgentName(rule.targetAgentId)}
                 </p>
               </div>
 
               <button
                 onClick={() => handleEdit(rule)}
-                aria-label="Edit rule"
+                aria-label={t("editRule")}
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
               >
                 <Pencil className="h-4 w-4" />
               </button>
               <button
                 onClick={() => handleDelete(rule.id)}
-                aria-label="Delete rule"
+                aria-label={t("removeRule")}
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
               >
                 <Trash2 className="h-4 w-4" />
@@ -154,10 +160,7 @@ export function RoutingPanel({ agents }: { agents?: Agent[] }) {
           rule={editingRule ?? undefined}
           agents={availableAgents}
           onSave={handleSave}
-          onClose={() => {
-            setShowEditor(false);
-            setEditingRule(null);
-          }}
+          onClose={handleCloseEditor}
         />
       )}
     </div>

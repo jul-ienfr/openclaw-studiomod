@@ -4,8 +4,16 @@ import path from "path";
 const DB_PATH = process.env.WATCHER_DB_PATH
   ?? path.join(process.env.HOME ?? "/home/jul", ".openclaw/workspace-openclaw-watcher/data/watcher.db");
 
+/** Read-only connection — pour les GETs */
 export function getDb(): Database.Database {
   const db = new Database(DB_PATH, { readonly: true });
+  db.pragma("journal_mode = WAL");
+  return db;
+}
+
+/** Read-write connection — pour les mutations (status, implementations) */
+export function getDbWrite(): Database.Database {
+  const db = new Database(DB_PATH);
   db.pragma("journal_mode = WAL");
   return db;
 }

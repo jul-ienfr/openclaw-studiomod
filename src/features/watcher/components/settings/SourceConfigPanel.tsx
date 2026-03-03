@@ -67,11 +67,11 @@ export function SourceConfigPanel({ sourceKey }: SourceConfigPanelProps) {
       {sourceKey === "github" && (
         <>
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Owner</label>
+            <label className="text-xs text-muted-foreground">Propriétaire</label>
             <input type="text" className="w-full rounded border border-border bg-background px-2 py-1 text-sm" value={(src.owner as string) ?? ""} onChange={(e) => upd("owner", e.target.value)} />
           </div>
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Repo</label>
+            <label className="text-xs text-muted-foreground">Dépôt</label>
             <input type="text" className="w-full rounded border border-border bg-background px-2 py-1 text-sm" value={(src.repo as string) ?? ""} onChange={(e) => upd("repo", e.target.value)} />
           </div>
         </>
@@ -80,7 +80,7 @@ export function SourceConfigPanel({ sourceKey }: SourceConfigPanelProps) {
       {/* npm */}
       {sourceKey === "npm" && (
         <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Package name</label>
+          <label className="text-xs text-muted-foreground">Nom du paquet</label>
           <input type="text" className="w-full rounded border border-border bg-background px-2 py-1 text-sm" value={(src.package_name as string) ?? ""} onChange={(e) => upd("package_name", e.target.value)} />
         </div>
       )}

@@ -1,6 +1,7 @@
 import type { AgentState } from "./store";
 import {
   extractText,
+  extractImageMarkdown,
   extractThinking,
   extractToolLines,
   formatMetaMarkdown,
@@ -263,7 +264,11 @@ export const buildHistoryLines = (messages: ChatHistoryMessage[]): HistoryLinesR
         if (typeof at === "number") {
           lines.push(formatMetaMarkdown({ role: "user", timestamp: at }));
         }
-        lines.push(`> ${text}`);
+        const imageLines = extractImageMarkdown(message);
+        const userLine = imageLines.length > 0
+          ? `> ${text}\n${imageLines.join("\n")}`
+          : `> ${text}`;
+        lines.push(userLine);
         lastUser = text;
         if (typeof at === "number") {
           lastUserAt = at;

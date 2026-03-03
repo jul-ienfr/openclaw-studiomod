@@ -128,6 +128,60 @@ export const buildStaticModelCatalog = (
   return catalog;
 };
 
+export type ThinkingLevel = { value: string; label: string };
+
+/**
+ * Returns the thinking/effort levels available for a given model.
+ * - reasoning === false  → only "Off" (model doesn't support thinking)
+ * - Claude models        → full set including "minimal" and "xhigh"
+ * - Other reasoning models → standard set without Claude-only levels
+ */
+export const getThinkingLevels = (
+  modelStr: string,
+  reasoning?: boolean,
+): ThinkingLevel[] => {
+  if (reasoning === false) {
+    return [{ value: "off", label: "Off" }];
+  }
+  const lower = modelStr.toLowerCase();
+  const isClaude46 =
+    lower.includes("sonnet-4-6") ||
+    lower.includes("opus-4-6") ||
+    lower.includes("claude-sonnet-4-6") ||
+    lower.includes("claude-opus-4-6");
+  const isClaude = lower.includes("claude");
+  if (isClaude46) {
+    return [
+      { value: "", label: "Default" },
+      { value: "adaptive", label: "Adaptive" },
+      { value: "off", label: "Off" },
+      { value: "minimal", label: "Minimal" },
+      { value: "low", label: "Low" },
+      { value: "medium", label: "Medium" },
+      { value: "high", label: "High" },
+      { value: "xhigh", label: "XHigh" },
+    ];
+  }
+  if (isClaude) {
+    return [
+      { value: "", label: "Default" },
+      { value: "off", label: "Off" },
+      { value: "minimal", label: "Minimal" },
+      { value: "low", label: "Low" },
+      { value: "medium", label: "Medium" },
+      { value: "high", label: "High" },
+      { value: "xhigh", label: "XHigh" },
+    ];
+  }
+  return [
+    { value: "", label: "Default" },
+    { value: "off", label: "Off" },
+    { value: "low", label: "Low" },
+    { value: "medium", label: "Medium" },
+    { value: "high", label: "High" },
+  ];
+};
+
 /**
  * Filter models to only include those from configured providers.
  * If no providers are configured, returns all models (backward compatibility).

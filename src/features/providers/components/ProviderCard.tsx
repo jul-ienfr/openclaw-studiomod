@@ -1,13 +1,17 @@
 import { Check, KeyRound, Plus, Settings } from "lucide-react";
 import type { ProviderWithStatus, ProviderKeyEntry } from "../types";
+import { ServiceLogo } from "@/components/ServiceLogo";
+
+type HealthStatus = "idle" | "testing" | "healthy" | "unhealthy";
 
 type ProviderCardProps = {
   provider: ProviderWithStatus;
   onConfigure: (storageKey: string) => void;
   onAddKey: (providerId: string) => void;
+  healthStatus?: HealthStatus;
 };
 
-export const ProviderCard = ({ provider, onConfigure, onAddKey }: ProviderCardProps) => {
+export const ProviderCard = ({ provider, onConfigure, onAddKey, healthStatus }: ProviderCardProps) => {
   const isConfigured = provider.status === "configured";
   const keys = provider.keys ?? [];
 
@@ -22,24 +26,38 @@ export const ProviderCard = ({ provider, onConfigure, onAddKey }: ProviderCardPr
     >
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-2.5">
-          <div
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold text-white"
-            style={{ backgroundColor: provider.iconColor }}
-            aria-hidden="true"
-          >
-            {provider.name.slice(0, 2).toUpperCase()}
-          </div>
+          <ServiceLogo
+            serviceId={provider.id}
+            name={provider.name}
+            fallbackColor={provider.iconColor}
+            size={32}
+          />
           <div>
             <h3 className="text-sm font-semibold text-foreground">{provider.name}</h3>
             <p className="text-[11px] text-muted-foreground">{provider.description}</p>
           </div>
         </div>
-        {isConfigured ? (
-          <span className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-            <Check className="h-3 w-3" aria-hidden="true" />
-            {keys.length > 1 ? `${keys.length} clés` : "Active"}
-          </span>
-        ) : null}
+        <div className="flex items-center gap-1.5">
+          {healthStatus && healthStatus !== "idle" ? (
+            <span
+              className={`h-2.5 w-2.5 rounded-full ${
+                healthStatus === "testing"
+                  ? "animate-pulse bg-yellow-400"
+                  : healthStatus === "healthy"
+                    ? "bg-green-500"
+                    : "bg-red-500"
+              }`}
+              title={healthStatus}
+              aria-label={`Provider ${healthStatus}`}
+            />
+          ) : null}
+          {isConfigured ? (
+            <span className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+              <Check className="h-3 w-3" aria-hidden="true" />
+              {keys.length > 1 ? `${keys.length} clés` : "Active"}
+            </span>
+          ) : null}
+        </div>
       </div>
 
       {provider.models.length > 0 ? (

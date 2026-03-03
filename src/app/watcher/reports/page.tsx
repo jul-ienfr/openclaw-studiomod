@@ -25,7 +25,14 @@ export default function ReportsPage() {
         const res = await fetch("/api/watcher/reports");
         if (!res.ok) throw new Error(`Erreur ${res.status}`);
         const data = await res.json();
-        const files: ReportFile[] = Array.isArray(data) ? data : data.files ?? [];
+        // API returns { reports: [{file, size, modified}] } — normalize to ReportFile shape
+        const raw: Array<{file?: string; name?: string; size?: number; modified?: string; date?: string}> =
+          Array.isArray(data) ? data : (data.reports ?? data.files ?? []);
+        const files: ReportFile[] = raw.map(r => ({
+          name: r.name ?? r.file ?? "",
+          date: r.date ?? r.modified,
+          size: r.size,
+        }));
         setReportFiles(files);
         if (files.length > 0) {
           setSelectedFile(files[0].name);

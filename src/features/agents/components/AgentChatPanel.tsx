@@ -1,6 +1,8 @@
 import {
+  createContext,
   memo,
   useCallback,
+  useContext,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -15,12 +17,16 @@ import { useTranslations } from "next-intl";
 import type { AgentState as AgentRecord } from "@/features/agents/state/store";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Check, ChevronRight, Clock, Cog, Mic, Pencil, Shuffle, Trash2, X } from "lucide-react";
+import { Check, ChevronRight, Clock, Cog, CornerUpLeft, FileText, Forward, Mic, Paperclip, Pencil, Play, Shuffle, Trash2, X, Zap } from "lucide-react";
 import type { GatewayModelChoice } from "@/lib/gateway/models";
+import { getThinkingLevels } from "@/lib/gateway/models";
+import { classifyMessageDifficulty, isClaude46Model } from "@/lib/thinking/autoThinkingLevel";
 import { rewriteMediaLinesToMarkdown } from "@/lib/text/media-markdown";
 import { normalizeAssistantDisplayText } from "@/lib/text/assistantText";
 import { useVoiceRecorder } from "@/features/agents/hooks/useVoiceRecorder";
+import { useAttachments, type Attachment, type GatewayAttachment } from "@/features/agents/hooks/useAttachments";
 import { isNearBottom } from "@/lib/dom";
+import { loadAgentUiPrefs, saveAgentUiPref } from "@/features/agents/state/agentUiPrefs";
 import { AgentAvatar } from "./AgentAvatar";
 import {
   SPINE_LEFT,
@@ -49,6 +55,150 @@ import {
 
 /* Utility functions and constants imported from ./chat/chatUtils */
 
+/* ── Image lightbox ──────────────────────────────────────────────── */
+
+const LightboxContext = createContext<(src: string) => void>(() => {});
+
+const chatUrlTransform = (url: string): string => {
+  if (url.startsWith("data:")) return url;
+  if (/^https?:\/\//i.test(url)) return url;
+  return url;
+};
+
+const ChatMarkdownImg = (props: React.ImgHTMLAttributes<HTMLImageElement>) => {
+  const openLightbox = useContext(LightboxContext);
+  const src = typeof props.src === "string" ? props.src : undefined;
+  return (
+    <img
+      src={src}
+      alt={props.alt ?? ""}
+      className="my-1 inline-block max-h-48 max-w-[200px] cursor-pointer rounded-md border border-border/40 object-cover transition hover:opacity-80"
+      onClick={() => src && openLightbox(src)}
+    />
+  );
+};
+
+const chatMarkdownComponents = { img: ChatMarkdownImg } as const;
+
+const ChatImageLightbox = memo(function ChatImageLightbox({
+  src,
+  onClose,
+}: {
+  src: string;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const handler = (e: globalThis.KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <button
+        type="button"
+        className="absolute right-4 top-4 rounded-full bg-black/60 p-2 text-white transition hover:bg-black/80"
+        onClick={onClose}
+        aria-label="Close"
+      >
+        <X className="h-5 w-5" />
+      </button>
+      <img
+        src={src}
+        alt=""
+        className="max-h-[90vh] max-w-[90vw] rounded-md object-contain shadow-lg"
+        onClick={(e) => e.stopPropagation()}
+      />
+    </div>
+  );
+});
+
+/* ── End image lightbox ──────────────────────────────────────────── */
+
+/* ── Message action bar (reply / forward) ────────────────────────── */
+
+type MessageActionBarProps = {
+  onReply?: () => void;
+  onForward?: (targetAgentId: string) => void;
+  otherAgents?: { agentId: string; name: string }[];
+};
+
+const MessageActionBar = memo(function MessageActionBar({
+  onReply,
+  onForward,
+  otherAgents = [],
+}: MessageActionBarProps) {
+  const tc = useTranslations("chat");
+  const [forwardOpen, setForwardOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!forwardOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setForwardOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [forwardOpen]);
+
+  if (!onReply && !onForward) return null;
+
+  return (
+    <div className="absolute -top-3 right-2 z-10 flex items-center gap-0.5 rounded-md border border-border/60 bg-card px-1 py-0.5 opacity-0 shadow-sm transition-opacity group-hover/msg:opacity-100">
+      {onReply ? (
+        <button
+          type="button"
+          className="inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground transition hover:bg-surface-2 hover:text-foreground"
+          aria-label={tc("reply")}
+          title={tc("reply")}
+          onClick={onReply}
+        >
+          <CornerUpLeft className="h-3.5 w-3.5" />
+        </button>
+      ) : null}
+      {onForward && otherAgents.length > 0 ? (
+        <div className="relative" ref={dropdownRef}>
+          <button
+            type="button"
+            className="inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground transition hover:bg-surface-2 hover:text-foreground"
+            aria-label={tc("forwardTo")}
+            title={tc("forwardTo")}
+            onClick={() => setForwardOpen((v) => !v)}
+          >
+            <Forward className="h-3.5 w-3.5" />
+          </button>
+          {forwardOpen ? (
+            <div className="absolute right-0 top-full z-20 mt-1 max-h-48 min-w-[140px] overflow-y-auto rounded-md border border-border bg-card py-1 shadow-md">
+              {otherAgents.map((a) => (
+                <button
+                  key={a.agentId}
+                  type="button"
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[11px] text-foreground transition hover:bg-surface-2"
+                  onClick={() => {
+                    onForward(a.agentId);
+                    setForwardOpen(false);
+                  }}
+                >
+                  {a.name}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+});
+
+/* ── End message action bar ──────────────────────────────────────── */
+
 type AgentChatPanelProps = {
   agent: AgentRecord;
   isSelected: boolean;
@@ -66,10 +216,13 @@ type AgentChatPanelProps = {
   onThinkingTracesToggle?: (enabled: boolean) => void;
   onHideSystemMessagesToggle?: (enabled: boolean) => void;
   onDraftChange: (value: string) => void;
-  onSend: (message: string) => void;
+  onSend: (message: string, attachments?: GatewayAttachment[]) => void;
   onRemoveQueuedMessage?: (index: number) => void;
+  onSendQueuedNow?: (index: number) => void;
   onStopRun: () => void;
   onAvatarShuffle: () => void;
+  otherAgents?: { agentId: string; name: string }[];
+  onForwardToAgent?: (targetAgentId: string, message: string) => void;
   pendingExecApprovals?: PendingExecApproval[];
   onResolveExecApproval?: (id: string, decision: ExecApprovalDecision) => void;
 };
@@ -182,7 +335,7 @@ const ToolCallDetails = memo(function ToolCallDetails({
       </summary>
       {open && body ? (
         <div className="agent-markdown agent-tool-markdown mt-1 text-foreground">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+          <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={chatUrlTransform} components={chatMarkdownComponents}>
             {rewriteMediaLinesToMarkdown(body)}
           </ReactMarkdown>
         </div>
@@ -258,7 +411,7 @@ const ThinkingDetailsRow = memo(function ThinkingDetailsRow({
                 key={`thinking-event-${index}-${event.text.slice(0, 48)}`}
                 className="agent-markdown min-w-0 text-foreground/85"
               >
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={chatUrlTransform} components={chatMarkdownComponents}>
                   {event.text}
                 </ReactMarkdown>
               </div>
@@ -279,12 +432,25 @@ const ThinkingDetailsRow = memo(function ThinkingDetailsRow({
 const UserMessageCard = memo(function UserMessageCard({
   text,
   timestampMs,
+  onReply,
+  onForward,
+  otherAgents,
 }: {
   text: string;
   timestampMs?: number;
+  onReply?: () => void;
+  onForward?: (targetAgentId: string, text: string) => void;
+  otherAgents?: { agentId: string; name: string }[];
 }) {
+  const forwardWithText = useMemo(() => {
+    if (!onForward) return undefined;
+    const raw = text.replace(/^> /gm, "").trim();
+    return (targetAgentId: string) => onForward(targetAgentId, raw);
+  }, [onForward, text]);
+
   return (
-    <div className="ui-chat-user-card w-full max-w-[70ch] self-end overflow-hidden rounded-[var(--radius-small)] bg-[color:var(--chat-user-bg)]">
+    <div className="group/msg relative ui-chat-user-card w-full max-w-[70ch] self-end overflow-hidden rounded-[var(--radius-small)] bg-[color:var(--chat-user-bg)]">
+      <MessageActionBar onReply={onReply} onForward={forwardWithText} otherAgents={otherAgents} />
       <div className="flex items-center justify-between gap-3 bg-[color:var(--chat-user-header-bg)] px-3 py-2 dark:px-3.5 dark:py-2.5">
         <div className="type-meta min-w-0 truncate font-mono text-foreground/90">
           You
@@ -296,7 +462,13 @@ const UserMessageCard = memo(function UserMessageCard({
         ) : null}
       </div>
       <div className="agent-markdown type-body px-3 py-3 text-foreground dark:px-3.5 dark:py-3.5">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          urlTransform={chatUrlTransform}
+          components={chatMarkdownComponents}
+        >
+          {text}
+        </ReactMarkdown>
       </div>
     </div>
   );
@@ -313,6 +485,9 @@ const AssistantMessageCard = memo(function AssistantMessageCard({
   thinkingDurationMs,
   contentText,
   streaming,
+  onReply,
+  onForward,
+  otherAgents,
 }: {
   avatarSeed: string;
   avatarUrl: string | null;
@@ -324,6 +499,9 @@ const AssistantMessageCard = memo(function AssistantMessageCard({
   thinkingDurationMs?: number;
   contentText?: string | null;
   streaming?: boolean;
+  onReply?: () => void;
+  onForward?: (targetAgentId: string, text: string) => void;
+  otherAgents?: { agentId: string; name: string }[];
 }) {
   const resolvedTimestamp =
     typeof timestampMs === "number" ? timestampMs : null;
@@ -339,12 +517,20 @@ const AssistantMessageCard = memo(function AssistantMessageCard({
   const compactStreamingIndicator = Boolean(
     streaming && !hasThinking && !hasContent,
   );
+  const showActions = !streaming && hasContent;
+  const forwardWithText = useMemo(() => {
+    if (!onForward || !contentText) return undefined;
+    return (targetAgentId: string) => onForward(targetAgentId, contentText);
+  }, [onForward, contentText]);
 
   return (
-    <div className="w-full self-start">
+    <div className="group/msg w-full self-start">
       <div
         className={`relative w-full ${widthClass} ${ASSISTANT_GUTTER_CLASS}`}
       >
+        {showActions ? (
+          <MessageActionBar onReply={onReply} onForward={forwardWithText} otherAgents={otherAgents} />
+        ) : null}
         <div className="absolute left-[4px] top-[2px]">
           <AgentAvatar
             seed={avatarSeed}
@@ -431,7 +617,7 @@ const AssistantMessageCard = memo(function AssistantMessageCard({
                     }
                     return (
                       <div className="agent-markdown text-foreground">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={chatUrlTransform} components={chatMarkdownComponents}>
                           {rewritten}
                         </ReactMarkdown>
                       </div>
@@ -439,7 +625,7 @@ const AssistantMessageCard = memo(function AssistantMessageCard({
                   })()
                 ) : (
                   <div className="agent-markdown text-foreground">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={chatUrlTransform} components={chatMarkdownComponents}>
                       {rewriteMediaLinesToMarkdown(contentText)}
                     </ReactMarkdown>
                   </div>
@@ -503,6 +689,9 @@ const AgentChatFinalItems = memo(function AgentChatFinalItems({
   chatItems,
   running,
   runStartedAt,
+  onReply,
+  onForward,
+  otherAgents,
 }: {
   agentId: string;
   name: string;
@@ -511,6 +700,9 @@ const AgentChatFinalItems = memo(function AgentChatFinalItems({
   chatItems: AgentChatItem[];
   running: boolean;
   runStartedAt: number | null;
+  onReply?: (text: string) => void;
+  onForward?: (targetAgentId: string, text: string) => void;
+  otherAgents?: { agentId: string; name: string }[];
 }) {
   const blocks = buildAgentChatRenderBlocks(chatItems);
 
@@ -523,6 +715,9 @@ const AgentChatFinalItems = memo(function AgentChatFinalItems({
               key={`chat-${agentId}-user-${index}`}
               text={block.text}
               timestampMs={block.timestampMs}
+              onReply={onReply ? () => onReply(block.text) : undefined}
+              onForward={onForward}
+              otherAgents={otherAgents}
             />
           );
         }
@@ -541,6 +736,9 @@ const AgentChatFinalItems = memo(function AgentChatFinalItems({
             thinkingDurationMs={block.thinkingDurationMs}
             contentText={block.text}
             streaming={streaming}
+            onReply={onReply && block.text ? () => onReply(block.text!) : undefined}
+            onForward={block.text ? onForward : undefined}
+            otherAgents={otherAgents}
           />
         );
       })}
@@ -570,6 +768,9 @@ const AgentChatTranscript = memo(function AgentChatTranscript({
   pendingExecApprovals,
   onResolveExecApproval,
   emptyStateTitle,
+  onReply,
+  onForward,
+  otherAgents,
 }: {
   agentId: string;
   name: string;
@@ -592,6 +793,9 @@ const AgentChatTranscript = memo(function AgentChatTranscript({
   pendingExecApprovals: PendingExecApproval[];
   onResolveExecApproval?: (id: string, decision: ExecApprovalDecision) => void;
   emptyStateTitle: string;
+  onReply?: (text: string) => void;
+  onForward?: (targetAgentId: string, text: string) => void;
+  otherAgents?: { agentId: string; name: string }[];
 }) {
   const chatRef = useRef<HTMLDivElement | null>(null);
   const chatBottomRef = useRef<HTMLDivElement | null>(null);
@@ -605,7 +809,7 @@ const AgentChatTranscript = memo(function AgentChatTranscript({
   const scrollChatToBottom = useCallback(() => {
     if (!chatRef.current) return;
     if (chatBottomRef.current) {
-      chatBottomRef.current.scrollIntoView({ block: "end" });
+      chatBottomRef.current.scrollIntoView?.({ block: "end" });
       return;
     }
     chatRef.current.scrollTop = chatRef.current.scrollHeight;
@@ -771,6 +975,9 @@ const AgentChatTranscript = memo(function AgentChatTranscript({
                 chatItems={chatItems}
                 running={status === "running"}
                 runStartedAt={runStartedAt}
+                onReply={onReply}
+                onForward={onForward}
+                otherAgents={otherAgents}
               />
               {showLiveAssistantCard ? (
                 <AssistantMessageCard
@@ -853,6 +1060,7 @@ const AgentChatComposer = memo(function AgentChatComposer({
   sendDisabled,
   queuedMessages,
   onRemoveQueuedMessage,
+  onSendQueuedNow,
   inputRef,
   modelOptions,
   modelValue,
@@ -861,6 +1069,8 @@ const AgentChatComposer = memo(function AgentChatComposer({
   thinkingLevels,
   onModelChange,
   onThinkingChange,
+  autoThinking,
+  onAutoThinkingToggle,
   toolCallingEnabled,
   showThinkingTraces,
   hideSystemMessages,
@@ -870,6 +1080,9 @@ const AgentChatComposer = memo(function AgentChatComposer({
   voiceRecording,
   voiceTranscribing,
   onToggleVoice,
+  attachments,
+  onAddFiles,
+  onRemoveAttachment,
 }: {
   value: string;
   onChange: (event: ChangeEvent<HTMLTextAreaElement>) => void;
@@ -883,6 +1096,7 @@ const AgentChatComposer = memo(function AgentChatComposer({
   sendDisabled: boolean;
   queuedMessages: string[];
   onRemoveQueuedMessage?: (index: number) => void;
+  onSendQueuedNow?: (index: number) => void;
   inputRef: (el: HTMLTextAreaElement | HTMLInputElement | null) => void;
   modelOptions: { value: string; label: string }[];
   modelValue: string;
@@ -891,6 +1105,8 @@ const AgentChatComposer = memo(function AgentChatComposer({
   thinkingLevels: { value: string; label: string }[];
   onModelChange: (value: string | null) => void;
   onThinkingChange: (value: string | null) => void;
+  autoThinking: boolean;
+  onAutoThinkingToggle: () => void;
   toolCallingEnabled: boolean;
   showThinkingTraces: boolean;
   hideSystemMessages: boolean;
@@ -900,6 +1116,9 @@ const AgentChatComposer = memo(function AgentChatComposer({
   voiceRecording: boolean;
   voiceTranscribing: boolean;
   onToggleVoice: () => void;
+  attachments: Attachment[];
+  onAddFiles: (files: FileList | File[]) => Promise<void>;
+  onRemoveAttachment: (id: string) => void;
 }) {
   const tc = useTranslations("chat");
   const stopReason = stopDisabledReason?.trim() ?? "";
@@ -920,8 +1139,51 @@ const AgentChatComposer = memo(function AgentChatComposer({
     [thinkingLevels, thinkingValue]
   );
   const thinkingSelectWidthCh = Math.max(9, Math.min(22, thinkingSelectedLabel.length + 6));
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const handlePaste = useCallback(
+    (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+      const files = event.clipboardData?.files;
+      if (files && files.length > 0) {
+        event.preventDefault();
+        void onAddFiles(files);
+      }
+    },
+    [onAddFiles],
+  );
+  const hasAttachments = attachments.length > 0;
   return (
     <div className="rounded-2xl border border-border/65 bg-surface-2/45 px-3 py-2">
+      {hasAttachments ? (
+        <div className="mb-2 flex flex-wrap gap-2">
+          {attachments.map((att) => (
+            <div
+              key={att.id}
+              className="group relative flex items-center gap-1.5 rounded-md border border-border/70 bg-card/80 px-2 py-1"
+            >
+              {att.previewUrl ? (
+                <img
+                  src={att.previewUrl}
+                  alt={att.fileName}
+                  className="h-10 w-10 rounded object-cover"
+                />
+              ) : (
+                <FileText className="h-5 w-5 flex-none text-muted-foreground" />
+              )}
+              <span className="max-w-[120px] truncate text-[11px] text-foreground">
+                {att.fileName}
+              </span>
+              <button
+                type="button"
+                className="inline-flex h-4 w-4 flex-none items-center justify-center rounded-sm text-muted-foreground transition hover:bg-surface-2 hover:text-foreground"
+                aria-label={`Remove ${att.fileName}`}
+                onClick={() => onRemoveAttachment(att.id)}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : null}
       {queuedMessages.length > 0 ? (
         <div
           className={`mb-2 grid items-start gap-2 ${
@@ -933,7 +1195,7 @@ const AgentChatComposer = memo(function AgentChatComposer({
           <div
             className="min-w-0 max-w-full space-y-1 overflow-hidden"
             data-testid="queued-messages-bar"
-            aria-label="Queued messages"
+            aria-label={tc("queued")}
           >
             {queuedMessages.map((queuedMessage, index) => (
               <div
@@ -941,7 +1203,7 @@ const AgentChatComposer = memo(function AgentChatComposer({
                 className="flex w-full min-w-0 max-w-full items-center gap-1 overflow-hidden rounded-md border border-border/70 bg-card/80 px-2 py-1 text-[11px] text-foreground"
               >
                 <span className="font-mono text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
-                  Queued
+                  {tc("queued")}
                 </span>
                 <span
                   className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap"
@@ -949,10 +1211,21 @@ const AgentChatComposer = memo(function AgentChatComposer({
                 >
                   {queuedMessage}
                 </span>
+                {onSendQueuedNow ? (
+                  <button
+                    type="button"
+                    className="inline-flex h-4 w-4 flex-none items-center justify-center rounded-sm text-muted-foreground transition hover:bg-surface-2 hover:text-foreground"
+                    aria-label={tc("sendNow")}
+                    title={tc("sendNow")}
+                    onClick={() => onSendQueuedNow(index)}
+                  >
+                    <Play className="h-3 w-3" />
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   className="inline-flex h-4 w-4 flex-none items-center justify-center rounded-sm text-muted-foreground transition hover:bg-surface-2 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                  aria-label={`Remove queued message ${index + 1}`}
+                  aria-label={tc("removeQueued", { index: index + 1 })}
                   onClick={() => onRemoveQueuedMessage?.(index)}
                   disabled={!onRemoveQueuedMessage}
                 >
@@ -984,6 +1257,28 @@ const AgentChatComposer = memo(function AgentChatComposer({
         </div>
       ) : null}
       <div className="flex items-end gap-2">
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          multiple
+          accept="image/*,audio/*,.pdf,.doc,.docx,.txt,.csv,.json,.xml,.md"
+          onChange={(e) => {
+            if (e.target.files && e.target.files.length > 0) {
+              void onAddFiles(e.target.files);
+            }
+            e.target.value = "";
+          }}
+        />
+        <button
+          className="rounded-md border border-border/70 bg-surface-3 px-2 py-2 transition hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50"
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          aria-label={tc("attachFile")}
+          title={tc("attachFile")}
+        >
+          <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
+        </button>
         <textarea
           ref={inputRef}
           rows={1}
@@ -991,6 +1286,7 @@ const AgentChatComposer = memo(function AgentChatComposer({
           className="chat-composer-input min-h-[28px] flex-1 resize-none border-0 bg-transparent px-0 py-1 text-[15px] leading-6 text-foreground outline-none shadow-none transition placeholder:text-muted-foreground/65 focus:outline-none focus-visible:outline-none focus-visible:ring-0"
           onChange={onChange}
           onKeyDown={onKeyDown}
+          onPaste={handlePaste}
           placeholder={tc("typeMessage")}
         />
         {running ? (
@@ -1017,7 +1313,7 @@ const AgentChatComposer = memo(function AgentChatComposer({
         <button
           className={`rounded-md border px-2 py-2 transition disabled:cursor-not-allowed disabled:opacity-50 ${
             voiceRecording
-              ? "border-red-500/50 bg-red-500/15 hover:bg-red-500/25"
+              ? "border-destructive/50 bg-destructive/15 hover:bg-destructive/25"
               : "border-border/70 bg-surface-3 hover:bg-surface-2"
           }`}
           type="button"
@@ -1026,7 +1322,7 @@ const AgentChatComposer = memo(function AgentChatComposer({
           aria-label={voiceRecording ? "Arrêter l'enregistrement" : "Enregistrer un vocal"}
           title={voiceTranscribing ? "Transcription..." : voiceRecording ? "Cliquer pour envoyer" : "Vocal"}
         >
-          <Mic className={`h-3.5 w-3.5 ${voiceRecording ? "text-red-500 animate-pulse" : voiceTranscribing ? "text-muted-foreground animate-pulse" : "text-muted-foreground"}`} />
+          <Mic className={`h-3.5 w-3.5 ${voiceRecording ? "text-destructive animate-pulse" : voiceTranscribing ? "text-muted-foreground animate-pulse" : "text-muted-foreground"}`} />
         </button>
       </div>
       <div className="mt-1 flex items-center justify-between gap-2">
@@ -1054,22 +1350,54 @@ const AgentChatComposer = memo(function AgentChatComposer({
             </select>
           </InlineHoverTooltip>
           {allowThinking ? (
-            <InlineHoverTooltip text={tc("selectReasoning")}>
-              <select
-                className="ui-input ui-control-important h-6 rounded-md px-1.5 text-[10px] font-semibold text-foreground"
-                aria-label={tc("thinking")}
-                value={thinkingValue}
-                style={{ width: `${thinkingSelectWidthCh}ch` }}
-                onChange={(event) => {
-                  const nextValue = event.target.value.trim();
-                  onThinkingChange(nextValue ? nextValue : null);
-                }}
+            <>
+              <InlineHoverTooltip
+                text={
+                  autoThinking
+                    ? tc("autoThinkingDisable")
+                    : tc("autoThinkingEnable")
+                }
               >
-                {thinkingLevels.map((level) => (
-                  <option key={level.value} value={level.value}>{level.label}</option>
-                ))}
-              </select>
-            </InlineHoverTooltip>
+                <button
+                  type="button"
+                  onClick={onAutoThinkingToggle}
+                  className={`flex h-6 items-center gap-1 rounded-md px-1.5 text-[10px] font-semibold transition-colors ${
+                    autoThinking
+                      ? "bg-primary text-primary-foreground"
+                      : "ui-input text-muted-foreground hover:text-foreground"
+                  }`}
+                  aria-pressed={autoThinking}
+                  aria-label={
+                    autoThinking
+                      ? tc("autoThinkingDisable")
+                      : tc("autoThinkingEnable")
+                  }
+                >
+                  <Zap className="h-3 w-3" strokeWidth={2} />
+                  Auto
+                </button>
+              </InlineHoverTooltip>
+              <InlineHoverTooltip text={tc("selectReasoning")}>
+                <select
+                  className="ui-input ui-control-important h-6 rounded-md px-1.5 text-[10px] font-semibold text-foreground"
+                  aria-label={tc("thinking")}
+                  value={thinkingValue}
+                  disabled={autoThinking}
+                  style={{
+                    width: `${thinkingSelectWidthCh}ch`,
+                    opacity: autoThinking ? 0.6 : 1,
+                  }}
+                  onChange={(event) => {
+                    const nextValue = event.target.value.trim();
+                    onThinkingChange(nextValue ? nextValue : null);
+                  }}
+                >
+                  {thinkingLevels.map((level) => (
+                    <option key={level.value} value={level.value}>{level.label}</option>
+                  ))}
+                </select>
+              </InlineHoverTooltip>
+            </>
           ) : null}
         </div>
         <div className="ml-auto flex items-center gap-1.5 text-[10px] text-muted-foreground">
@@ -1105,9 +1433,9 @@ const AgentChatComposer = memo(function AgentChatComposer({
           <button
             type="button"
             role="switch"
-            aria-label="Hide system notices"
+            aria-label="Toggle system notices"
             aria-checked={hideSystemMessages}
-            title={hideSystemMessages ? "System notices hidden" : "System notices visible"}
+            title={hideSystemMessages ? "System notices visible" : "System notices hidden"}
             className={`inline-flex h-5 items-center rounded-sm border px-1.5 font-mono text-[10px] tracking-[0.01em] transition ${
               hideSystemMessages
                 ? "border-primary/45 bg-primary/14 text-foreground"
@@ -1142,8 +1470,11 @@ export const AgentChatPanel = ({
   onDraftChange,
   onSend,
   onRemoveQueuedMessage,
+  onSendQueuedNow,
   onStopRun,
   onAvatarShuffle,
+  otherAgents = [],
+  onForwardToAgent,
   pendingExecApprovals = [],
   onResolveExecApproval,
 }: AgentChatPanelProps) => {
@@ -1172,6 +1503,32 @@ export const AgentChatPanel = ({
     el.style.height = `${el.scrollHeight}px`;
     el.style.overflowY = el.scrollHeight > el.clientHeight ? "auto" : "hidden";
   }, []);
+
+  const handleReply = useCallback(
+    (text: string) => {
+      const lines = text.replace(/^> /gm, "").trim();
+      const quoted = lines.split("\n").map((l) => `> ${l}`).join("\n");
+      const newDraft = `${quoted}\n\n`;
+      setDraftValue(newDraft);
+      plainDraftRef.current = newDraft;
+      onDraftChange(newDraft);
+      requestAnimationFrame(() => {
+        const el = draftRef.current;
+        if (!el) return;
+        el.focus();
+        el.selectionStart = el.selectionEnd = newDraft.length;
+        resizeDraft();
+      });
+    },
+    [onDraftChange, resizeDraft],
+  );
+
+  const handleForward = useCallback(
+    (targetAgentId: string, text: string) => {
+      onForwardToAgent?.(targetAgentId, text);
+    },
+    [onForwardToAgent],
+  );
 
   const handleDraftRef = useCallback(
     (el: HTMLTextAreaElement | HTMLInputElement | null) => {
@@ -1235,19 +1592,28 @@ export const AgentChatPanel = ({
     };
   }, [resizeDraft, draftValue]);
 
+  const attachmentsBag = useAttachments();
+
   const handleSend = useCallback(
-    (message: string) => {
+    (message: string, extraAttachments?: GatewayAttachment[]) => {
       if (!canSend) return;
       const trimmed = message.trim();
-      if (!trimmed) return;
+      const hasAttachments = (extraAttachments && extraAttachments.length > 0);
+      if (!trimmed && !hasAttachments) return;
       plainDraftRef.current = "";
       setDraftValue("");
       onDraftChange("");
       scrollToBottomNextOutputRef.current = true;
-      onSend(trimmed);
+      onSend(trimmed, extraAttachments);
     },
     [canSend, onDraftChange, onSend],
   );
+
+  const handleComposerSendWithAttachments = useCallback(() => {
+    const gwAttachments = attachmentsBag.toGatewayFormat();
+    handleSend(draftValue, gwAttachments.length > 0 ? gwAttachments : undefined);
+    attachmentsBag.clearAll();
+  }, [draftValue, handleSend, attachmentsBag]);
 
   const handleVoiceTranscribed = useCallback(
     (text: string) => {
@@ -1319,26 +1685,53 @@ export const AgentChatPanel = ({
   // When no model is stored yet, use the first option in the list (what's displayed)
   const effectiveModelStr = selectedModel?.value ?? modelOptionsWithFallback[0]?.value ?? "";
 
-  const thinkingLevels = useMemo((): { value: string; label: string }[] => {
-    const isClaude = effectiveModelStr.toLowerCase().includes("claude");
-    if (isClaude) {
-      return [
-        { value: "", label: "Default" },
-        { value: "off", label: "Off" },
-        { value: "minimal", label: "Minimal" },
-        { value: "low", label: "Low" },
-        { value: "medium", label: "Medium" },
-        { value: "high", label: "High" },
-        { value: "xhigh", label: "XHigh" },
-      ];
+  const thinkingLevels = useMemo(
+    () => getThinkingLevels(effectiveModelStr, selectedModel?.reasoning),
+    [effectiveModelStr, selectedModel?.reasoning],
+  );
+
+  // Auto-adaptive thinking level — default ON, persisted per agent
+  const [autoThinking, setAutoThinking] = useState(() => {
+    const prefs = loadAgentUiPrefs(agent.agentId);
+    return prefs.autoThinking !== false;
+  });
+  const lastAutoLevelRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!autoThinking || !allowThinking) return;
+    if (isClaude46Model(effectiveModelStr)) {
+      // Claude 4.6 supports native adaptive thinking — just set it once
+      if (lastAutoLevelRef.current !== "adaptive") {
+        lastAutoLevelRef.current = "adaptive";
+        onThinkingChange("adaptive");
+      }
+      return;
     }
-    return [
-      { value: "", label: "Default" },
-      { value: "off", label: "Off" },
-      { value: "low", label: "Low" },
-      { value: "medium", label: "Medium" },
-      { value: "high", label: "High" },
-    ];
+    // Other reasoning models: heuristic debounced on draft
+    if (!draftValue.trim()) return;
+    const timer = setTimeout(() => {
+      const detected = classifyMessageDifficulty(draftValue);
+      const newLevel = detected === "off" ? null : detected;
+      if (newLevel !== lastAutoLevelRef.current) {
+        lastAutoLevelRef.current = newLevel;
+        onThinkingChange(newLevel);
+      }
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [draftValue, autoThinking, allowThinking, effectiveModelStr, onThinkingChange]);
+
+  // Reset tracking when auto is turned off
+  useEffect(() => {
+    if (!autoThinking) lastAutoLevelRef.current = null;
+  }, [autoThinking]);
+
+  // Reset auto mode when model changes (different model may not support adaptive)
+  const prevModelRef = useRef(effectiveModelStr);
+  useEffect(() => {
+    if (prevModelRef.current !== effectiveModelStr) {
+      prevModelRef.current = effectiveModelStr;
+      lastAutoLevelRef.current = null;
+    }
   }, [effectiveModelStr]);
 
   const avatarSeed = agent.avatarSeed ?? agent.agentId;
@@ -1346,7 +1739,7 @@ export const AgentChatPanel = ({
     () => resolveEmptyChatIntroMessage(agent.agentId, agent.sessionEpoch),
     [agent.agentId, agent.sessionEpoch],
   );
-  const sendDisabled = !canSend || !draftValue.trim();
+  const sendDisabled = !canSend || (!draftValue.trim() && attachmentsBag.attachments.length === 0);
 
   const handleComposerChange = useCallback(
     (event: ChangeEvent<HTMLTextAreaElement>) => {
@@ -1365,14 +1758,12 @@ export const AgentChatPanel = ({
       if (event.key !== "Enter" || event.shiftKey) return;
       if (event.defaultPrevented) return;
       event.preventDefault();
-      handleSend(draftValue);
+      handleComposerSendWithAttachments();
     },
-    [draftValue, handleSend],
+    [handleComposerSendWithAttachments],
   );
 
-  const handleComposerSend = useCallback(() => {
-    handleSend(draftValue);
-  }, [draftValue, handleSend]);
+  const handleComposerSend = handleComposerSendWithAttachments;
 
   const beginRename = useCallback(() => {
     if (!onRename) return;
@@ -1458,7 +1849,11 @@ export const AgentChatPanel = ({
 
   const newSessionDisabled = newSessionBusy || !canSend || !onNewSession;
 
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const closeLightbox = useCallback(() => setLightboxSrc(null), []);
+
   return (
+    <LightboxContext.Provider value={setLightboxSrc}>
     <div
       data-agent-panel
       className="group fade-up relative flex h-full w-full flex-col"
@@ -1613,6 +2008,9 @@ export const AgentChatPanel = ({
           pendingExecApprovals={pendingExecApprovals}
           onResolveExecApproval={onResolveExecApproval}
           emptyStateTitle={emptyStateTitle}
+          onReply={handleReply}
+          onForward={handleForward}
+          otherAgents={otherAgents}
         />
 
         <div className="mt-3">
@@ -1630,6 +2028,7 @@ export const AgentChatPanel = ({
             sendDisabled={sendDisabled}
             queuedMessages={agent.queuedMessages ?? []}
             onRemoveQueuedMessage={onRemoveQueuedMessage}
+            onSendQueuedNow={onSendQueuedNow}
             modelOptions={modelOptionsWithFallback.map((option) => ({
               value: option.value,
               label: option.label,
@@ -1640,6 +2039,12 @@ export const AgentChatPanel = ({
             thinkingLevels={thinkingLevels}
             onModelChange={onModelChange}
             onThinkingChange={onThinkingChange}
+            autoThinking={autoThinking}
+            onAutoThinkingToggle={() => setAutoThinking((v) => {
+              const next = !v;
+              saveAgentUiPref(agent.agentId, "autoThinking", next);
+              return next;
+            })}
             toolCallingEnabled={agent.toolCallingEnabled}
             showThinkingTraces={agent.showThinkingTraces}
             hideSystemMessages={agent.hideSystemMessages}
@@ -1649,9 +2054,14 @@ export const AgentChatPanel = ({
             voiceRecording={voice.isRecording}
             voiceTranscribing={voice.isTranscribing}
             onToggleVoice={voice.toggleRecording}
+            attachments={attachmentsBag.attachments}
+            onAddFiles={attachmentsBag.addFiles}
+            onRemoveAttachment={attachmentsBag.removeAttachment}
           />
         </div>
       </div>
     </div>
+    {lightboxSrc ? <ChatImageLightbox src={lightboxSrc} onClose={closeLightbox} /> : null}
+    </LightboxContext.Provider>
   );
 };

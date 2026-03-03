@@ -1711,7 +1711,6 @@ body {
 .ui-chat-scroll,
 .ui-scroll {
   -webkit-overflow-scrolling: touch;
-  scroll-behavior: smooth;
 }
 
 /* Full-width modals on narrow screens */

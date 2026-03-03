@@ -19,6 +19,7 @@ type VoiceControlsProps = {
 };
 
 export const VoiceControls = ({ agentId = "default" }: VoiceControlsProps) => {
+  const t = useTranslations("voice");
   const [showSettings, setShowSettings] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -98,18 +99,18 @@ export const VoiceControls = ({ agentId = "default" }: VoiceControlsProps) => {
     <div className="flex min-h-0 flex-1 flex-col" data-testid="voice-controls">
       <div className="flex items-center gap-2 border-b border-border px-5 py-3">
         <Volume2 className="h-4 w-4 text-primary" aria-hidden="true" />
-        <h2 className="text-sm font-semibold text-foreground">Voice</h2>
+        <h2 className="text-sm font-semibold text-foreground">{t("title")}</h2>
         {isActive && (
           <span className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
-            {session.state}
+            {t(session.state as "idle" | "listening" | "processing" | "speaking")}
           </span>
         )}
         <button
           type="button"
           onClick={() => setShowSettings((v) => !v)}
           className="ml-auto ui-btn-icon xs"
-          aria-label="Settings"
+          aria-label={t("settings")}
         >
           <Settings2 className="h-3.5 w-3.5" />
         </button>
@@ -117,7 +118,7 @@ export const VoiceControls = ({ agentId = "default" }: VoiceControlsProps) => {
 
       <div className="flex-1 overflow-y-auto px-5 py-4">
         <p className="mb-4 text-xs text-muted-foreground">
-          Voice controls for agent <span className="font-semibold text-foreground">{agentId}</span>
+          {t("description")}
         </p>
 
         {/* Control buttons */}
@@ -136,7 +137,7 @@ export const VoiceControls = ({ agentId = "default" }: VoiceControlsProps) => {
             ) : (
               <Mic className="h-4 w-4" />
             )}
-            {isListening ? "Stop listening" : "Start listening"}
+            {isListening ? t("stopListening") : t("startListening")}
           </button>
 
           <button
@@ -153,29 +154,29 @@ export const VoiceControls = ({ agentId = "default" }: VoiceControlsProps) => {
             ) : (
               <Volume2 className="h-4 w-4" />
             )}
-            {isSpeaking ? "Stop speaking" : "Speak"}
+            {isSpeaking ? t("stopSpeaking") : t("speak")}
           </button>
         </div>
 
         {/* Current config summary */}
         <div className="mt-4 rounded-lg bg-surface-2 px-3 py-2 text-[11px] text-muted-foreground">
-          Provider: <span className="text-foreground">{selectedProvider?.label ?? provider}</span>
+          {t("providerLabel")}: <span className="text-foreground">{selectedProvider?.label ?? provider}</span>
           {" · "}
-          Language: <span className="text-foreground">{language}</span>
+          {t("languageLabel")}: <span className="text-foreground">{language}</span>
           {" · "}
-          Speed: <span className="text-foreground">{speed}x</span>
+          {t("speedLabel")}: <span className="text-foreground">{speed}x</span>
           {" · "}
-          Auto-listen: <span className="text-foreground">{autoListen ? "On" : "Off"}</span>
+          {t("autoListen")}: <span className="text-foreground">{autoListen ? "On" : "Off"}</span>
         </div>
 
         {/* Settings panel */}
         {showSettings && (
           <div className="mt-4 space-y-4 rounded-lg border border-border bg-surface-2/50 p-4">
-            <h3 className="text-xs font-semibold text-foreground">Settings</h3>
+            <h3 className="text-xs font-semibold text-foreground">{t("settings")}</h3>
 
             {/* Provider */}
             <div className="space-y-1">
-              <label className="text-[11px] font-medium text-muted-foreground">Provider</label>
+              <label className="text-[11px] font-medium text-muted-foreground">{t("providerLabel")}</label>
               <select
                 value={provider}
                 onChange={(e) => handleProviderChange(e.target.value as VoiceProvider)}
@@ -191,7 +192,7 @@ export const VoiceControls = ({ agentId = "default" }: VoiceControlsProps) => {
 
             {/* Language */}
             <div className="space-y-1">
-              <label className="text-[11px] font-medium text-muted-foreground">Language</label>
+              <label className="text-[11px] font-medium text-muted-foreground">{t("languageLabel")}</label>
               <select
                 value={language}
                 onChange={(e) => setLanguage(e.target.value)}
@@ -220,7 +221,7 @@ export const VoiceControls = ({ agentId = "default" }: VoiceControlsProps) => {
             {/* Speed */}
             <div className="space-y-1">
               <label className="text-[11px] font-medium text-muted-foreground">
-                Speed: {speed.toFixed(1)}x
+                {t("speedLabel")}: {speed.toFixed(1)}x
               </label>
               <input
                 type="range"
@@ -241,7 +242,7 @@ export const VoiceControls = ({ agentId = "default" }: VoiceControlsProps) => {
                 onChange={(e) => setAutoListen(e.target.checked)}
                 className="h-3.5 w-3.5"
               />
-              Auto-listen
+              {t("autoListen")}
             </label>
 
             {/* Actions */}
@@ -251,22 +252,22 @@ export const VoiceControls = ({ agentId = "default" }: VoiceControlsProps) => {
                 onClick={handleSave}
                 className="ui-btn-primary flex-1 py-1.5 text-xs"
               >
-                Save
+                {t("save")}
               </button>
               <button
                 type="button"
                 onClick={() => setShowSettings(false)}
                 className="ui-btn-secondary flex-1 py-1.5 text-xs"
               >
-                Cancel
+                {t("cancel")}
               </button>
               <button
                 type="button"
                 onClick={handleRemove}
                 className="ui-btn-icon xs text-destructive"
-                aria-label="Remove config"
+                aria-label={t("remove")}
               >
-                Disable
+                {t("remove")}
               </button>
             </div>
           </div>

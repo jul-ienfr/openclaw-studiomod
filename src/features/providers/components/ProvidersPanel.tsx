@@ -1,10 +1,13 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
-import { Layers, Search } from "lucide-react";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { useTranslations } from "next-intl";
+import { Layers, Search, Upload, Activity, Loader2 } from "lucide-react";
 import { Toaster, toast } from "sonner";
 import { ProviderCard } from "./ProviderCard";
 import { ApiKeyModal } from "./ApiKeyModal";
+import { EnvImportModal } from "./EnvImportModal";
+import type { EnvImportResult } from "@/features/credentials/envImportApi";
 import {
   useProviderStore,
   ProviderStoreContext,
@@ -57,11 +60,17 @@ type ModalState =
   | { mode: "add"; providerId: string }
   | null;
 
+type HealthStatus = "idle" | "testing" | "healthy" | "unhealthy";
+
 function ProvidersPanelInner() {
+  const t = useTranslations("providers");
   const store = useProviderStore();
   const [modalState, setModalState] = useState<ModalState>(null);
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<ProviderCategory>("all");
+  const [showEnvImport, setShowEnvImport] = useState(false);
+  const [healthMap, setHealthMap] = useState<Record<string, HealthStatus>>({});
+  const [testingAll, setTestingAll] = useState(false);
 
   const providersWithStatus: ProviderWithStatus[] = useMemo(
     () => store.getProvidersWithStatus(),
@@ -157,6 +166,65 @@ function ProvidersPanelInner() {
     toast.success("Clé supprimée");
   };
 
+  const handleTestAll = useCallback(async () => {
+    const configured = configuredProviders.filter((p) => p.config);
+    if (configured.length === 0) return;
+
+    setTestingAll(true);
+    const initial: Record<string, HealthStatus> = {};
+    for (const p of configured) initial[p.id] = "testing";
+    setHealthMap(initial);
+
+    try {
+      const body = configured.map((p) => ({
+        providerId: p.id,
+        apiKey: p.config?.apiKey,
+        accessToken: p.config?.accessToken,
+        baseUrl: p.config?.baseUrl,
+      }));
+      const res = await fetch("/api/providers/validate-batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ providers: body }),
+      });
+      const data = (await res.json()) as {
+        results: Array<{ providerId: string; valid: boolean; error?: string | null }>;
+      };
+      const next: Record<string, HealthStatus> = {};
+      let healthy = 0;
+      for (const r of data.results) {
+        next[r.providerId] = r.valid ? "healthy" : "unhealthy";
+        if (r.valid) healthy++;
+      }
+      setHealthMap(next);
+      toast.success(`${healthy}/${data.results.length} providers healthy`);
+    } catch {
+      const fail: Record<string, HealthStatus> = {};
+      for (const p of configured) fail[p.id] = "unhealthy";
+      setHealthMap(fail);
+      toast.error("Batch validation failed");
+    } finally {
+      setTestingAll(false);
+    }
+  }, [configuredProviders]);
+
+  const handleEnvImportProviders = useCallback(
+    (providers: EnvImportResult["providers"]) => {
+      for (const p of providers) {
+        const def = PROVIDER_REGISTRY.find((r) => r.id === p.serviceType);
+        if (!def) continue;
+        store.saveProvider({
+          id: def.id,
+          apiKey: p.apiKey,
+          authType: "apiKey",
+          enabled: true,
+        });
+      }
+      toast.success(`${providers.length} provider(s) imported`);
+    },
+    [store],
+  );
+
   const totalCount = PROVIDER_REGISTRY.length;
   const configuredCount = configuredProviders.length;
 
@@ -169,17 +237,42 @@ function ProvidersPanelInner() {
         <div className="flex items-center gap-3">
           <Layers className="h-5 w-5 text-muted-foreground" />
           <div>
-            <h1 className="console-title type-page-title text-foreground">Providers</h1>
+            <h1 className="console-title type-page-title text-foreground">{t("title")}</h1>
             <p className="text-sm text-muted-foreground">
-              Manage API keys for AI model providers
+              {t("description")}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <span className="font-semibold text-foreground">{configuredCount}</span>
-          <span>/</span>
-          <span>{totalCount}</span>
-          <span>configured</span>
+        <div className="flex items-center gap-3">
+          {configuredProviders.length > 0 ? (
+            <button
+              type="button"
+              className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-[11px] font-medium text-foreground transition-colors hover:bg-surface-2 disabled:opacity-50"
+              onClick={handleTestAll}
+              disabled={testingAll}
+            >
+              {testingAll ? (
+                <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+              ) : (
+                <Activity className="h-3 w-3" aria-hidden="true" />
+              )}
+              {testingAll ? t("testingAll") : t("testAll")}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-[11px] font-medium text-foreground transition-colors hover:bg-surface-2"
+            onClick={() => setShowEnvImport(true)}
+          >
+            <Upload className="h-3 w-3" aria-hidden="true" />
+            {t("importEnv")}
+          </button>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span className="font-semibold text-foreground">{configuredCount}</span>
+            <span>/</span>
+            <span>{totalCount}</span>
+            <span>{t("configuredSection").toLowerCase()}</span>
+          </div>
         </div>
       </header>
 
@@ -188,7 +281,7 @@ function ProvidersPanelInner() {
         {configuredProviders.length > 0 ? (
           <section>
             <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              Configured providers
+              {t("configuredSection")}
             </h2>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {configuredProviders.map((provider) => (
@@ -197,6 +290,7 @@ function ProvidersPanelInner() {
                   provider={provider}
                   onConfigure={handleConfigure}
                   onAddKey={handleAddKey}
+                  healthStatus={healthMap[provider.id]}
                 />
               ))}
             </div>
@@ -207,7 +301,7 @@ function ProvidersPanelInner() {
         <section>
           <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              {configuredProviders.length > 0 ? "Available providers" : "All providers"}
+              {configuredProviders.length > 0 ? t("availableSection") : t("title")}
             </h2>
             <div className="flex items-center gap-2">
               {/* Search */}
@@ -218,7 +312,7 @@ function ProvidersPanelInner() {
                 />
                 <input
                   type="search"
-                  placeholder="Search providers..."
+                  placeholder={t("searchPlaceholder")}
                   className="ui-input h-7 rounded-md border border-border bg-surface-2 pl-7 pr-3 text-xs"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
@@ -260,8 +354,8 @@ function ProvidersPanelInner() {
               <Layers className="h-8 w-8" />
               <p className="text-sm">
                 {search || activeCategory !== "all"
-                  ? "No providers match your filters"
-                  : "All providers are configured"}
+                  ? t("noResults")
+                  : t("allConfigured")}
               </p>
             </div>
           )}
@@ -281,6 +375,14 @@ function ProvidersPanelInner() {
               : undefined
           }
           onClose={() => setModalState(null)}
+        />
+      ) : null}
+
+      {/* Env Import Modal */}
+      {showEnvImport ? (
+        <EnvImportModal
+          onImportProviders={handleEnvImportProviders}
+          onClose={() => setShowEnvImport(false)}
         />
       ) : null}
     </div>

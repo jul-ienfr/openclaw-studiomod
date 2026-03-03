@@ -123,6 +123,7 @@ import {
   buildStaticModelCatalog,
   mergeModelCatalogs,
   filterModelsByConfiguredProviders,
+  getThinkingLevels,
 } from "@/lib/gateway/models";
 import { PROVIDER_REGISTRY } from "@/features/providers/providerRegistry";
 import { ProviderStoreProvider } from "@/features/providers/ProviderStoreProvider";
@@ -1980,34 +1981,47 @@ const AgentStudioPage = () => {
                           })}
                         </select>
                       </label>
-                      <label className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
-                        <span className="font-semibold tracking-[0.04em]">
-                          Thinking
-                        </span>
-                        <select
-                          className="ui-input h-6 rounded-md px-1.5 text-[11px] font-semibold text-foreground"
-                          value={inspectSidebarAgent?.thinkingLevel ?? ""}
-                          onChange={(e) => {
-                            const agentId = inspectSidebarAgent?.agentId;
-                            const sessionKey = inspectSidebarAgent?.sessionKey;
-                            if (!agentId || !sessionKey) return;
-                            const next = e.target.value.trim();
-                            void handleThinkingChange(
-                              agentId,
-                              sessionKey,
-                              next || null,
-                            );
-                          }}
-                        >
-                          <option value="">Default</option>
-                          <option value="off">Off</option>
-                          <option value="minimal">Minimal</option>
-                          <option value="low">Low</option>
-                          <option value="medium">Medium</option>
-                          <option value="high">High</option>
-                          <option value="xhigh">XHigh</option>
-                        </select>
-                      </label>
+                      {(() => {
+                        const sidebarModel = allModels.find(
+                          (m) =>
+                            `${m.provider}/${m.id}` ===
+                            inspectSidebarAgent?.model,
+                        );
+                        if (sidebarModel?.reasoning === false) return null;
+                        const sidebarThinkingLevels = getThinkingLevels(
+                          inspectSidebarAgent?.model ?? "",
+                          sidebarModel?.reasoning,
+                        );
+                        return (
+                          <label className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
+                            <span className="font-semibold tracking-[0.04em]">
+                              Thinking
+                            </span>
+                            <select
+                              className="ui-input h-6 rounded-md px-1.5 text-[11px] font-semibold text-foreground"
+                              value={inspectSidebarAgent?.thinkingLevel ?? ""}
+                              onChange={(e) => {
+                                const agentId = inspectSidebarAgent?.agentId;
+                                const sessionKey =
+                                  inspectSidebarAgent?.sessionKey;
+                                if (!agentId || !sessionKey) return;
+                                const next = e.target.value.trim();
+                                void handleThinkingChange(
+                                  agentId,
+                                  sessionKey,
+                                  next || null,
+                                );
+                              }}
+                            >
+                              {sidebarThinkingLevels.map((level) => (
+                                <option key={level.value} value={level.value}>
+                                  {level.label}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        );
+                      })()}
                     </div>
                   </div>
                   <div className="shrink-0 rounded-md border border-border/70 bg-surface-1 px-3 py-1 font-mono text-[11px] text-muted-foreground">
@@ -2311,14 +2325,28 @@ const AgentStudioPage = () => {
                           handleHideSystemMessagesToggle(focusedAgent.agentId, enabled)
                         }
                         onDraftChange={(value) => handleDraftChange(focusedAgent.agentId, value)}
-                        onSend={(message) =>
-                          handleSend(focusedAgent.agentId, focusedAgent.sessionKey, message)
+                        onSend={(message, attachments) =>
+                          handleSend(focusedAgent.agentId, focusedAgent.sessionKey, message, attachments)
                         }
                         onRemoveQueuedMessage={(index) =>
                           removeQueuedMessage(focusedAgent.agentId, index)
                         }
+                        onSendQueuedNow={(index) => {
+                          const msg = focusedAgent.queuedMessages?.[index];
+                          if (!msg) return;
+                          removeQueuedMessage(focusedAgent.agentId, index);
+                          void handleSend(focusedAgent.agentId, focusedAgent.sessionKey, msg, undefined, { force: true });
+                        }}
                         onStopRun={() => handleStopRun(focusedAgent.agentId, focusedAgent.sessionKey)}
                         onAvatarShuffle={() => handleAvatarShuffle(focusedAgent.agentId)}
+                        otherAgents={agents
+                          .filter((a) => a.agentId !== focusedAgent.agentId)
+                          .map((a) => ({ agentId: a.agentId, name: a.name }))}
+                        onForwardToAgent={(targetAgentId, message) => {
+                          const target = agents.find((a) => a.agentId === targetAgentId);
+                          if (!target) return;
+                          void handleSend(target.agentId, target.sessionKey, message);
+                        }}
                         pendingExecApprovals={focusedPendingExecApprovals}
                         onResolveExecApproval={(id, decision) => {
                           void handleResolveExecApproval(id, decision);
@@ -2476,10 +2504,12 @@ const AgentStudioPage = () => {
 
 export default function Home() {
   return (
-    <AgentStoreProvider>
-      <Suspense>
-        <AgentStudioPage />
-      </Suspense>
-    </AgentStoreProvider>
+    <ProviderStoreProvider>
+      <AgentStoreProvider>
+        <Suspense>
+          <AgentStudioPage />
+        </Suspense>
+      </AgentStoreProvider>
+    </ProviderStoreProvider>
   );
 }

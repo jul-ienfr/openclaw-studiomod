@@ -26,8 +26,8 @@ function timeAgo(dateStr: string | null): string {
 
 function getCircuitState(errors: number): { color: string; label: string } {
   if (errors === 0) return { color: "bg-green-500", label: "OK" };
-  if (errors <= 2) return { color: "bg-yellow-500", label: "backoff" };
-  return { color: "bg-red-500", label: "disabled" };
+  if (errors <= 2) return { color: "bg-yellow-500", label: "pause" };
+  return { color: "bg-red-500", label: "désactivé" };
 }
 
 export function SourceCard({ source, onCheck }: SourceCardProps) {
@@ -51,11 +51,11 @@ export function SourceCard({ source, onCheck }: SourceCardProps) {
           <dd className="font-medium text-foreground">{source.items_total}</dd>
         </div>
         <div className="flex justify-between">
-          <dt>Derniere verif</dt>
+          <dt>Dernière vérif.</dt>
           <dd>{timeAgo(source.last_check)}</dd>
         </div>
         <div className="flex justify-between">
-          <dt>Dernier succes</dt>
+          <dt>Dernier succès</dt>
           <dd>{timeAgo(source.last_success)}</dd>
         </div>
         {source.consecutive_errors > 0 && (
@@ -79,7 +79,7 @@ export function SourceCard({ source, onCheck }: SourceCardProps) {
           onClick={onCheck}
           className="w-full rounded border border-slate-300 px-3 py-1 text-xs font-medium text-foreground transition-colors hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-800"
         >
-          Verifier
+          Vérifier
         </button>
       )}
     </div>

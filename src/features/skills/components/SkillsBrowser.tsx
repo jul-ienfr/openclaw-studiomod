@@ -84,16 +84,16 @@ export const SkillsBrowser = () => {
         <div className="flex items-center gap-2">
           <Puzzle className="h-4 w-4 text-primary" aria-hidden="true" />
           <h2 className="text-sm font-semibold text-foreground">
-            Skills
+            {t("title")}
           </h2>
           <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
-            {installedCount} Installed
+            {installedCount} {t("installed")}
           </span>
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 py-4">
-        <p className="mb-3 text-xs text-muted-foreground">Browse and install agent skills</p>
+        <p className="mb-3 text-xs text-muted-foreground">{t("description")}</p>
 
         <div className="relative mb-3">
           <Search
@@ -104,7 +104,7 @@ export const SkillsBrowser = () => {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search skills..."
+            placeholder={t("searchPlaceholder")}
             className="ui-input w-full pl-8 text-xs"
           />
         </div>
@@ -141,7 +141,7 @@ export const SkillsBrowser = () => {
 
         {filtered.length === 0 && (
           <p className="py-8 text-center text-xs text-muted-foreground">
-            No skills found
+            {t("noResults")}
           </p>
         )}
       </div>

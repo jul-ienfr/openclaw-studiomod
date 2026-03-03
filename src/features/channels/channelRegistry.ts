@@ -9,12 +9,26 @@ export const CHANNEL_REGISTRY: ChannelDefinition[] = [
       { key: "verifyToken", label: "Verify Token", placeholder: "my-verify-token", sensitive: true, required: true },
       { key: "appSecret", label: "App Secret", placeholder: "abc123...", sensitive: true, required: false },
     ],
+    signupUrl: "https://business.facebook.com",
+    getKeyUrl: "https://developers.facebook.com/apps",
+    guideSteps: [
+      "Go to developers.facebook.com and create a Business app",
+      "Add the WhatsApp product to your app",
+      "Go to WhatsApp > API Setup to get a temporary token",
+      "Copy Phone Number ID, Access Token, and set a Verify Token",
+    ],
   },
   {
     id: "telegram", name: "Telegram", description: "Telegram Bot API with webhook or long-polling", iconColor: "#26A5E4", icon: "✈️",
     configFields: [
       { key: "botToken", label: "Bot Token", placeholder: "123456:ABC-DEF...", sensitive: true, required: true },
       { key: "webhookUrl", label: "Webhook URL", placeholder: "https://...", sensitive: false, required: false },
+    ],
+    getKeyUrl: "https://t.me/BotFather",
+    guideSteps: [
+      "Open Telegram and search for @BotFather",
+      "Send /newbot and follow the prompts",
+      "Copy the API token (123456:ABC-DEF...)",
     ],
   },
   {
@@ -24,6 +38,14 @@ export const CHANNEL_REGISTRY: ChannelDefinition[] = [
       { key: "signingSecret", label: "Signing Secret", placeholder: "abc123...", sensitive: true, required: true },
       { key: "appId", label: "App ID", placeholder: "A0...", sensitive: false, required: false },
     ],
+    signupUrl: "https://api.slack.com/apps",
+    getKeyUrl: "https://api.slack.com/apps",
+    guideSteps: [
+      "Go to api.slack.com/apps and create a new app",
+      "Go to OAuth & Permissions to set scopes and install",
+      "Copy the Bot User OAuth Token (xoxb-...)",
+      "Go to Basic Information for the Signing Secret",
+    ],
   },
   {
     id: "discord", name: "Discord", description: "Discord bot for servers and DMs", iconColor: "#5865F2", icon: "🎮",
@@ -31,6 +53,14 @@ export const CHANNEL_REGISTRY: ChannelDefinition[] = [
       { key: "botToken", label: "Bot Token", placeholder: "MTk...", sensitive: true, required: true },
       { key: "applicationId", label: "Application ID", placeholder: "123...", sensitive: false, required: true },
       { key: "guildId", label: "Guild ID", placeholder: "456...", sensitive: false, required: false },
+    ],
+    signupUrl: "https://discord.com/developers",
+    getKeyUrl: "https://discord.com/developers/applications",
+    guideSteps: [
+      "Go to discord.com/developers/applications",
+      "Create a new application",
+      "Go to Bot section and copy the token",
+      "Use OAuth2 URL Generator to invite the bot to your server",
     ],
   },
   {
@@ -40,12 +70,28 @@ export const CHANNEL_REGISTRY: ChannelDefinition[] = [
       { key: "appPassword", label: "App Password", placeholder: "...", sensitive: true, required: true },
       { key: "tenantId", label: "Tenant ID", placeholder: "xxxxxxxx-xxxx-...", sensitive: false, required: false },
     ],
+    signupUrl: "https://portal.azure.com",
+    getKeyUrl: "https://portal.azure.com/#blade/Microsoft_AAD_RegisteredApps/ApplicationsListBlade",
+    guideSteps: [
+      "Go to Azure Portal > App registrations",
+      "Register a new application",
+      "Create a client secret and copy the App ID",
+      "Enable the Teams channel in Bot Framework",
+    ],
   },
   {
     id: "google-chat", name: "Google Chat", description: "Google Workspace Chat integration", iconColor: "#00AC47", icon: "💬",
     configFields: [
       { key: "serviceAccountKey", label: "Service Account JSON", placeholder: "{...}", sensitive: true, required: true },
       { key: "spaceId", label: "Space ID", placeholder: "spaces/...", sensitive: false, required: false },
+    ],
+    signupUrl: "https://console.cloud.google.com",
+    getKeyUrl: "https://console.cloud.google.com/apis/credentials",
+    guideSteps: [
+      "Go to Google Cloud Console > APIs & Services",
+      "Enable the Google Chat API",
+      "Create a Service Account and download the JSON key",
+      "Configure the Chat app in Google Chat API settings",
     ],
   },
   {
@@ -54,12 +100,24 @@ export const CHANNEL_REGISTRY: ChannelDefinition[] = [
       { key: "signalNumber", label: "Signal Number", placeholder: "+1234567890", sensitive: false, required: true },
       { key: "signalApiUrl", label: "Signal API URL", placeholder: "http://localhost:8080", sensitive: false, required: true },
     ],
+    getKeyUrl: "https://github.com/bbernhard/signal-cli-rest-api",
+    guideSteps: [
+      "Install signal-cli-rest-api (Docker recommended)",
+      "Register or link a phone number with Signal",
+      "Start the API server and enter its URL",
+    ],
   },
   {
     id: "imessage", name: "iMessage", description: "iMessage via BlueBubbles bridge", iconColor: "#34C759", icon: "🍎",
     configFields: [
       { key: "blueBubblesUrl", label: "BlueBubbles URL", placeholder: "http://localhost:1234", sensitive: false, required: true },
       { key: "blueBubblesPassword", label: "Password", placeholder: "...", sensitive: true, required: true },
+    ],
+    getKeyUrl: "https://github.com/BlueBubblesApp/bluebubbles-server",
+    guideSteps: [
+      "Install BlueBubbles Server on a Mac",
+      "Configure the server and set a password",
+      "Enter the server URL and password here",
     ],
   },
   {
@@ -69,6 +127,13 @@ export const CHANNEL_REGISTRY: ChannelDefinition[] = [
       { key: "accessToken", label: "Access Token", placeholder: "syt_...", sensitive: true, required: true },
       { key: "userId", label: "User ID", placeholder: "@bot:matrix.org", sensitive: false, required: true },
     ],
+    signupUrl: "https://app.element.io",
+    getKeyUrl: "https://element.io/get-started",
+    guideSteps: [
+      "Create a Matrix account on your preferred homeserver",
+      "Get an access token from Settings > Help & About > Access Token",
+      "Enter the homeserver URL and user ID",
+    ],
   },
   {
     id: "zalo", name: "Zalo", description: "Zalo Official Account API", iconColor: "#0068FF", icon: "🇻🇳",
@@ -77,12 +142,23 @@ export const CHANNEL_REGISTRY: ChannelDefinition[] = [
       { key: "secretKey", label: "Secret Key", placeholder: "...", sensitive: true, required: true },
       { key: "accessToken", label: "Access Token", placeholder: "...", sensitive: true, required: true },
     ],
+    signupUrl: "https://developers.zalo.me",
+    getKeyUrl: "https://developers.zalo.me/createapp",
+    guideSteps: [
+      "Go to developers.zalo.me and create an app",
+      "Register an Official Account (OA)",
+      "Get the OA ID, Secret Key, and Access Token",
+    ],
   },
   {
     id: "webchat", name: "WebChat", description: "Embeddable web chat widget", iconColor: "#0EA5E9", icon: "🌐",
     configFields: [
       { key: "directLineSecret", label: "DirectLine Secret", placeholder: "...", sensitive: true, required: false },
       { key: "theme", label: "Theme", placeholder: "default", sensitive: false, required: false },
+    ],
+    guideSteps: [
+      "WebChat is built-in and works out of the box",
+      "Optionally configure a DirectLine secret for external embedding",
     ],
   },
   {
@@ -91,6 +167,11 @@ export const CHANNEL_REGISTRY: ChannelDefinition[] = [
       { key: "serverUrl", label: "Server URL", placeholder: "https://mattermost.example.com", sensitive: false, required: true },
       { key: "botToken", label: "Bot Token", placeholder: "...", sensitive: true, required: true },
       { key: "teamId", label: "Team ID", placeholder: "...", sensitive: false, required: false },
+    ],
+    guideSteps: [
+      "Go to your Mattermost admin panel",
+      "Create a Bot Account under Integrations",
+      "Copy the bot token and enter your server URL",
     ],
   },
 ];

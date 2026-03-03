@@ -16,10 +16,14 @@ export function useWatcherController() {
     }
   }, [dispatch]);
 
-  const loadItems = useCallback(async (params?: Record<string, string>) => {
+  const loadItems = useCallback(async (params?: Record<string, string | undefined>) => {
     try {
       dispatch({ type: "SET_LOADING", loading: true });
-      const qs = new URLSearchParams(params ?? {}).toString();
+      // Filter out undefined values
+      const cleanParams = Object.fromEntries(
+        Object.entries(params ?? {}).filter(([_, v]) => v !== undefined)
+      ) as Record<string, string>;
+      const qs = new URLSearchParams(cleanParams).toString();
       const res = await fetch(`/api/watcher/items?${qs}`);
       const data = await res.json();
       if (data.items) dispatch({ type: "HYDRATE_ITEMS", items: data.items, total: data.total });
@@ -57,7 +61,7 @@ export function useWatcherController() {
 
   const loadNewItemsCount = useCallback(async () => {
     try {
-      const res = await fetch("/api/watcher/items?status=new&limit=1");
+      const res = await fetch("/api/watcher/items?status=scored&category=release,npm_version,npm_dist_tag,clawhub_skill&min_score=65&limit=1");
       const data = await res.json();
       if (typeof data.total === "number") dispatch({ type: "SET_NEW_ITEMS_COUNT", count: data.total });
     } catch { /* silent */ }

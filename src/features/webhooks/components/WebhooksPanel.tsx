@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useTranslations } from "next-intl";
 import { Plus, Webhook, Pencil, Trash2, ToggleLeft, ToggleRight } from "lucide-react";
 import { toast } from "sonner";
 import type { WebhookConfig } from "../types";
@@ -14,6 +15,7 @@ import {
 import { WebhookCreateModal } from "./WebhookCreateModal";
 
 export function WebhooksPanel() {
+  const t = useTranslations("webhooks");
   const [webhooks, setWebhooks] = useState<WebhookConfig[]>([]);
   const [editingWebhook, setEditingWebhook] = useState<WebhookConfig | null>(null);
   const [showEditor, setShowEditor] = useState(false);
@@ -36,10 +38,10 @@ export function WebhooksPanel() {
     let next: WebhookConfig[];
     if (editingWebhook) {
       next = updateWebhook(webhooks, webhook.id, webhook);
-      toast.success("Webhook updated");
+      toast.success(t("webhookUpdated"));
     } else {
       next = addWebhook(webhooks, webhook);
-      toast.success("Webhook added");
+      toast.success(t("webhookCreated"));
     }
     setWebhooks(next);
     persistWebhooks(next);
@@ -57,7 +59,7 @@ export function WebhooksPanel() {
     const next = removeWebhook(webhooks, id);
     setWebhooks(next);
     persistWebhooks(next);
-    toast.success("Webhook deleted");
+    toast.success(t("webhookRemoved"));
   };
 
   const enabledCount = webhooks.filter((w) => w.enabled).length;
@@ -67,19 +69,19 @@ export function WebhooksPanel() {
       <header className="flex items-center justify-between border-b border-border px-6 py-4">
         <div>
           <h1 className="console-title type-page-title text-foreground flex items-center gap-2">
-            Webhooks
+            {t("title")}
             <span className="ml-2 inline-flex h-5 items-center rounded-full bg-muted px-2 text-xs text-muted-foreground">
               {enabledCount}/{webhooks.length}
             </span>
           </h1>
-          <p className="text-sm text-muted-foreground">Configure webhook endpoints</p>
+          <p className="text-sm text-muted-foreground">{t("description")}</p>
         </div>
         <button
           onClick={handleAdd}
           className="ui-btn-primary flex items-center gap-2 px-3 py-2 text-sm"
         >
           <Plus className="h-4 w-4" />
-          Add Webhook
+          {t("addWebhook")}
         </button>
       </header>
 
@@ -87,7 +89,7 @@ export function WebhooksPanel() {
         {webhooks.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-16 text-muted-foreground">
             <Webhook className="h-8 w-8" />
-            <p className="text-sm">No webhooks configured</p>
+            <p className="text-sm">{t("noWebhooks")}</p>
           </div>
         ) : (
           webhooks.map((wh) => (
@@ -99,7 +101,7 @@ export function WebhooksPanel() {
             >
               <button
                 onClick={() => handleToggle(wh)}
-                aria-label={wh.enabled ? "Disable webhook" : "Enable webhook"}
+                aria-label={wh.enabled ? t("disable") : t("enable")}
                 className={`shrink-0 ${wh.enabled ? "text-primary" : "text-muted-foreground"}`}
               >
                 {wh.enabled ? (
@@ -112,20 +114,20 @@ export function WebhooksPanel() {
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-foreground">{wh.name}</p>
                 <p className="truncate text-xs text-muted-foreground">
-                  {wh.url} &middot; {wh.events.length} event{wh.events.length !== 1 ? "s" : ""}
+                  {wh.url} &middot; {wh.events.length} {t("eventsLabel")}
                 </p>
               </div>
 
               <button
                 onClick={() => handleEdit(wh)}
-                aria-label="Edit webhook"
+                aria-label={t("editWebhook")}
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
               >
                 <Pencil className="h-4 w-4" />
               </button>
               <button
                 onClick={() => handleDelete(wh.id)}
-                aria-label="Delete webhook"
+                aria-label={t("removeWebhook")}
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
               >
                 <Trash2 className="h-4 w-4" />

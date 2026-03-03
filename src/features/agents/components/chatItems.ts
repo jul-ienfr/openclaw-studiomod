@@ -3,6 +3,8 @@ import {
   isToolMarkdown,
   isMetaMarkdown,
   isTraceMarkdown,
+  isMemoryFlushPrompt,
+  isNoReplyResponse,
   parseToolMarkdown,
   parseMetaMarkdown,
   stripTraceMarkdown,
@@ -66,6 +68,7 @@ export const buildFinalAgentChatItems = ({
 > & { hideSystemMessages?: boolean }): AgentChatItem[] => {
   const items: AgentChatItem[] = [];
   let currentMeta: ItemMeta | null = null;
+  let lastWasMemoryFlush = false;
   const appendThinking = (text: string) => {
     const normalized = text.trim();
     if (!normalized) return;
@@ -96,7 +99,7 @@ export const buildFinalAgentChatItems = ({
 
     // Studio-side notice messages
     if (rawLine.startsWith(STUDIO_NOTICE_PREFIX)) {
-      if (hideSystemMessages) continue;
+      if (!hideSystemMessages) continue;
       const noticeText = rawLine.slice(STUDIO_NOTICE_PREFIX.length).trim();
       if (noticeText) {
         items.push({ kind: "assistant", text: noticeText });
@@ -136,6 +139,11 @@ export const buildFinalAgentChatItems = ({
     if (trimmed.startsWith(">")) {
       const text = trimmed.replace(/^>\s?/, "").trim();
       if (text) {
+        if (!hideSystemMessages && isMemoryFlushPrompt(text)) {
+          lastWasMemoryFlush = true;
+          continue;
+        }
+        lastWasMemoryFlush = false;
         const normalized = normalizeUserDisplayText(text);
         const currentTimestamp =
           currentMeta?.role === "user" ? currentMeta.timestampMs : undefined;
@@ -176,6 +184,11 @@ export const buildFinalAgentChatItems = ({
     }
     const normalizedAssistant = normalizeAssistantDisplayText(line);
     if (!normalizedAssistant) continue;
+    if (!hideSystemMessages && isNoReplyResponse(normalizedAssistant)) {
+      lastWasMemoryFlush = false;
+      continue;
+    }
+    lastWasMemoryFlush = false;
     items.push({
       kind: "assistant",
       text: normalizedAssistant,

@@ -16,6 +16,7 @@ const createAgent = (agentId: string, sessionKey: string): AgentState => ({
   sessionCreated: true,
   awaitingUserInput: false,
   hasUnseenActivity: false,
+  hideSystemMessages: false,
   outputLines: [],
   lastResult: null,
   lastDiff: null,

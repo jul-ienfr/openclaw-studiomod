@@ -53,7 +53,7 @@ export const AnalyticsDashboard = () => {
         <div className="flex items-center gap-2">
           <BarChart3 className="h-4 w-4 text-primary" aria-hidden="true" />
           <h2 className="text-sm font-semibold text-foreground">
-            Analytics
+            {t("title")}
           </h2>
         </div>
         <div className="flex gap-1">
@@ -76,7 +76,7 @@ export const AnalyticsDashboard = () => {
 
       <div className="flex-1 overflow-y-auto px-5 py-4">
         <p className="mb-3 text-xs text-muted-foreground">
-          Real-time metrics collected from agent activity in this browser session.
+          {t("description")}
         </p>
 
         <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">

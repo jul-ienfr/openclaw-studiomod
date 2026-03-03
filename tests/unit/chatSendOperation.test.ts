@@ -14,6 +14,7 @@ const createAgent = (overrides?: Partial<AgentState>): AgentState => {
     sessionCreated: false,
     awaitingUserInput: false,
     hasUnseenActivity: false,
+    hideSystemMessages: false,
     outputLines: [],
     lastResult: null,
     lastDiff: null,
@@ -134,8 +135,7 @@ describe("sendChatMessageViaStudio", () => {
       "sessions.patch",
       expect.objectContaining({
         key: agent.sessionKey,
-        modelProvider: "openai",
-        model: "gpt-5",
+        model: "openai/gpt-5",
         thinkingLevel: "medium",
       }),
     );

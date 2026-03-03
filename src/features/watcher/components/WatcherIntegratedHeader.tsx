@@ -8,12 +8,15 @@ import { useWatcherStore } from "@/features/watcher/state/store";
 import { useState } from "react";
 
 const TABS = [
-  { href: "/watcher", label: "Dashboard", exact: true },
+  { href: "/watcher", label: "Tableau de bord", exact: true },
+  { href: "/watcher/review", label: "À traiter", badge: true },
+  { href: "/watcher/search", label: "Recherche" },
+  { href: "/watcher/history", label: "Historique" },
   { href: "/watcher/sources", label: "Sources" },
-  { href: "/watcher/scoring", label: "Scoring" },
+  { href: "/watcher/scoring", label: "Scores" },
   { href: "/watcher/implementations", label: "Implémentations" },
   { href: "/watcher/reports", label: "Rapports" },
-  { href: "/watcher/settings", label: "Settings" },
+  { href: "/watcher/settings", label: "Réglages" },
 ];
 
 export function WatcherIntegratedHeader() {
@@ -56,13 +59,13 @@ export function WatcherIntegratedHeader() {
           className="ui-btn-primary flex items-center gap-2 px-4 py-2 text-sm"
         >
           <RefreshCw className={`h-4 w-4 ${checking ? "animate-spin" : ""}`} />
-          {checking ? "En cours..." : "Check now"}
+          {checking ? "En cours..." : "Vérifier"}
         </button>
       </div>
 
       {/* Tab bar */}
       <nav className="flex items-center gap-0.5 px-4">
-        {TABS.map(({ href, label, exact }) => {
+        {TABS.map(({ href, label, exact, badge }) => {
           const active = isActive(href, exact);
           return (
             <Link
@@ -75,7 +78,7 @@ export function WatcherIntegratedHeader() {
               }`}
             >
               {label}
-              {label === "Scoring" && newItemsCount > 0 && (
+              {badge && newItemsCount > 0 && (
                 <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground">
                   {newItemsCount > 99 ? "99+" : newItemsCount}
                 </span>

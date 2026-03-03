@@ -12,7 +12,7 @@ export function SourceStatusGrid({ sources, onCheckSource }: SourceStatusGridPro
   if (sources.length === 0) {
     return (
       <p className="py-8 text-center text-sm text-muted-foreground">
-        Aucune source configuree.
+        Aucune source configurée.
       </p>
     );
   }

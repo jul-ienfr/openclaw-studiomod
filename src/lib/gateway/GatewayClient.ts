@@ -327,7 +327,6 @@ export const isWebchatSessionMutationBlockedError = (
 type SessionSettingsPatchPayload = {
   key: string;
   model?: string | null;
-  modelProvider?: string | null;
   thinkingLevel?: string | null;
   execHost?: "sandbox" | "gateway" | "node" | null;
   execSecurity?: "deny" | "allowlist" | "full" | null;
@@ -389,14 +388,7 @@ export const syncGatewaySessionSettings = async ({
   }
   const payload: SessionSettingsPatchPayload = { key };
   if (includeModel) {
-    if (model && model.includes("/")) {
-      const slashIndex = model.indexOf("/");
-      payload.modelProvider = model.slice(0, slashIndex);
-      payload.model = model.slice(slashIndex + 1);
-    } else {
-      payload.model = model ?? null;
-      payload.modelProvider = null;
-    }
+    payload.model = model ?? null;
   }
   if (includeThinkingLevel) {
     payload.thinkingLevel = thinkingLevel ?? null;

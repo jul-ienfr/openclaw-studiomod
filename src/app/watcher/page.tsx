@@ -23,7 +23,7 @@ export default function WatcherDashboardPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-base font-semibold text-foreground">Top 10 — Scoring récent</h2>
+        <h2 className="text-base font-semibold text-foreground">Top 10 — Scores récents</h2>
         <ScoringTable scores={state.scores} showFilters={false} />
       </section>
     </div>

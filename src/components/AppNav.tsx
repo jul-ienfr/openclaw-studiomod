@@ -15,9 +15,9 @@ import {
   Webhook,
   MessagesSquare,
   LayoutDashboard,
-  Radar,
   Brain,
 } from "lucide-react";
+import { WatcherNavIcon } from "@/components/WatcherNavIcon";
 
 const NAV_ITEMS = [
   { href: "/", label: "Agents", icon: Bot, exact: true },
@@ -32,7 +32,7 @@ const NAV_ITEMS = [
   { href: "/webhooks", label: "Webhooks", icon: Webhook },
   { href: "/intercom", label: "Intercom", icon: MessagesSquare },
   { href: "/canvas", label: "Canvas", icon: LayoutDashboard },
-  { href: "/watcher", label: "Watcher", icon: Radar },
+  { href: "/watcher", label: "Watcher", icon: null },
   { href: "/ai-manager", label: "AI Manager", icon: Brain },
 ];
 
@@ -47,7 +47,7 @@ export function AppNav() {
   return (
     <nav
       className="flex h-screen w-14 shrink-0 flex-col items-center gap-1 border-r border-sidebar-border bg-sidebar py-3"
-      aria-label="Navigation principale"
+      aria-label="Main navigation"
     >
       {NAV_ITEMS.map(({ href, label, icon: Icon, exact }) => {
         const active = isActive(href, exact);
@@ -58,7 +58,11 @@ export function AppNav() {
         }`;
         const children = (
           <>
-            <Icon className="h-5 w-5" strokeWidth={1.75} />
+            {href === "/watcher" ? (
+              <WatcherNavIcon />
+            ) : (
+              Icon && <Icon className="h-5 w-5" strokeWidth={1.75} />
+            )}
             <span className="pointer-events-none absolute left-full ml-2 z-50 hidden whitespace-nowrap rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-md group-hover:block">
               {label}
             </span>

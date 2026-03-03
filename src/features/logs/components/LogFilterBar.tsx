@@ -16,12 +16,12 @@ type LogFilterBarProps = {
   logCount: number;
 };
 
-const LEVELS: { value: LogLevel | ""; label: string }[] = [
-  { value: "", label: "All" },
-  { value: "debug", label: "Debug" },
-  { value: "info", label: "Info" },
-  { value: "warn", label: "Warn" },
-  { value: "error", label: "Error" },
+const LEVELS: { value: LogLevel | ""; labelKey: string }[] = [
+  { value: "", labelKey: "levelAll" },
+  { value: "debug", labelKey: "levelDebug" },
+  { value: "info", labelKey: "levelInfo" },
+  { value: "warn", labelKey: "levelWarn" },
+  { value: "error", labelKey: "levelError" },
 ];
 
 export const LogFilterBar = ({
@@ -43,7 +43,7 @@ export const LogFilterBar = ({
           type="text"
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Search..."
+          placeholder={t("searchPlaceholder")}
           className="ui-input w-full pl-7 text-xs"
         />
       </div>
@@ -59,17 +59,17 @@ export const LogFilterBar = ({
                 : "bg-surface-2 text-muted-foreground hover:bg-surface-3"
             }`}
           >
-            {l.label}
+            {t(l.labelKey)}
           </button>
         ))}
       </div>
       <span className="text-[10px] text-muted-foreground">
-        {logCount} entries
+        {logCount} {t("entries")}
       </span>
-      <button type="button" onClick={onExport} className="ui-btn-icon xs" aria-label="Export">
+      <button type="button" onClick={onExport} className="ui-btn-icon xs" aria-label={t("export")}>
         <Download className="h-3 w-3" />
       </button>
-      <button type="button" onClick={onClear} className="ui-btn-icon xs text-destructive" aria-label="Clear">
+      <button type="button" onClick={onClear} className="ui-btn-icon xs text-destructive" aria-label={t("clear")}>
         <Trash2 className="h-3 w-3" />
       </button>
     </div>

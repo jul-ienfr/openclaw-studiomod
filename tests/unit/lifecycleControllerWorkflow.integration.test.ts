@@ -33,6 +33,7 @@ const createAgent = (agentId: string, sessionKey: string): AgentState => ({
   historyMaybeTruncated: false,
   toolCallingEnabled: true,
   showThinkingTraces: true,
+  hideSystemMessages: false,
   model: "openai/gpt-5",
   thinkingLevel: "medium",
   avatarSeed: agentId,

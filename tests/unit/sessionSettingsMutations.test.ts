@@ -1,8 +1,9 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { applySessionSettingMutation } from "@/features/agents/state/sessionSettingsMutations";
 import type { GatewayClient } from "@/lib/gateway/GatewayClient";
 import { GatewayResponseError } from "@/lib/gateway/errors";
+import { STUDIO_NOTICE_PREFIX } from "@/features/agents/components/chatItems";
 
 const createWebchatBlockedPatchError = () =>
   new GatewayResponseError({
@@ -11,7 +12,11 @@ const createWebchatBlockedPatchError = () =>
       "webchat clients cannot patch sessions; use chat.send for session-scoped updates",
   });
 
+// Silence `void fetch("/api/agents/model", ...)` in applySessionSettingMutation
+const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}"));
+
 describe("session settings mutations helper", () => {
+  afterEach(() => fetchSpy.mockClear());
   it("applies optimistic update before remote sync", async () => {
     const dispatch = vi.fn();
     const client = {
@@ -53,8 +58,7 @@ describe("session settings mutations helper", () => {
 
     expect(client.call).toHaveBeenCalledWith("sessions.patch", {
       key: "agent:1:studio:abc",
-      modelProvider: "openai",
-      model: "gpt-5",
+      model: "openai/gpt-5",
     });
   });
 
@@ -108,7 +112,7 @@ describe("session settings mutations helper", () => {
     expect(dispatch).toHaveBeenCalledWith({
       type: "updateAgent",
       agentId: "agent-1",
-      patch: { sessionSettingsSynced: true, sessionCreated: true },
+      patch: { model: null, thinkingLevel: null, sessionSettingsSynced: true, sessionCreated: true },
     });
   });
 
@@ -133,7 +137,7 @@ describe("session settings mutations helper", () => {
     expect(dispatch).toHaveBeenCalledWith({
       type: "appendOutput",
       agentId: "agent-1",
-      line: "Model update failed: network timeout",
+      line: `${STUDIO_NOTICE_PREFIX}Model update failed: network timeout`,
     });
   });
 
@@ -165,15 +169,15 @@ describe("session settings mutations helper", () => {
       type: "updateAgent",
       agentId: "agent-1",
       patch: {
-        model: "openai/gpt-5-mini",
         sessionSettingsSynced: true,
         sessionCreated: true,
+        thinkingLevel: null,
       },
     });
     expect(dispatch).toHaveBeenCalledWith({
       type: "appendOutput",
       agentId: "agent-1",
-      line: "Model update not applied: this gateway blocks sessions.patch for WebChat clients; message sending still works.",
+      line: `${STUDIO_NOTICE_PREFIX}Model saved persistently: **openai/gpt-5**. Will apply to all channels (Telegram, WhatsApp…) immediately.`,
     });
 
     const failureLines = dispatch.mock.calls

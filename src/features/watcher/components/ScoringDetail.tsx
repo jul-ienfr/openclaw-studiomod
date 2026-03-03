@@ -13,10 +13,10 @@ type ScoringDetailProps = {
 type Section = { key: keyof Pick<ScoreRecord, "fiabilite" | "securite" | "fonctionnement" | "interet">; label: string };
 
 const SECTIONS: Section[] = [
-  { key: "fiabilite", label: "Fiabilite" },
-  { key: "securite", label: "Securite" },
+  { key: "fiabilite", label: "Fiabilité" },
+  { key: "securite", label: "Sécurité" },
   { key: "fonctionnement", label: "Fonctionnement" },
-  { key: "interet", label: "Interet" },
+  { key: "interet", label: "Intérêt" },
 ];
 
 function formatDate(d: string) {
@@ -122,7 +122,7 @@ export function ScoringDetail({ score, item }: ScoringDetailProps) {
           className="ui-btn-primary px-4 py-2 text-sm font-medium"
           onClick={() => handleAction("implement")}
         >
-          Implementer
+          Implémenter
         </button>
         <button
           type="button"
@@ -136,7 +136,7 @@ export function ScoringDetail({ score, item }: ScoringDetailProps) {
           className="ml-auto rounded border border-border px-4 py-2 text-xs font-mono text-muted-foreground transition-colors hover:bg-surface-2"
           onClick={() => setShowJson((v) => !v)}
         >
-          {showJson ? "Masquer JSON" : "Voir JSON raw"}
+          {showJson ? "Masquer le JSON" : "Voir le JSON brut"}
         </button>
       </div>
 

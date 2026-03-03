@@ -80,3 +80,9 @@ const ensureLocalStorage = () => {
 };
 
 ensureLocalStorage();
+
+// JSDOM does not implement scrollIntoView — stub it globally for all tests
+if (typeof window !== "undefined" && typeof Element !== "undefined") {
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  Element.prototype.scrollIntoView = function () {};
+}

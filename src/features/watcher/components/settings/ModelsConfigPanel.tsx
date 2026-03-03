@@ -17,7 +17,7 @@ const PRESETS: Array<{ label: string; model: Partial<ModelConfig> }> = [
   { label: "Gemini Flash", model: { model_id: "gemini-2.5-flash", provider: "google", max_tokens: 4096, temperature: 0.3, timeout_seconds: 30, max_retries: 1 } },
   { label: "Gemini Pro", model: { model_id: "gemini-3-pro-preview", provider: "google", max_tokens: 4096, temperature: 0.3, timeout_seconds: 30, max_retries: 1 } },
   { label: "Proxy local", model: { model_id: "", provider: "custom", base_url: "http://localhost:18081", max_tokens: 4096, temperature: 0.3, timeout_seconds: 30, max_retries: 1 } },
-  { label: "OpenAI-compatible", model: { model_id: "", provider: "openai", max_tokens: 4096, temperature: 0.3, timeout_seconds: 30, max_retries: 1 } },
+  { label: "Compatible OpenAI", model: { model_id: "", provider: "openai", max_tokens: 4096, temperature: 0.3, timeout_seconds: 30, max_retries: 1 } },
 ];
 
 function newModel(partial?: Partial<ModelConfig>): ModelConfig {
@@ -111,8 +111,8 @@ export function ModelsConfigPanel() {
       {/* Fallback chain */}
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-foreground">Chaîne de fallback</h3>
-          <button onClick={testAll} className="text-xs ui-btn-primary px-2 py-1">Tester tous</button>
+          <h3 className="text-sm font-semibold text-foreground">Chaîne de secours</h3>
+          <button onClick={testAll} className="text-xs ui-btn-primary px-2 py-1">Tout tester</button>
         </div>
 
         {models.length === 0 && (
@@ -166,21 +166,21 @@ export function ModelsConfigPanel() {
                       <input className="w-full rounded border border-border bg-background px-2 py-1 text-sm" value={model.model_id} onChange={(e) => updateModel(model.id, "model_id", e.target.value)} />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-xs text-muted-foreground">Provider</label>
+                      <label className="text-xs text-muted-foreground">Fournisseur</label>
                       <select className="w-full rounded border border-border bg-background px-2 py-1 text-sm" value={model.provider} onChange={(e) => updateModel(model.id, "provider", e.target.value as ModelProvider)}>
                         <option value="anthropic">Anthropic</option>
                         <option value="google">Google</option>
-                        <option value="openai">OpenAI-compatible</option>
-                        <option value="custom">Custom</option>
+                        <option value="openai">Compatible OpenAI</option>
+                        <option value="custom">Autre</option>
                       </select>
                     </div>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs text-muted-foreground">Base URL</label>
+                    <label className="text-xs text-muted-foreground">URL de base</label>
                     <input className="w-full rounded border border-border bg-background px-2 py-1 text-sm font-mono" value={model.base_url ?? ""} onChange={(e) => updateModel(model.id, "base_url", e.target.value)} />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs text-muted-foreground">API Key</label>
+                    <label className="text-xs text-muted-foreground">Clé API</label>
                     <div className="flex gap-1">
                       <input type={showKey[model.id] ? "text" : "password"} className="flex-1 rounded border border-border bg-background px-2 py-1 text-sm font-mono" value={model.api_key ?? ""} onChange={(e) => updateModel(model.id, "api_key", e.target.value)} placeholder="sk-..." />
                       <button onClick={() => setShowKey((p) => ({ ...p, [model.id]: !p[model.id] }))} className="px-2 text-xs text-muted-foreground hover:text-foreground">{showKey[model.id] ? "Masquer" : "Voir"}</button>
@@ -240,7 +240,7 @@ export function ModelsConfigPanel() {
               value={config.models_tasks?.[task] ?? ""}
               onChange={(e) => updateField(`models_tasks.${task}`, e.target.value || undefined)}
             >
-              <option value="">Chaîne de fallback</option>
+              <option value="">Chaîne de secours</option>
               {models.filter((m) => m.enabled).map((m) => (
                 <option key={m.id} value={m.id}>{m.model_id || m.id.slice(0, 8)}</option>
               ))}
