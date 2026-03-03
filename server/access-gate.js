@@ -26,16 +26,31 @@ const buildRedirectUrl = (req, nextPathWithQuery) => {
 
 function createAccessGate(options) {
   const token = String(options?.token ?? "").trim();
+  const tokenStore = options?.tokenStore ?? null;
   const cookieName = String(options?.cookieName ?? "studio_access").trim() || "studio_access";
   const queryParam = String(options?.queryParam ?? "access_token").trim() || "access_token";
 
   const enabled = Boolean(token);
 
+  const resolveToken = (value) => {
+    if (!value) return null;
+    if (value === token) return { type: "master" };
+    if (tokenStore) {
+      const entry = tokenStore.findByTokenValue(value);
+      if (entry) return { type: "instance", entry };
+    }
+    return null;
+  };
+
   const isAuthorized = (req) => {
     if (!enabled) return true;
     const cookieHeader = req.headers?.cookie;
     const cookies = parseCookies(cookieHeader);
-    return cookies[cookieName] === token;
+    const match = resolveToken(cookies[cookieName]);
+    if (match?.type === "instance" && tokenStore) {
+      tokenStore.touchLastUsed(match.entry.id);
+    }
+    return match !== null;
   };
 
   const handleHttp = (req, res) => {
@@ -45,7 +60,8 @@ function createAccessGate(options) {
     const provided = url.searchParams.get(queryParam);
 
     if (provided !== null) {
-      if (provided !== token) {
+      const match = resolveToken(provided);
+      if (!match) {
         res.statusCode = 401;
         res.setHeader("Content-Type", "application/json");
         res.end(JSON.stringify({ error: "Invalid Studio access token." }));
@@ -53,7 +69,7 @@ function createAccessGate(options) {
       }
 
       url.searchParams.delete(queryParam);
-      const cookieValue = `${cookieName}=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=31536000`;
+      const cookieValue = `${cookieName}=${provided}; HttpOnly; Path=/; SameSite=Lax; Max-Age=31536000`;
       res.statusCode = 302;
       res.setHeader("Set-Cookie", cookieValue);
       res.setHeader("Location", buildRedirectUrl(req, url.pathname + url.search));
@@ -83,7 +99,7 @@ function createAccessGate(options) {
     return isAuthorized(req);
   };
 
-  return { enabled, handleHttp, allowUpgrade };
+  return { enabled, handleHttp, allowUpgrade, resolveToken, parseCookies };
 }
 
 module.exports = { createAccessGate };

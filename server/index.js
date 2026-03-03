@@ -3,6 +3,7 @@ const next = require("next");
 
 const { createAccessGate } = require("./access-gate");
 const { createGatewayProxy } = require("./gateway-proxy");
+const mobileTokenStore = require("./mobile-token-store");
 const { assertPublicHostAllowed, resolveHosts } = require("./network-policy");
 const { loadUpstreamGatewaySettings } = require("./studio-settings");
 
@@ -41,6 +42,7 @@ async function main() {
 
   const accessGate = createAccessGate({
     token: process.env.STUDIO_ACCESS_TOKEN,
+    tokenStore: mobileTokenStore,
   });
 
   const proxy = createGatewayProxy({

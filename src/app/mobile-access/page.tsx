@@ -15,14 +15,12 @@ export default async function MobileAccessPage() {
   const lanHost = host.split(":")[0];
   const port = parseInt(host.split(":")[1] ?? "3000", 10);
 
-  const token = process.env.STUDIO_ACCESS_TOKEN ?? "";
-
   const connectionInfo = {
     lan: lanHost,
     port,
-    token,
   };
 
+  // Placeholder QR without token — client generates the real one after creating an instance token
   const qrData = JSON.stringify(connectionInfo);
   const qrDataUrl = await QRCode.toDataURL(qrData, {
     width: 280,
