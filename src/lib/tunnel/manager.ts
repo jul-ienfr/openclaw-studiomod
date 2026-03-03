@@ -206,3 +206,10 @@ export function getTunnelStatus(): TunnelStatus {
     error: tunnelError,
   };
 }
+
+// Auto-start tunnel on module load (production only)
+if (process.env.NODE_ENV === "production" && !tunnelProcess) {
+  startTunnel().catch(() => {
+    /* tunnel auto-start failed silently — user can retry from UI */
+  });
+}

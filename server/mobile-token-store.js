@@ -6,27 +6,43 @@ const { resolveStateDir } = require("./studio-settings");
 
 const MAX_TOKENS = 50;
 const FLUSH_INTERVAL_MS = 60_000;
+const GLOBAL_KEY = "__mobileTokenStore";
 
-const tokensPath = path.join(resolveStateDir(), "openclaw-studio", "mobile-tokens.json");
+const tokensPath = path.join(
+  resolveStateDir(),
+  "openclaw-studio",
+  "mobile-tokens.json",
+);
 
-let cache = null;
-const lastUsedDirty = new Map();
-let flushTimer = null;
+// Use globalThis to share state between server/index.js and Next.js API routes
+// (Next.js compiles API routes with separate require() caches in production)
+function getState() {
+  if (!globalThis[GLOBAL_KEY]) {
+    globalThis[GLOBAL_KEY] = {
+      cache: null,
+      lastUsedDirty: new Map(),
+      flushTimer: null,
+      initialized: false,
+    };
+  }
+  return globalThis[GLOBAL_KEY];
+}
 
 const load = () => {
-  if (cache) return cache;
+  const state = getState();
+  if (state.cache) return state.cache;
   try {
     const raw = fs.readFileSync(tokensPath, "utf8");
     const parsed = JSON.parse(raw);
     if (parsed && Array.isArray(parsed.tokens)) {
-      cache = parsed;
+      state.cache = parsed;
     } else {
-      cache = { version: 1, tokens: [] };
+      state.cache = { version: 1, tokens: [] };
     }
   } catch {
-    cache = { version: 1, tokens: [] };
+    state.cache = { version: 1, tokens: [] };
   }
-  return cache;
+  return state.cache;
 };
 
 const save = () => {
@@ -39,20 +55,22 @@ const save = () => {
 };
 
 const flushLastUsed = () => {
-  if (lastUsedDirty.size === 0) return;
+  const state = getState();
+  if (state.lastUsedDirty.size === 0) return;
   const data = load();
-  for (const [id, ts] of lastUsedDirty) {
+  for (const [id, ts] of state.lastUsedDirty) {
     const entry = data.tokens.find((t) => t.id === id);
     if (entry) entry.lastUsedAt = ts;
   }
-  lastUsedDirty.clear();
+  state.lastUsedDirty.clear();
   save();
 };
 
 const ensureFlushTimer = () => {
-  if (flushTimer) return;
-  flushTimer = setInterval(flushLastUsed, FLUSH_INTERVAL_MS);
-  if (flushTimer.unref) flushTimer.unref();
+  const state = getState();
+  if (state.flushTimer) return;
+  state.flushTimer = setInterval(flushLastUsed, FLUSH_INTERVAL_MS);
+  if (state.flushTimer.unref) state.flushTimer.unref();
 };
 
 const generateToken = (label) => {
@@ -73,11 +91,12 @@ const generateToken = (label) => {
 };
 
 const revokeToken = (id) => {
+  const state = getState();
   const data = load();
   const idx = data.tokens.findIndex((t) => t.id === id);
   if (idx === -1) return false;
   data.tokens.splice(idx, 1);
-  lastUsedDirty.delete(id);
+  state.lastUsedDirty.delete(id);
   save();
   return true;
 };
@@ -92,12 +111,13 @@ const updateLabel = (id, label) => {
 };
 
 const listTokens = () => {
+  const state = getState();
   const data = load();
   return data.tokens.map((t) => ({
     id: t.id,
     label: t.label,
     createdAt: t.createdAt,
-    lastUsedAt: lastUsedDirty.get(t.id) || t.lastUsedAt,
+    lastUsedAt: state.lastUsedDirty.get(t.id) || t.lastUsedAt,
     tokenPrefix: t.token.slice(0, 8),
   }));
 };
@@ -109,27 +129,34 @@ const findByTokenValue = (value) => {
 };
 
 const touchLastUsed = (id) => {
-  lastUsedDirty.set(id, new Date().toISOString());
+  const state = getState();
+  state.lastUsedDirty.set(id, new Date().toISOString());
   ensureFlushTimer();
 };
 
 const shutdown = () => {
-  if (flushTimer) {
-    clearInterval(flushTimer);
-    flushTimer = null;
+  const state = getState();
+  if (state.flushTimer) {
+    clearInterval(state.flushTimer);
+    state.flushTimer = null;
   }
   flushLastUsed();
 };
 
-process.on("exit", () => shutdown());
-process.on("SIGINT", () => {
-  shutdown();
-  process.exit();
-});
-process.on("SIGTERM", () => {
-  shutdown();
-  process.exit();
-});
+// Only register shutdown hooks once
+const state = getState();
+if (!state.initialized) {
+  state.initialized = true;
+  process.on("exit", () => shutdown());
+  process.on("SIGINT", () => {
+    shutdown();
+    process.exit();
+  });
+  process.on("SIGTERM", () => {
+    shutdown();
+    process.exit();
+  });
+}
 
 module.exports = {
   generateToken,
