@@ -149,7 +149,7 @@ export default function WatcherSearchPage() {
         </div>
       ) : query && !isSearching ? (
         <div className="text-center py-8">
-          <p className="text-sm text-muted-foreground">Aucun résultat pour "{query}"</p>
+          <p className="text-sm text-muted-foreground">Aucun résultat pour &quot;{query}&quot;</p>
         </div>
       ) : clawhubError && localResults.length === 0 ? (
         <div className="flex items-center gap-2 text-sm text-amber-500 bg-amber-500/10 px-3 py-2 rounded-lg">

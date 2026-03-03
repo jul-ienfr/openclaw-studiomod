@@ -23,15 +23,32 @@ export const VoiceControls = ({ agentId = "default" }: VoiceControlsProps) => {
   const [showSettings, setShowSettings] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // Config state
-  const [provider, setProvider] = useState<VoiceProvider>("browser");
-  const [language, setLanguage] = useState("en-US");
-  const [speed, setSpeed] = useState(1.0);
-  const [autoListen, setAutoListen] = useState(false);
-  const [voiceId, setVoiceId] = useState("");
-
+  // Initialize voice store once
   useEffect(() => {
     initVoiceStore();
+  }, []);
+
+  // Load initial config
+  const loadedConfig = (() => {
+    const configs = getVoiceConfigs();
+    return configs.find((c) => c.agentId === agentId);
+  })();
+
+  // Config state with lazy initializers
+  const [provider, setProvider] = useState<VoiceProvider>(
+    () => loadedConfig?.provider ?? "browser"
+  );
+  const [language, setLanguage] = useState(
+    () => loadedConfig?.language ?? "en-US"
+  );
+  const [speed, setSpeed] = useState(() => loadedConfig?.speed ?? 1.0);
+  const [autoListen, setAutoListen] = useState(
+    () => loadedConfig?.autoListen ?? false
+  );
+  const [voiceId, setVoiceId] = useState(() => loadedConfig?.voiceId ?? "");
+
+  // Reload config when agentId changes
+  useEffect(() => {
     const configs = getVoiceConfigs();
     const existing = configs.find((c) => c.agentId === agentId);
     if (existing) {

@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
+import { spawn } from "child_process";
 import { acquireLock, releaseLock } from "@/features/watcher/operations/configLock";
 
 const CONFIG_PATH = process.env.WATCHER_CONFIG_PATH
@@ -123,9 +124,41 @@ export async function saveWatcherConfigLocked(patch: Record<string, unknown>): P
     const dir = path.dirname(CONFIG_PATH);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(CONFIG_PATH, JSON.stringify(merged, null, 2), "utf-8");
+
+    // Apply LLM provider to skills if changed
+    const oldProvider = (existing.security as Record<string, unknown> | undefined)?.llm_proxy_provider as string | undefined;
+    const newProvider = (merged.security as Record<string, unknown> | undefined)?.llm_proxy_provider as string | undefined;
+    if (newProvider && newProvider !== oldProvider) {
+      applyLlmProviderToSkills(newProvider);
+    }
   } finally {
     releaseLock(lock);
   }
+}
+
+function applyLlmProviderToSkills(provider: string): void {
+  const scriptPath = path.join(
+    process.env.HOME ?? "/home/jul",
+    ".openclaw/skills/openclaw-watcher/scripts/apply_llm_provider.py"
+  );
+  if (!fs.existsSync(scriptPath)) {
+    console.warn(`[watcher/config] apply_llm_provider.py not found at ${scriptPath}`);
+    return;
+  }
+  const child = spawn("python3", [scriptPath, "--provider", provider], {
+    stdio: "pipe",
+    detached: true,
+  });
+  child.stdout?.on("data", (data: Buffer) => {
+    console.log(`[llm-provider] ${data.toString().trim()}`);
+  });
+  child.stderr?.on("data", (data: Buffer) => {
+    console.error(`[llm-provider] ${data.toString().trim()}`);
+  });
+  child.on("error", (err: Error) => {
+    console.error(`[llm-provider] Failed to run apply_llm_provider.py: ${err.message}`);
+  });
+  child.unref();
 }
 
 export function saveWatcherConfig(config: Record<string, unknown>): void {
