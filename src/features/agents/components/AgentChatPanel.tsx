@@ -55,6 +55,8 @@ import { LightboxContext, ChatImageLightbox } from "./chat/ChatMarkdownImg";
 import { AgentChatTranscript } from "./chat/ChatContent";
 import { AnalyzeLinkWidget } from "./AnalyzeLinkWidget";
 import { ModelSelector } from "./ModelSelector";
+import { SessionSelector } from "./SessionSelector";
+import type { SessionInfo } from "@/features/agents/hooks/useAgentSessions";
 
 type AgentChatPanelProps = {
   agent: AgentRecord;
@@ -82,6 +84,9 @@ type AgentChatPanelProps = {
   onForwardToAgent?: (targetAgentId: string, message: string) => void;
   pendingExecApprovals?: PendingExecApproval[];
   onResolveExecApproval?: (id: string, decision: ExecApprovalDecision) => void;
+  sessions?: SessionInfo[];
+  sessionsLoading?: boolean;
+  onSelectSession?: (sessionKey: string) => void;
 };
 
 const noopToggle = () => {};
@@ -544,6 +549,9 @@ export const AgentChatPanel = ({
   onForwardToAgent,
   pendingExecApprovals = [],
   onResolveExecApproval,
+  sessions = [],
+  sessionsLoading = false,
+  onSelectSession,
 }: AgentChatPanelProps) => {
   const tc = useTranslations("chat");
   const [draftValue, setDraftValue] = useState(agent.draft);
@@ -1054,6 +1062,14 @@ export const AgentChatPanel = ({
             </div>
 
             <div className="mt-0.5 flex items-center gap-2">
+              {onSelectSession ? (
+                <SessionSelector
+                  sessions={sessions}
+                  currentSessionKey={agent.sessionKey}
+                  onSelectSession={onSelectSession}
+                  loading={sessionsLoading}
+                />
+              ) : null}
               <button
                 className="nodrag ui-btn-primary px-2.5 py-1.5 font-mono text-[11px] font-medium tracking-[0.02em] disabled:cursor-not-allowed disabled:border-border disabled:bg-muted disabled:text-muted-foreground"
                 type="button"

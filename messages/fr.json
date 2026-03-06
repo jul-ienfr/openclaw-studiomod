@@ -361,6 +361,13 @@
     "forwardTo": "Transférer à\u2026",
     "forwarded": "Transféré"
   },
+  "sessionSelector": {
+    "session": "Session",
+    "switchSession": "Changer de session",
+    "sessionList": "Liste des sessions",
+    "loading": "Chargement des sessions...",
+    "noSessions": "Aucune autre session"
+  },
   "page": {
     "connectingGateway": "Connexion au gateway…",
     "bootingStudio": "Démarrage du Studio…",

@@ -1,9 +1,32 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import fs from "node:fs";
 import path from "node:path";
 import { resolveStateDir } from "@/lib/clawdbot/paths";
+import { parseBody, parseQuery, isValidationError } from "@/lib/api/validation";
+import { createLogger } from "@/lib/logger";
 
 export const runtime = "nodejs";
+
+const log = createLogger("api:providers");
+
+// --- Schemas ---
+
+const ProviderPatchSchema = z.object({
+  id: z.string().min(1, "id required"),
+  api: z.string().optional(),
+  apiKey: z.string().optional(),
+  accessToken: z.string().optional(),
+  baseUrl: z.string().optional(),
+  label: z.string().optional(),
+  enabled: z.boolean().optional(),
+});
+
+const ProviderDeleteQuerySchema = z.object({
+  id: z.string().min(1, "id required"),
+});
+
+// --- Helpers ---
 
 type RawProviderConfig = {
   apiKey?: string;
@@ -11,6 +34,7 @@ type RawProviderConfig = {
   baseUrl?: string;
   api?: string;
   models?: unknown[];
+  label?: string;
   [key: string]: unknown;
 };
 
@@ -49,26 +73,25 @@ export async function GET() {
       enabled: true,
     }));
 
-    return NextResponse.json({ providers });
+    // Extract fallback chain from agents.defaults.models
+    const agentsSection = (config.agents ?? {}) as Record<string, unknown>;
+    const defaults = (agentsSection.defaults ?? {}) as Record<string, unknown>;
+    const fallbackChain = (defaults.models ?? []) as string[];
+
+    log.info("Listed providers", { count: providers.length });
+    return NextResponse.json({ providers, fallbackChain });
   } catch (err) {
-    return NextResponse.json({ error: String(err), providers: [] }, { status: 500 });
+    log.error("Failed to list providers", { error: String(err) });
+    return NextResponse.json({ error: String(err), providers: [], fallbackChain: [] }, { status: 500 });
   }
 }
 
 export async function PATCH(request: Request) {
   try {
-    const body = await request.json() as {
-      id: string;
-      api?: string;
-      apiKey?: string;
-      accessToken?: string;
-      baseUrl?: string;
-      label?: string;
-      enabled?: boolean;
-    };
-    const { id, api, apiKey, accessToken, baseUrl, label } = body;
+    const parsed = await parseBody(request, ProviderPatchSchema);
+    if (isValidationError(parsed)) return parsed;
 
-    if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
+    const { id, api, apiKey, accessToken, baseUrl, label } = parsed;
 
     const config = readConfig();
     const modelsSection = (config.models ?? {}) as Record<string, unknown>;
@@ -87,17 +110,21 @@ export async function PATCH(request: Request) {
     config.models = modelsSection;
     writeConfig(config);
 
+    log.info("Patched provider", { providerId: id });
     return NextResponse.json({ ok: true });
   } catch (err) {
+    log.error("Failed to patch provider", { error: String(err) });
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }
 }
 
 export async function DELETE(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get("id");
-    if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
+    const url = new URL(request.url);
+    const parsed = parseQuery(url, ProviderDeleteQuerySchema);
+    if (isValidationError(parsed)) return parsed;
+
+    const { id } = parsed;
 
     const config = readConfig();
     const modelsSection = (config.models ?? {}) as Record<string, unknown>;
@@ -108,8 +135,10 @@ export async function DELETE(request: Request) {
     config.models = modelsSection;
     writeConfig(config);
 
+    log.info("Deleted provider", { providerId: id });
     return NextResponse.json({ ok: true });
   } catch (err) {
+    log.error("Failed to delete provider", { error: String(err) });
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }
 }

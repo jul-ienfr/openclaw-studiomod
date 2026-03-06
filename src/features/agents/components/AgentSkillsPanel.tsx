@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { SkillStatusReport } from "@/lib/skills/types";
 import {
@@ -12,6 +12,8 @@ import {
   deriveSkillReadinessState,
   type AgentSkillDisplayState,
 } from "@/lib/skills/presentation";
+import { SkillDetailPanel } from "@/features/skills/components/SkillDetailPanel";
+import type { SkillWithUI } from "@/lib/skills/ui-schema-builder";
 
 type SkillRowFilter = "all" | AgentSkillDisplayState;
 
@@ -73,6 +75,32 @@ export const AgentSkillsPanel = ({
   const t = useTranslations("agentSkills");
   const [skillsFilter, setSkillsFilter] = useState("");
   const [rowFilter, setRowFilter] = useState<SkillRowFilter>("all");
+  const [selectedSkillForForm, setSelectedSkillForForm] = useState<string | null>(null);
+  const [skillsWithUI, setSkillsWithUI] = useState<SkillWithUI[]>([]);
+  const fetchedRef = useRef(false);
+
+  const fetchSkillsWithUI = useCallback(async () => {
+    if (fetchedRef.current) return;
+    fetchedRef.current = true;
+    try {
+      const res = await fetch("/api/skills/list");
+      if (res.ok) {
+        const data = (await res.json()) as { skills: SkillWithUI[] };
+        setSkillsWithUI(data.skills ?? []);
+      }
+    } catch {
+      // silently ignore fetch errors
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchSkillsWithUI();
+  }, [fetchSkillsWithUI]);
+
+  const selectedSkillData = useMemo(
+    () => skillsWithUI.find((s) => s.name === selectedSkillForForm) ?? null,
+    [skillsWithUI, selectedSkillForForm],
+  );
 
   const skillEntries = useMemo(
     () => skillsReport?.skills ?? [],
@@ -291,7 +319,24 @@ export const AgentSkillsPanel = ({
                       {t("openSystemSetup")}
                     </button>
                   ) : null}
+                  {entry.displayState === "ready" ? (
+                    <button
+                      type="button"
+                      className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      onClick={() => setSelectedSkillForForm(entry.skill.name)}
+                    >
+                      Configure
+                    </button>
+                  ) : null}
                 </div>
+                {selectedSkillForForm === entry.skill.name && selectedSkillData ? (
+                  <div className="mt-2 w-full rounded-md border border-border bg-surface-1">
+                    <SkillDetailPanel
+                      skill={selectedSkillData}
+                      onClose={() => setSelectedSkillForForm(null)}
+                    />
+                  </div>
+                ) : null}
               </div>
             );
           })}

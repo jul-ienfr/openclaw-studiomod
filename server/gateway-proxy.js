@@ -232,7 +232,10 @@ function createGatewayProxy(options) {
         console.log(
           `[gateway-proxy] connecting upstream → ${upstreamUrl} (origin: ${upstreamOrigin})`
         );
-        upstreamWs = new WebSocket(upstreamUrl, { origin: upstreamOrigin });
+        upstreamWs = new WebSocket(upstreamUrl, {
+          origin: upstreamOrigin,
+          headers: { Origin: upstreamOrigin },
+        });
 
         upstreamWs.on("open", () => {
           upstreamReady = true;

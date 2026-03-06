@@ -141,6 +141,7 @@ export class GatewayClient {
   private rejectConnect: ((error: Error) => void) | null = null;
   private manualDisconnect = false;
   private lastHello: GatewayHelloOk | null = null;
+  private degradedMode = false;
 
   onStatus(handler: StatusHandler) {
     this.statusHandlers.add(handler);
@@ -276,8 +277,17 @@ export class GatewayClient {
     return this.lastHello;
   }
 
+  isDegradedMode(): boolean {
+    return this.degradedMode;
+  }
+
   private updateStatus(status: GatewayStatus) {
     this.status = status;
+    if (status === "connected") {
+      this.degradedMode = false;
+    } else if (status === "disconnected" && !this.manualDisconnect) {
+      this.degradedMode = true;
+    }
     this.statusHandlers.forEach((handler) => handler(status));
   }
 
@@ -430,6 +440,7 @@ const formatGatewayError = (error: unknown) => {
 export type GatewayConnectionState = {
   client: GatewayClient;
   status: GatewayStatus;
+  degradedMode: boolean;
   gatewayUrl: string;
   token: string;
   localGatewayDefaults: StudioGatewaySettings | null;
@@ -522,6 +533,7 @@ export const useGatewayConnection = (
   const [localGatewayDefaults, setLocalGatewayDefaults] =
     useState<StudioGatewaySettings | null>(null);
   const [status, setStatus] = useState<GatewayStatus>("disconnected");
+  const [degradedMode, setDegradedMode] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [connectErrorCode, setConnectErrorCode] = useState<string | null>(null);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
@@ -583,6 +595,7 @@ export const useGatewayConnection = (
   useEffect(() => {
     return client.onStatus((nextStatus) => {
       setStatus(nextStatus);
+      setDegradedMode(client.isDegradedMode());
       if (nextStatus !== "connecting") {
         setError(null);
         if (nextStatus === "connected") {
@@ -603,13 +616,14 @@ export const useGatewayConnection = (
   }, [client]);
 
   const connect = useCallback(async () => {
+    const proxyUrl = resolveStudioProxyGatewayUrl();
     setError(null);
     setConnectErrorCode(null);
     wasManualDisconnectRef.current = false;
     try {
       await settingsCoordinator.flushPending();
       await client.connect({
-        gatewayUrl: resolveStudioProxyGatewayUrl(),
+        gatewayUrl: proxyUrl,
         token,
         authScopeKey: gatewayUrl,
         clientName: "openclaw-control-ui",
@@ -713,6 +727,7 @@ export const useGatewayConnection = (
   return {
     client,
     status,
+    degradedMode,
     gatewayUrl,
     token,
     localGatewayDefaults,

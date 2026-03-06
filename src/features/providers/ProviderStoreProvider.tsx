@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useCallback, useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, type ReactNode } from "react";
 import type { ProviderId, ProviderConfig, ProviderWithStatus } from "./types";
 import {
   ProviderStoreContext,
+  useProviderZustandStore,
   loadProviderConfigs,
-  persistProviderConfigs,
   buildProvidersWithStatus,
   getConfiguredProviderIdsFromConfigs,
 } from "./providerStore";
@@ -15,51 +15,31 @@ export const ProviderStoreProvider = ({
 }: {
   children: ReactNode;
 }) => {
-  const [configs, setConfigs] =
-    useState<Record<string, ProviderConfig>>(loadProviderConfigs);
+  const zustand = useProviderZustandStore();
 
-  const saveProvider = useCallback((config: ProviderConfig) => {
-    setConfigs((prev) => {
-      const next = { ...prev, [config.id]: config };
-      persistProviderConfigs(next);
-      return next;
-    });
+  // Seed the Zustand store from localStorage on first mount (client only)
+  useEffect(() => {
+    const initial = loadProviderConfigs();
+    if (Object.keys(initial).length > 0) {
+      useProviderZustandStore.setState({ configs: initial });
+    }
   }, []);
 
-  const removeProvider = useCallback((id: string) => {
-    setConfigs((prev) => {
-      const next = { ...prev };
-      delete next[id];
-      persistProviderConfigs(next);
-      return next;
-    });
-  }, []);
-
-  const getProvidersWithStatus = useCallback(
-    (): ProviderWithStatus[] => buildProvidersWithStatus(configs),
-    [configs],
-  );
-
-  const getConfiguredProviderIds = useCallback(
-    (): ProviderId[] => getConfiguredProviderIdsFromConfigs(configs),
-    [configs],
-  );
-
+  // Build a stable Context value that delegates to the Zustand store.
+  // This keeps all existing useProviderStore() callers working as-is.
   const store = useMemo(
     () => ({
-      configs,
-      saveProvider,
-      removeProvider,
-      getProvidersWithStatus,
-      getConfiguredProviderIds,
+      configs: zustand.configs,
+      saveProvider: zustand.saveProvider,
+      removeProvider: zustand.removeProvider,
+      getProvidersWithStatus: (): ProviderWithStatus[] =>
+        buildProvidersWithStatus(zustand.configs),
+      getConfiguredProviderIds: (): ProviderId[] =>
+        getConfiguredProviderIdsFromConfigs(zustand.configs),
     }),
-    [
-      configs,
-      saveProvider,
-      removeProvider,
-      getProvidersWithStatus,
-      getConfiguredProviderIds,
-    ],
+    // Re-compute only when configs reference changes (Zustand ensures this)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [zustand.configs],
   );
 
   return (

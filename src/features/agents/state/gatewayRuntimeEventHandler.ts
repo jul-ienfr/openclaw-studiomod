@@ -23,7 +23,7 @@ import {
   type RuntimeCoordinatorDispatchAction,
   type RuntimeCoordinatorEffectCommand,
 } from "@/features/agents/state/runtimeEventCoordinatorWorkflow";
-import { type EventFrame, isSameSessionKey } from "@/lib/gateway/GatewayClient";
+import { type EventFrame, isSameSessionKey, parseAgentIdFromSessionKey } from "@/lib/gateway/GatewayClient";
 import { normalizeAssistantDisplayText } from "@/lib/text/assistantText";
 import {
   extractText,
@@ -83,7 +83,14 @@ const findAgentBySessionKey = (
   const exact = agents.find((agent) =>
     isSameSessionKey(agent.sessionKey, sessionKey),
   );
-  return exact ? exact.agentId : null;
+  if (exact) return exact.agentId;
+  // Fallback: match by agentId prefix in session key (for non-active sessions)
+  const agentId = parseAgentIdFromSessionKey(sessionKey);
+  if (agentId) {
+    const byId = agents.find((entry) => entry.agentId === agentId);
+    if (byId) return byId.agentId;
+  }
+  return null;
 };
 
 const findAgentByRunId = (
@@ -294,6 +301,11 @@ export function createGatewayRuntimeEventHandler(
     const agentId = findAgentBySessionKey(agentsSnapshot, payload.sessionKey);
     if (!agentId) return;
     const agent = agentsSnapshot.find((entry) => entry.agentId === agentId);
+    // If this event is for a session not currently viewed, only mark activity
+    if (agent && !isSameSessionKey(agent.sessionKey, payload.sessionKey)) {
+      deps.dispatch({ type: "markActivity", agentId, at: now() });
+      return;
+    }
     const activeRunId = agent?.runId?.trim() ?? "";
     const role = resolveRole(payload.message);
     const nowMs = now();

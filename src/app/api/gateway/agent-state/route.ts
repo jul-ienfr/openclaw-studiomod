@@ -11,19 +11,21 @@ import {
   trashAgentStateOverSsh,
 } from "@/lib/ssh/agent-state";
 import { loadStudioSettings } from "@/lib/studio/settings-store";
+import { z } from "zod";
+import { parseBody, isValidationError } from "@/lib/api/validation";
 
 export const runtime = "nodejs";
 
-type TrashAgentStateRequest = {
-  agentId: string;
-};
+const safeAgentIdRegex = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/;
 
-type RestoreAgentStateRequest = {
-  agentId: string;
-  trashDir: string;
-};
+const TrashAgentStateSchema = z.object({
+  agentId: z.string().min(1).max(128).regex(safeAgentIdRegex, "Invalid agentId format"),
+});
 
-const isSafeAgentId = (value: string) => /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/.test(value);
+const RestoreAgentStateSchema = z.object({
+  agentId: z.string().min(1).max(128).regex(safeAgentIdRegex, "Invalid agentId format"),
+  trashDir: z.string().min(1),
+});
 
 const resolveAgentStateSshTarget = (): string | null => {
   const configured = resolveConfiguredSshTarget(process.env);
@@ -36,23 +38,13 @@ const resolveAgentStateSshTarget = (): string | null => {
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as unknown;
-    if (!body || typeof body !== "object") {
-      return NextResponse.json({ error: "Invalid request payload." }, { status: 400 });
-    }
-    const { agentId } = body as Partial<TrashAgentStateRequest>;
-    const trimmed = typeof agentId === "string" ? agentId.trim() : "";
-    if (!trimmed) {
-      return NextResponse.json({ error: "agentId is required." }, { status: 400 });
-    }
-    if (!isSafeAgentId(trimmed)) {
-      return NextResponse.json({ error: `Invalid agentId: ${trimmed}` }, { status: 400 });
-    }
+    const body = await parseBody(request, TrashAgentStateSchema);
+    if (isValidationError(body)) return body;
 
     const sshTarget = resolveAgentStateSshTarget();
     const result = sshTarget
-      ? trashAgentStateOverSsh({ sshTarget, agentId: trimmed })
-      : trashAgentStateLocally({ agentId: trimmed });
+      ? trashAgentStateOverSsh({ sshTarget, agentId: body.agentId })
+      : trashAgentStateLocally({ agentId: body.agentId });
     return NextResponse.json({ result });
   } catch (err) {
     const message =
@@ -64,33 +56,19 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    const body = (await request.json()) as unknown;
-    if (!body || typeof body !== "object") {
-      return NextResponse.json({ error: "Invalid request payload." }, { status: 400 });
-    }
-    const { agentId, trashDir } = body as Partial<RestoreAgentStateRequest>;
-    const trimmedAgent = typeof agentId === "string" ? agentId.trim() : "";
-    const trimmedTrash = typeof trashDir === "string" ? trashDir.trim() : "";
-    if (!trimmedAgent) {
-      return NextResponse.json({ error: "agentId is required." }, { status: 400 });
-    }
-    if (!trimmedTrash) {
-      return NextResponse.json({ error: "trashDir is required." }, { status: 400 });
-    }
-    if (!isSafeAgentId(trimmedAgent)) {
-      return NextResponse.json({ error: `Invalid agentId: ${trimmedAgent}` }, { status: 400 });
-    }
+    const body = await parseBody(request, RestoreAgentStateSchema);
+    if (isValidationError(body)) return body;
 
     const sshTarget = resolveAgentStateSshTarget();
     const result = sshTarget
       ? restoreAgentStateOverSsh({
           sshTarget,
-          agentId: trimmedAgent,
-          trashDir: trimmedTrash,
+          agentId: body.agentId,
+          trashDir: body.trashDir,
         })
       : restoreAgentStateLocally({
-          agentId: trimmedAgent,
-          trashDir: trimmedTrash,
+          agentId: body.agentId,
+          trashDir: body.trashDir,
         });
     return NextResponse.json({ result });
   } catch (err) {

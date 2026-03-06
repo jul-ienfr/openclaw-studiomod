@@ -76,6 +76,19 @@ function ProvidersPanelInner() {
   const [showEnvImport, setShowEnvImport] = useState(false);
   const [healthMap, setHealthMap] = useState<Record<string, HealthStatus>>({});
   const [testingAll, setTestingAll] = useState(false);
+  const [fallbackChain, setFallbackChain] = useState<string[]>([]);
+
+  // Fetch fallback chain from API
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await fetch("/api/providers");
+        if (!res.ok) return;
+        const data = (await res.json()) as { fallbackChain?: string[] };
+        if (data.fallbackChain) setFallbackChain(data.fallbackChain);
+      } catch { /* ignore */ }
+    })();
+  }, []);
 
   const providersWithStatus: ProviderWithStatus[] = useMemo(
     () => store.getProvidersWithStatus(),
@@ -294,6 +307,36 @@ function ProvidersPanelInner() {
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 py-6">
+        {/* Fallback chain */}
+        {fallbackChain.length > 0 && (
+          <section>
+            <h2 className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              Fallback Chain
+            </h2>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {fallbackChain.map((model, i) => {
+                const [provPart] = model.split("/");
+                const providerDef = PROVIDER_REGISTRY.find(
+                  (p) => p.id === provPart || model.startsWith(p.id),
+                );
+                return (
+                  <span key={`${model}-${i}`} className="flex items-center gap-1">
+                    <span className="rounded-md bg-surface-2 px-2 py-1 text-[11px] font-medium text-foreground">
+                      {providerDef ? (
+                        <span className="mr-1 inline-block h-2 w-2 rounded-full" style={{ backgroundColor: providerDef.iconColor }} />
+                      ) : null}
+                      {model}
+                    </span>
+                    {i < fallbackChain.length - 1 && (
+                      <span className="text-[10px] text-muted-foreground">→</span>
+                    )}
+                  </span>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
         {/* Configured providers */}
         {configuredProviders.length > 0 ? (
           <section>

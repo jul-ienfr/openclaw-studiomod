@@ -46,6 +46,7 @@ export type ChatInteractionController = {
   handleSend: (agentId: string, sessionKey: string, message: string, attachments?: { type?: string; mimeType: string; content: string; fileName?: string }[], options?: { force?: boolean }) => Promise<void>;
   removeQueuedMessage: (agentId: string, index: number) => void;
   handleNewSession: (agentId: string) => Promise<void>;
+  handleSelectSession: (agentId: string, newSessionKey: string) => void;
   handleStopRun: (agentId: string, sessionKey: string) => Promise<void>;
   queueLivePatch: (agentId: string, patch: Partial<AgentState>) => void;
   clearPendingLivePatch: (agentId: string) => void;
@@ -375,6 +376,25 @@ export function useChatInteractionController(
     [params]
   );
 
+  const handleSelectSession = useCallback(
+    (agentId: string, newSessionKey: string) => {
+      const agent = params.getAgents().find((entry) => entry.agentId === agentId);
+      if (!agent) return;
+      const patch = {
+        ...buildNewSessionAgentPatch(agent),
+        sessionKey: newSessionKey,
+      };
+      params.clearRunTracking(agent.runId);
+      params.clearHistoryInFlight(agent.sessionKey);
+      params.clearSpecialUpdateMarker(agentId);
+      params.clearSpecialLatestUpdateInFlight(agentId);
+      params.dispatch({ type: "updateAgent", agentId, patch });
+      params.setInspectSidebarNull();
+      params.setMobilePaneChat();
+    },
+    [params]
+  );
+
   return {
     stopBusyAgentId,
     flushPendingDraft,
@@ -382,6 +402,7 @@ export function useChatInteractionController(
     handleSend,
     removeQueuedMessage,
     handleNewSession,
+    handleSelectSession,
     handleStopRun,
     queueLivePatch,
     clearPendingLivePatch,

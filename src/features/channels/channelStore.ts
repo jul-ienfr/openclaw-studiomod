@@ -1,4 +1,4 @@
-import type { ChannelConfig, ChannelWithStatus } from "./types";
+import type { ChannelConfig, ChannelStatus, ChannelWithStatus } from "./types";
 import { CHANNEL_REGISTRY } from "./channelRegistry";
 
 const STORAGE_KEY = "openclaw-studio-channels";
@@ -24,38 +24,62 @@ export function persistChannelConfigs(configs: Record<string, ChannelConfig>): v
 type GatewayChannelInfo = {
   name: string;
   enabled: boolean;
+  status?: ChannelStatus;
   details: Record<string, string>;
+  lastActivity?: number | null;
 };
 
-export async function fetchChannelConfigsFromGateway(): Promise<Record<string, ChannelConfig>> {
-  const res = await fetch("/api/channels");
-  if (!res.ok) return {};
-  const data = (await res.json()) as { channels?: GatewayChannelInfo[] };
-  const configs: Record<string, ChannelConfig> = {};
+export type ChannelFetchResult = {
+  configs: Record<string, ChannelConfig>;
+  statusMap: Record<string, ChannelStatus>;
+  lastActivityMap: Record<string, number | null>;
+  gatewayOnline: boolean;
+};
 
-  await Promise.all(
-    (data.channels ?? []).map(async (ch) => {
-      // Fetch raw config (camelCase keys) so the edit modal pre-populates correctly
-      let rawFields: Record<string, string> = {};
-      try {
-        const rawRes = await fetch(`/api/channels?raw=${encodeURIComponent(ch.name)}`);
-        if (rawRes.ok) {
-          const rawData = (await rawRes.json()) as { raw?: Record<string, unknown> };
-          rawFields = Object.fromEntries(
-            Object.entries(rawData.raw ?? {}).map(([k, v]) => [k, String(v ?? "")])
-          );
+export async function fetchChannelConfigsFromGateway(): Promise<ChannelFetchResult> {
+  const result: ChannelFetchResult = {
+    configs: {},
+    statusMap: {},
+    lastActivityMap: {},
+    gatewayOnline: false,
+  };
+  try {
+    const res = await fetch("/api/channels");
+    if (!res.ok) return result;
+    const data = (await res.json()) as {
+      channels?: GatewayChannelInfo[];
+      gatewayOnline?: boolean;
+    };
+    result.gatewayOnline = data.gatewayOnline ?? false;
+
+    await Promise.all(
+      (data.channels ?? []).map(async (ch) => {
+        // Fetch raw config (camelCase keys) so the edit modal pre-populates correctly
+        let rawFields: Record<string, string> = {};
+        try {
+          const rawRes = await fetch(`/api/channels?raw=${encodeURIComponent(ch.name)}`);
+          if (rawRes.ok) {
+            const rawData = (await rawRes.json()) as { raw?: Record<string, unknown> };
+            rawFields = Object.fromEntries(
+              Object.entries(rawData.raw ?? {}).map(([k, v]) => [k, String(v ?? "")])
+            );
+          }
+        } catch { /* fall back to display details */ }
+
+        result.configs[ch.name] = {
+          id: ch.name as ChannelConfig["id"],
+          enabled: ch.enabled,
+          fields: Object.keys(rawFields).length > 0 ? rawFields : ch.details,
+        };
+        if (ch.status) {
+          result.statusMap[ch.name] = ch.status;
         }
-      } catch { /* fall back to display details */ }
+        result.lastActivityMap[ch.name] = ch.lastActivity ?? null;
+      })
+    );
+  } catch { /* network error */ }
 
-      configs[ch.name] = {
-        id: ch.name as ChannelConfig["id"],
-        enabled: ch.enabled,
-        fields: Object.keys(rawFields).length > 0 ? rawFields : ch.details,
-      };
-    })
-  );
-
-  return configs;
+  return result;
 }
 
 export async function patchGatewayChannel(
@@ -75,15 +99,25 @@ export async function deleteGatewayChannel(name: string): Promise<void> {
 
 export function buildChannelsWithStatus(
   configs: Record<string, ChannelConfig>,
-): ChannelWithStatus[] {
+  statusMap?: Record<string, ChannelStatus>,
+  lastActivityMap?: Record<string, number | null>,
+): (ChannelWithStatus & { lastActivity?: number | null })[] {
   return CHANNEL_REGISTRY.map((def) => {
     const config = configs[def.id];
     let status: ChannelWithStatus["status"] = "disconnected";
-    if (config?.enabled) {
+    // Use real status from API if available
+    if (statusMap && statusMap[def.id]) {
+      status = statusMap[def.id];
+    } else if (config?.enabled) {
       status = "connected";
     } else if (config) {
       status = "configuring";
     }
-    return { ...def, status, config };
+    return {
+      ...def,
+      status,
+      config,
+      lastActivity: lastActivityMap?.[def.id] ?? null,
+    };
   });
 }

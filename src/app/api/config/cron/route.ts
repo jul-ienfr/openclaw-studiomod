@@ -1,10 +1,31 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import fs from "node:fs";
 import path from "node:path";
 import { resolveStateDir } from "@/lib/clawdbot/paths";
+import { parseBody, isValidationError } from "@/lib/api/validation";
+import { createLogger } from "@/lib/logger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const log = createLogger("api:config:cron");
+
+// --- Schemas ---
+
+const CronPostSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    maxConcurrentRuns: z.number().int().positive().optional(),
+    sessionRetention: z.string().optional(),
+  })
+  .strict()
+  .refine((data) => !("jobs" in (data as Record<string, unknown>)), {
+    message:
+      "Jobs must NOT be placed in openclaw.json cron section. They belong in cron/jobs.json.",
+  });
+
+// --- Helpers ---
 
 function readJson(p: string): unknown {
   try {
@@ -47,29 +68,20 @@ export async function GET() {
       sessionRetention: cronSection.sessionRetention ?? "7d",
     };
 
+    log.info("Loaded cron config", { jobCount: jobs.length });
     return NextResponse.json({ jobs, config });
   } catch (err) {
     const message =
       err instanceof Error ? err.message : "Failed to load cron config.";
-    console.error("[config/cron] GET", message);
+    log.error("GET failed", { error: message });
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as Record<string, unknown>;
-
-    // Validate: NEVER allow "jobs" key in the cron section of openclaw.json
-    if ("jobs" in body) {
-      return NextResponse.json(
-        {
-          error:
-            "Jobs must NOT be placed in openclaw.json cron section. They belong in cron/jobs.json.",
-        },
-        { status: 400 },
-      );
-    }
+    const parsed = await parseBody(request, CronPostSchema);
+    if (isValidationError(parsed)) return parsed;
 
     const stateDir = resolveStateDir();
     const configPath = path.join(stateDir, "openclaw.json");
@@ -79,19 +91,20 @@ export async function POST(request: Request) {
     // Only allow safe keys
     const allowedKeys = ["enabled", "maxConcurrentRuns", "sessionRetention"];
     for (const key of allowedKeys) {
-      if (key in body) {
-        cronSection[key] = body[key];
+      if (key in parsed) {
+        cronSection[key] = (parsed as Record<string, unknown>)[key];
       }
     }
 
     fullConfig.cron = cronSection;
     writeJson(configPath, fullConfig);
 
+    log.info("Updated cron config", { config: cronSection });
     return NextResponse.json({ ok: true, config: cronSection });
   } catch (err) {
     const message =
       err instanceof Error ? err.message : "Failed to save cron config.";
-    console.error("[config/cron] POST", message);
+    log.error("POST failed", { error: message });
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

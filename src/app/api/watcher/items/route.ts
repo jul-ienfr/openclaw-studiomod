@@ -17,7 +17,7 @@ export async function GET(request: Request) {
 
     const db = getDb();
     const conditions: string[] = [];
-    const params: unknown[] = [];
+    const params: (string | number | null)[] = [];
 
     if (source) { conditions.push("i.source = ?"); params.push(source); }
     if (category) {

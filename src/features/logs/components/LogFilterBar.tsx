@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, Trash2, Download } from "lucide-react";
+import { Search, Trash2, Download, FileJson, FileSpreadsheet, Database } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { LogLevel } from "../types";
 
@@ -8,11 +8,12 @@ type LogFilterBarProps = {
   level: LogLevel | "";
   agentId: string;
   search: string;
+  agentIds: string[];
   onLevelChange: (level: LogLevel | "") => void;
   onAgentIdChange: (agentId: string) => void;
   onSearchChange: (search: string) => void;
   onClear: () => void;
-  onExport: () => void;
+  onExport: (format: "txt" | "json" | "csv") => void;
   logCount: number;
 };
 
@@ -26,8 +27,11 @@ const LEVELS: { value: LogLevel | ""; labelKey: string }[] = [
 
 export const LogFilterBar = ({
   level,
+  agentId,
   search,
+  agentIds,
   onLevelChange,
+  onAgentIdChange,
   onSearchChange,
   onClear,
   onExport,
@@ -47,6 +51,19 @@ export const LogFilterBar = ({
           className="ui-input w-full pl-7 text-xs"
         />
       </div>
+      {/* Agent filter */}
+      {agentIds.length > 0 && (
+        <select
+          value={agentId}
+          onChange={(e) => onAgentIdChange(e.target.value)}
+          className="rounded-md border border-border bg-surface-2 px-2 py-1 text-[10px] font-medium text-foreground"
+        >
+          <option value="">All agents</option>
+          {agentIds.map((id) => (
+            <option key={id} value={id}>{id}</option>
+          ))}
+        </select>
+      )}
       <div className="flex gap-1">
         {LEVELS.map((l) => (
           <button
@@ -66,9 +83,31 @@ export const LogFilterBar = ({
       <span className="text-[10px] text-muted-foreground">
         {logCount} {t("entries")}
       </span>
-      <button type="button" onClick={onExport} className="ui-btn-icon xs" aria-label={t("export")}>
-        <Download className="h-3 w-3" />
-      </button>
+      {/* Export dropdown */}
+      <div className="flex gap-0.5">
+        <button type="button" onClick={() => onExport("txt")} className="ui-btn-icon xs" aria-label={t("export")} title="Export TXT">
+          <Download className="h-3 w-3" />
+        </button>
+        <button type="button" onClick={() => onExport("json")} className="ui-btn-icon xs" aria-label="Export JSON" title="Export JSON">
+          <FileJson className="h-3 w-3" />
+        </button>
+        <button type="button" onClick={() => onExport("csv")} className="ui-btn-icon xs" aria-label="Export CSV" title="Export CSV">
+          <FileSpreadsheet className="h-3 w-3" />
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            const params = new URLSearchParams({ format: "csv", limit: "1000" });
+            if (level) params.set("level", level);
+            window.open(`/api/studio/logs?${params.toString()}`);
+          }}
+          className="ui-btn-icon xs"
+          aria-label="Export CSV from DB"
+          title="Export CSV (server DB)"
+        >
+          <Database className="h-3 w-3" />
+        </button>
+      </div>
       <button type="button" onClick={onClear} className="ui-btn-icon xs text-destructive" aria-label={t("clear")}>
         <Trash2 className="h-3 w-3" />
       </button>

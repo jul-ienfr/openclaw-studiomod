@@ -1,9 +1,9 @@
 "use client";
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { Radio, Search } from "lucide-react";
+import { Radio, Search, Wifi, WifiOff } from "lucide-react";
 import { toast } from "sonner";
-import type { ChannelId, ChannelConfig, ChannelWithStatus } from "../types";
+import type { ChannelId, ChannelConfig, ChannelWithStatus, ChannelStatus } from "../types";
 import { CHANNEL_REGISTRY } from "../channelRegistry";
 import { fetchChannelConfigsFromGateway, patchGatewayChannel, deleteGatewayChannel, buildChannelsWithStatus } from "../channelStore";
 import { ChannelCard } from "./ChannelCard";
@@ -12,16 +12,25 @@ import { ChannelConfigModal } from "./ChannelConfigModal";
 export const ChannelsPanel = () => {
   const t = useTranslations("channels");
   const [configs, setConfigs] = useState<Record<string, ChannelConfig>>({});
+  const [statusMap, setStatusMap] = useState<Record<string, ChannelStatus>>({});
+  const [lastActivityMap, setLastActivityMap] = useState<Record<string, number | null>>({});
+  const [gatewayOnline, setGatewayOnline] = useState(false);
   const [editingChannelId, setEditingChannelId] = useState<ChannelId | null>(null);
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    void fetchChannelConfigsFromGateway().then((remote) => {
-      setConfigs(remote);
+    void fetchChannelConfigsFromGateway().then((result) => {
+      setConfigs(result.configs);
+      setStatusMap(result.statusMap);
+      setLastActivityMap(result.lastActivityMap);
+      setGatewayOnline(result.gatewayOnline);
     });
   }, []);
 
-  const allChannels: ChannelWithStatus[] = useMemo(() => buildChannelsWithStatus(configs), [configs]);
+  const allChannels = useMemo(
+    () => buildChannelsWithStatus(configs, statusMap, lastActivityMap),
+    [configs, statusMap, lastActivityMap],
+  );
 
   const channels = useMemo(() => {
     if (!search.trim()) return allChannels;
@@ -68,6 +77,18 @@ export const ChannelsPanel = () => {
           <h2 className="text-sm font-semibold text-foreground">{t("title")}</h2>
           <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
             {connectedCount}/{allChannels.length}
+          </span>
+          {/* Gateway status indicator */}
+          <span className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+            gatewayOnline
+              ? "bg-green-500/10 text-green-500"
+              : "bg-destructive/10 text-destructive"
+          }`}>
+            {gatewayOnline ? (
+              <><Wifi className="h-3 w-3" /> Gateway</>
+            ) : (
+              <><WifiOff className="h-3 w-3" /> Offline</>
+            )}
           </span>
         </div>
       </div>

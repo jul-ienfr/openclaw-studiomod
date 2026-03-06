@@ -201,10 +201,15 @@ export async function sendChatMessageViaStudio(params: {
       }
     }
 
+    const isExternalSession =
+      params.sessionKey.includes(":telegram:") ||
+      params.sessionKey.includes(":whatsapp:") ||
+      params.sessionKey.includes(":discord:") ||
+      params.sessionKey.includes(":signal:");
     const sendPayload: Record<string, unknown> = {
       sessionKey: params.sessionKey,
       message: buildAgentInstruction({ message: trimmed }),
-      deliver: false,
+      deliver: isExternalSession,
       idempotencyKey: runId,
     };
     if (params.attachments && params.attachments.length > 0) {

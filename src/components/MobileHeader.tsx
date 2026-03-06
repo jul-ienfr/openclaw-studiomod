@@ -54,7 +54,7 @@ export function MobileHeader() {
         {isSubPage && (
           <button
             onClick={() => router.back()}
-            className="mobile-header-btn"
+            className="mobile-header-btn min-h-[44px] min-w-[44px]"
             aria-label="Go back"
           >
             <ArrowLeft className="h-5 w-5" strokeWidth={1.75} />

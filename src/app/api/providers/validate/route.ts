@@ -1,13 +1,20 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
+import { parseBody, isValidationError } from "@/lib/api/validation";
+import { createLogger } from "@/lib/logger";
 
 export const runtime = "nodejs";
 
-type ValidateBody = {
-  providerId: string;
-  apiKey?: string;
-  accessToken?: string;
-  baseUrl?: string;
-};
+const log = createLogger("api:providers:validate");
+
+const ValidateBodySchema = z.object({
+  providerId: z.string().min(1),
+  apiKey: z.string().optional(),
+  accessToken: z.string().optional(),
+  baseUrl: z.string().optional(),
+});
+
+type ValidateBody = z.infer<typeof ValidateBodySchema>;
 
 // Default base URLs per provider
 const PROVIDER_BASE_URLS: Record<string, string> = {
@@ -139,8 +146,12 @@ async function validateCohere(
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as ValidateBody;
-    const { providerId, apiKey, accessToken, baseUrl } = body;
+    const parsed = await parseBody(request, ValidateBodySchema);
+    if (isValidationError(parsed)) return parsed;
+
+    const { providerId, apiKey, accessToken, baseUrl } = parsed;
+
+    log.info("Validating provider", { providerId });
 
     const secret = apiKey?.trim() || accessToken?.trim() || "";
     const effectiveBase =
@@ -151,6 +162,7 @@ export async function POST(request: Request) {
       const result = await validateOllama(
         effectiveBase || "http://localhost:11434",
       );
+      log.info("Validation result", { providerId, valid: result.valid });
       return NextResponse.json(result);
     }
 
@@ -161,6 +173,7 @@ export async function POST(request: Request) {
     // Gemini uses key in query param
     if (providerId === "gemini") {
       const result = await validateGemini(secret);
+      log.info("Validation result", { providerId, valid: result.valid });
       return NextResponse.json(result);
     }
 
@@ -168,18 +181,21 @@ export async function POST(request: Request) {
     if (providerId === "anthropic" || providerId === "anthropic-proxy") {
       const base = effectiveBase || "https://api.anthropic.com";
       const result = await validateAnthropic(secret, base);
+      log.info("Validation result", { providerId, valid: result.valid });
       return NextResponse.json(result);
     }
 
     // Cohere
     if (providerId === "cohere") {
       const result = await validateCohere(secret);
+      log.info("Validation result", { providerId, valid: result.valid });
       return NextResponse.json(result);
     }
 
     // All OpenAI-compatible providers
     if (effectiveBase) {
       const result = await validateOpenAI(secret, effectiveBase);
+      log.info("Validation result", { providerId, valid: result.valid });
       return NextResponse.json(result);
     }
 
@@ -187,6 +203,7 @@ export async function POST(request: Request) {
     const defaultBase = PROVIDER_BASE_URLS[providerId];
     if (defaultBase) {
       const result = await validateOpenAI(secret, defaultBase);
+      log.info("Validation result", { providerId, valid: result.valid });
       return NextResponse.json(result);
     }
 
@@ -197,6 +214,7 @@ export async function POST(request: Request) {
   } catch (err) {
     // Timeout or fetch error
     const msg = err instanceof Error ? err.message : String(err);
+    log.error("Validation failed", { error: msg });
     if (
       msg.includes("timeout") ||
       msg.includes("abort") ||

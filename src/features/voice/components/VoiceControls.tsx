@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
-import { Mic, MicOff, Volume2, VolumeX, Settings2 } from "lucide-react";
+import { Mic, MicOff, Volume2, VolumeX, Settings2, Activity } from "lucide-react";
 import type { VoiceProvider } from "../types";
 import { VOICE_PROVIDERS } from "../types";
 import {
@@ -14,6 +14,14 @@ import {
   setVoiceSessionState,
 } from "../voiceStore";
 
+type VoiceboxStatus = {
+  running: boolean;
+  model_loaded?: boolean;
+  gpu_available?: boolean;
+  gpu_type?: string | null;
+  vram_used_mb?: number | null;
+};
+
 type VoiceControlsProps = {
   agentId?: string;
 };
@@ -22,10 +30,20 @@ export const VoiceControls = ({ agentId = "default" }: VoiceControlsProps) => {
   const t = useTranslations("voice");
   const [showSettings, setShowSettings] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [voiceboxStatus, setVoiceboxStatus] = useState<VoiceboxStatus | null>(null);
 
-  // Initialize voice store once
+  // Initialize voice store and fetch voicebox status
   useEffect(() => {
     initVoiceStore();
+    void (async () => {
+      try {
+        const res = await fetch("/api/voice/voicebox/status");
+        const data = (await res.json()) as VoiceboxStatus;
+        setVoiceboxStatus(data);
+      } catch {
+        setVoiceboxStatus({ running: false });
+      }
+    })();
   }, []);
 
   // Single config state — avoids multiple synchronous setState calls inside the effect.
@@ -139,6 +157,17 @@ export const VoiceControls = ({ agentId = "default" }: VoiceControlsProps) => {
             {t(
               session.state as "idle" | "listening" | "processing" | "speaking",
             )}
+          </span>
+        )}
+        {/* Voicebox service status indicator */}
+        {voiceboxStatus !== null && (
+          <span className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+            voiceboxStatus.running
+              ? "bg-green-500/10 text-green-500"
+              : "bg-destructive/10 text-destructive"
+          }`}>
+            <Activity className="h-3 w-3" />
+            {voiceboxStatus.running ? "Voicebox" : "Voicebox off"}
           </span>
         )}
         <button

@@ -7,6 +7,8 @@ import {
   runSshJson,
 } from "@/lib/ssh/gateway-host";
 import { loadStudioSettings } from "@/lib/studio/settings-store";
+import { z } from "zod";
+import { parseQuery, isValidationError } from "@/lib/api/validation";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -157,10 +159,16 @@ const resolveSshTarget = (): string | null => {
   return resolveGatewaySshTargetFromGatewayUrl(gatewayUrl, process.env);
 };
 
+const MediaQuerySchema = z.object({
+  path: z.string().min(1, "path is required").max(4096, "path too long"),
+});
+
 export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const rawPath = (searchParams.get("path") ?? "").trim();
+    const url = new URL(request.url);
+    const query = parseQuery(url, MediaQuerySchema);
+    if (isValidationError(query)) return query;
+    const rawPath = query.path;
 
     const sshTarget = resolveSshTarget();
 

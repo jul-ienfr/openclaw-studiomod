@@ -10,7 +10,10 @@ import {
   getLogs,
   clearLogs,
   exportLogs,
+  exportLogsJson,
+  exportLogsCsv,
   getLogCount,
+  getUniqueAgentIds,
 } from "../logStore";
 import { LogFilterBar } from "./LogFilterBar";
 
@@ -38,6 +41,16 @@ const LogRow = ({ entry }: { entry: LogEntry }) => (
   </div>
 );
 
+function downloadBlob(content: string, filename: string, mimeType: string) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export const LogViewer = () => {
   const t = useTranslations("logs");
   const [level, setLevel] = useState<LogLevel | "">("");
@@ -60,6 +73,12 @@ export const LogViewer = () => {
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [level, agentId, search, refreshKey],
+  );
+
+  const agentIds = useMemo(
+    () => getUniqueAgentIds(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [refreshKey],
   );
 
   const virtualizer = useVirtualizer({
@@ -88,19 +107,30 @@ export const LogViewer = () => {
     setRefreshKey((k) => k + 1);
   }, []);
 
-  const handleExport = useCallback(() => {
-    const text = exportLogs({
+  const handleExport = useCallback((format: "txt" | "json" | "csv") => {
+    const filter = {
       level: level || undefined,
       agentId: agentId || undefined,
       search: search || undefined,
-    });
-    const blob = new Blob([text], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `openclaw-logs-${new Date().toISOString().slice(0, 10)}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
+    };
+    const dateSuffix = new Date().toISOString().slice(0, 10);
+    switch (format) {
+      case "json": {
+        const json = exportLogsJson(filter);
+        downloadBlob(json, `openclaw-logs-${dateSuffix}.json`, "application/json");
+        break;
+      }
+      case "csv": {
+        const csv = exportLogsCsv(filter);
+        downloadBlob(csv, `openclaw-logs-${dateSuffix}.csv`, "text/csv");
+        break;
+      }
+      default: {
+        const text = exportLogs(filter);
+        downloadBlob(text, `openclaw-logs-${dateSuffix}.txt`, "text/plain");
+        break;
+      }
+    }
   }, [level, agentId, search]);
 
   return (
@@ -117,6 +147,7 @@ export const LogViewer = () => {
         level={level}
         agentId={agentId}
         search={search}
+        agentIds={agentIds}
         onLevelChange={setLevel}
         onAgentIdChange={setAgentId}
         onSearchChange={setSearch}

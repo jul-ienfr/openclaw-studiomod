@@ -66,3 +66,27 @@ export const exportLogs = (filter?: LogFilter): string => {
     .map((e) => `[${new Date(e.timestamp).toISOString()}] [${e.level.toUpperCase()}] [${e.agentId}] ${e.message}`)
     .join("\n");
 };
+
+export const exportLogsJson = (filter?: LogFilter): string => {
+  const entries = getLogs(filter);
+  return JSON.stringify(entries, null, 2);
+};
+
+export const exportLogsCsv = (filter?: LogFilter): string => {
+  const entries = getLogs(filter);
+  const header = "timestamp,level,agentId,message";
+  const rows = entries.map((e) => {
+    const ts = new Date(e.timestamp).toISOString();
+    const msg = e.message.replace(/"/g, '""');
+    return `"${ts}","${e.level}","${e.agentId}","${msg}"`;
+  });
+  return [header, ...rows].join("\n");
+};
+
+export const getUniqueAgentIds = (): string[] => {
+  const ids = new Set<string>();
+  for (const entry of buffer) {
+    if (entry.agentId) ids.add(entry.agentId);
+  }
+  return Array.from(ids).sort();
+};

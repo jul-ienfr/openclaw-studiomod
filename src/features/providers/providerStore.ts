@@ -1,4 +1,6 @@
 import { createContext, useContext } from "react";
+import { create } from "zustand";
+import { devtools } from "zustand/middleware";
 import type { ProviderId, ProviderConfig, ProviderWithStatus, ProviderKeyEntry } from "./types";
 import { PROVIDER_REGISTRY, getProviderById } from "./providerRegistry";
 
@@ -17,15 +19,65 @@ export type ProviderStoreActions = {
 
 export type ProviderStore = ProviderStoreState & ProviderStoreActions;
 
+// ─── Zustand Store ───────────────────────────────────────────────────────────
+// Primary store. ProviderStoreProvider initialises it with data from
+// localStorage and re-exposes the same API via Context for backward compat.
+
+type ProviderZustandStore = ProviderStoreState & ProviderStoreActions;
+
+export const useProviderZustandStore = create<ProviderZustandStore>()(
+  devtools(
+    (set, get) => ({
+      configs: {},
+
+      saveProvider: (config: ProviderConfig) => {
+        set(
+          (state) => {
+            const storageKey = config.storageKey || config.id;
+            const next = { ...state.configs, [storageKey]: config };
+            persistProviderConfigs(next);
+            return { configs: next };
+          },
+          false,
+          "saveProvider",
+        );
+      },
+
+      removeProvider: (storageKey: string) => {
+        set(
+          (state) => {
+            const next = { ...state.configs };
+            delete next[storageKey];
+            persistProviderConfigs(next);
+            return { configs: next };
+          },
+          false,
+          "removeProvider",
+        );
+      },
+
+      getProvidersWithStatus: (): ProviderWithStatus[] =>
+        buildProvidersWithStatus(get().configs),
+
+      getConfiguredProviderIds: (): ProviderId[] =>
+        getConfiguredProviderIdsFromConfigs(get().configs),
+    }),
+    { name: "ProviderStore" },
+  ),
+);
+
+// ─── Context shim — backward compatibility ───────────────────────────────────
+// Components that call useProviderStore() keep working without changes.
+
 export const ProviderStoreContext = createContext<ProviderStore | null>(null);
 
 export const useProviderStore = (): ProviderStore => {
-  const store = useContext(ProviderStoreContext);
-  if (!store)
-    throw new Error(
-      "useProviderStore must be used within ProviderStoreProvider",
-    );
-  return store;
+  // If a Context provider is present (e.g. ProviderStoreProvider), prefer it
+  // so that components nested inside it receive the same reference.
+  const ctx = useContext(ProviderStoreContext);
+  if (ctx) return ctx;
+  // Fallback: return the Zustand store directly (works outside any Provider).
+  return useProviderZustandStore();
 };
 
 const migrateProviderConfig = (

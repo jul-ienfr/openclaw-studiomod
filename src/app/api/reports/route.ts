@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { resolveStateDir } from "@/lib/clawdbot/paths";
+import { z } from "zod";
+import { parseQuery, isValidationError } from "@/lib/api/validation";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -105,7 +107,16 @@ function parseReport(note: NcNote): ParsedReport {
   };
 }
 
+const ReportsQuerySchema = z.object({
+  agent: z.string().max(256).optional(),
+  status: z.enum(["OK", "ALERTE", "CRITIQUE"]).optional(),
+});
+
 export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const query = parseQuery(url, ReportsQuerySchema);
+  if (isValidationError(query)) return query;
+
   const config = loadNcConfig();
   if (!config) {
     const stateDir = resolveStateDir();
@@ -124,9 +135,8 @@ export async function GET(request: Request) {
     );
   }
 
-  const { searchParams } = new URL(request.url);
-  const agentFilter = searchParams.get("agent");
-  const statusFilter = searchParams.get("status") as ReportStatus | null;
+  const agentFilter = query.agent ?? null;
+  const statusFilter = query.status ?? null;
 
   const notesUrl = `${config.url.replace(/\/+$/, "")}/index.php/apps/notes/api/v1/notes`;
   const basicAuth = Buffer.from(`${config.user}:${config.password}`).toString(

@@ -2,12 +2,21 @@ import { NextResponse } from "next/server";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const vault = require("../../../../../server/credential-vault");
+import { z } from "zod";
+import { parseBody, isValidationError } from "@/lib/api/validation";
 
 export const runtime = "nodejs";
 
 type RouteContext = { params: Promise<{ agentId: string }> };
 
-const isArray = (value: unknown): value is unknown[] => Array.isArray(value);
+const CredentialEntrySchema = z
+  .object({
+    key: z.string(),
+    value: z.string(),
+  })
+  .passthrough();
+
+const PutBodySchema = z.array(CredentialEntrySchema);
 
 export async function GET(_request: Request, context: RouteContext) {
   try {
@@ -24,10 +33,8 @@ export async function GET(_request: Request, context: RouteContext) {
 export async function PUT(request: Request, context: RouteContext) {
   try {
     const { agentId } = await context.params;
-    const body = (await request.json()) as unknown;
-    if (!isArray(body)) {
-      return NextResponse.json({ error: "Expected an array of credential entries." }, { status: 400 });
-    }
+    const body = await parseBody(request, PutBodySchema);
+    if (isValidationError(body)) return body;
     vault.saveCredentials(agentId, body);
     return NextResponse.json({ ok: true });
   } catch (err) {

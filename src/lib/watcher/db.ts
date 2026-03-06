@@ -1,5 +1,11 @@
-import Database from "better-sqlite3";
+import type { Database as DatabaseType } from "bun:sqlite";
 import path from "path";
+import fs from "fs";
+
+// Lazy-load bun:sqlite to avoid failure during Next.js build (which uses Node.js workers)
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const getDatabase = (): typeof import("bun:sqlite").Database =>
+  require("bun:sqlite").Database;
 
 const DB_PATH =
   process.env.WATCHER_DB_PATH ??
@@ -9,20 +15,20 @@ const DB_PATH =
   );
 
 /** Read-only connection — pour les GETs */
-export function getDb(): Database.Database {
+export function getDb(): DatabaseType {
+  const Database = getDatabase();
   const db = new Database(DB_PATH, { readonly: true });
-  db.pragma("journal_mode = WAL");
+  db.exec("PRAGMA journal_mode = WAL");
   return db;
 }
 
 /** Read-write connection — pour les mutations (status, implementations) */
-export function getDbWrite(): Database.Database {
+export function getDbWrite(): DatabaseType {
+  const Database = getDatabase();
   const db = new Database(DB_PATH);
-  db.pragma("journal_mode = WAL");
+  db.exec("PRAGMA journal_mode = WAL");
   return db;
 }
-
-import fs from "fs";
 
 export function getDbStats(): {
   size_bytes: number;
