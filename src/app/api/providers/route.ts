@@ -5,6 +5,7 @@ import path from "node:path";
 import { resolveStateDir } from "@/lib/clawdbot/paths";
 import { parseBody, parseQuery, isValidationError } from "@/lib/api/validation";
 import { createLogger } from "@/lib/logger";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
 
@@ -57,7 +58,7 @@ function maskKey(key: string): string {
   return key.slice(0, 4) + "****" + key.slice(-4);
 }
 
-export async function GET() {
+async function get_handler() {
   try {
     const config = readConfig();
     const modelsSection = (config.models ?? {}) as Record<string, unknown>;
@@ -86,7 +87,7 @@ export async function GET() {
   }
 }
 
-export async function PATCH(request: Request) {
+async function patch_handler(request: Request) {
   try {
     const parsed = await parseBody(request, ProviderPatchSchema);
     if (isValidationError(parsed)) return parsed;
@@ -118,7 +119,7 @@ export async function PATCH(request: Request) {
   }
 }
 
-export async function DELETE(request: Request) {
+async function delete_handler(request: Request) {
   try {
     const url = new URL(request.url);
     const parsed = parseQuery(url, ProviderDeleteQuerySchema);
@@ -142,3 +143,7 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }
 }
+
+export const GET = withErrorHandler(get_handler);
+export const PATCH = withErrorHandler(patch_handler);
+export const DELETE = withErrorHandler(delete_handler);

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
 
@@ -12,7 +13,7 @@ const discovery = require("../../../../../server/tunnel-discovery") as {
 };
 
 /** GET — return the discovery redirect URL (if configured) */
-export async function GET() {
+async function get_handler() {
   try {
     const config = discovery.getConfig();
     if (!config.gistId || !config.redirectUrl) {
@@ -27,3 +28,5 @@ export async function GET() {
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
+
+export const GET = withErrorHandler(get_handler);

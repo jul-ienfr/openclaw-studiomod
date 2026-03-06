@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
 
@@ -7,7 +8,7 @@ const VOICEBOX_URL = "http://127.0.0.1:17493";
 type Params = { params: Promise<{ sampleId: string }> };
 
 // GET /api/voice/voicebox/profiles/samples/[sampleId] — download sample audio
-export async function GET(_req: NextRequest, { params }: Params) {
+async function get_handler(_req: NextRequest, { params }: Params) {
   const { sampleId } = await params;
   const res = await fetch(`${VOICEBOX_URL}/samples/${sampleId}`, {
     signal: AbortSignal.timeout(10000),
@@ -26,7 +27,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
 }
 
 // DELETE /api/voice/voicebox/profiles/samples/[sampleId] — delete a sample
-export async function DELETE(_req: NextRequest, { params }: Params) {
+async function delete_handler(_req: NextRequest, { params }: Params) {
   const { sampleId } = await params;
   const res = await fetch(`${VOICEBOX_URL}/profiles/samples/${sampleId}`, {
     method: "DELETE",
@@ -37,7 +38,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
 }
 
 // PUT /api/voice/voicebox/profiles/samples/[sampleId] — update reference text
-export async function PUT(req: NextRequest, { params }: Params) {
+async function put_handler(req: NextRequest, { params }: Params) {
   const { sampleId } = await params;
   const body = (await req.json()) as unknown;
   const res = await fetch(`${VOICEBOX_URL}/profiles/samples/${sampleId}`, {
@@ -49,3 +50,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
   const data = (await res.json()) as unknown;
   return NextResponse.json(data, { status: res.status });
 }
+
+export const GET = withErrorHandler(get_handler);
+export const PUT = withErrorHandler(put_handler);
+export const DELETE = withErrorHandler(delete_handler);

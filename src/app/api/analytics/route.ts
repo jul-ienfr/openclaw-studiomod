@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import fs from "node:fs";
 import path from "node:path";
 import { resolveStateDir } from "@/lib/clawdbot/paths";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -118,7 +119,7 @@ function tryQueryMetrics(range: TimeRange) {
   }
 }
 
-export async function GET(request: Request) {
+async function get_handler(request: Request) {
   try {
     const url = new URL(request.url);
     const range = (url.searchParams.get("range") ?? "24h") as TimeRange;
@@ -304,3 +305,5 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: message, metrics: [], timeSeries: [], leaderboard: [], agents: [] }, { status: 500 });
   }
 }
+
+export const GET = withErrorHandler(get_handler);

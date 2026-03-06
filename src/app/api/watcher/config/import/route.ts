@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { saveWatcherConfigLocked } from "@/lib/watcher/config";
 import { requireAuth } from "@/features/watcher/operations/authMiddleware";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
 
-export async function POST(request: Request) {
+async function post_handler(request: Request) {
   const authError = requireAuth(request);
   if (authError) return authError;
 
@@ -46,3 +47,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+export const POST = withErrorHandler(post_handler);

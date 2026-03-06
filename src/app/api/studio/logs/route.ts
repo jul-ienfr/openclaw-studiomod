@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { parseQuery, isValidationError } from "@/lib/api/validation";
 import { createLogger } from "@/lib/logger";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,7 +25,7 @@ const LogsQuerySchema = z.object({
     }),
 });
 
-export async function GET(request: Request) {
+async function get_handler(request: Request) {
   try {
     // Run migrations first to ensure the logs table exists
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -67,3 +68,5 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+export const GET = withErrorHandler(get_handler);

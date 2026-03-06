@@ -1,24 +1,67 @@
-import { promises as fs } from "fs";
+import fs from "fs";
 import path from "path";
-import { PillarsConfig, DEFAULT_PILLARS } from "./index";
+import type { PillarsConfig } from "./index";
+import { PillarsConfigSchema } from "./schemas";
 import { resolveStateDir } from "@/lib/clawdbot/paths";
 
-export function getPillarsPath(): string {
+function getPillarsPath(): string {
   return path.join(resolveStateDir(), "studio", "pillars.json");
 }
 
-export async function readPillars(): Promise<PillarsConfig> {
+export function loadPillarsConfig(): PillarsConfig | null {
   const pillarsPath = getPillarsPath();
   try {
-    const content = await fs.readFile(pillarsPath, "utf-8");
-    return { ...DEFAULT_PILLARS, ...JSON.parse(content) };
-  } catch {
-    return DEFAULT_PILLARS;
+    if (!fs.existsSync(pillarsPath)) {
+      return null;
+    }
+    const raw = fs.readFileSync(pillarsPath, "utf-8");
+    const parsed = JSON.parse(raw) as unknown;
+    const result = PillarsConfigSchema.safeParse(parsed);
+    if (!result.success) {
+      console.error("[pillars] Invalid pillars.json:", result.error.message);
+      return null;
+    }
+    return result.data;
+  } catch (err) {
+    console.error("[pillars] Failed to load pillars.json:", err);
+    return null;
   }
 }
 
-export async function writePillars(config: PillarsConfig): Promise<void> {
+export function savePillarsConfig(config: PillarsConfig): void {
   const pillarsPath = getPillarsPath();
-  await fs.mkdir(path.dirname(pillarsPath), { recursive: true });
-  await fs.writeFile(pillarsPath, JSON.stringify(config, null, 2), "utf-8");
+  const validated = PillarsConfigSchema.parse(config);
+  const dir = path.dirname(pillarsPath);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  fs.writeFileSync(pillarsPath, JSON.stringify(validated, null, 2), "utf-8");
+}
+
+/**
+ * One-shot migration: if pillars.json does not exist, create an empty config.
+ * Idempotent — safe to call on every server startup.
+ */
+export function migratePillarsFromWorkflows(): void {
+  const pillarsPath = getPillarsPath();
+  if (fs.existsSync(pillarsPath)) {
+    return;
+  }
+
+  const emptyConfig: PillarsConfig = {
+    version: "1",
+    pillars: [],
+  };
+
+  try {
+    const validated = PillarsConfigSchema.parse(emptyConfig);
+    const dir = path.dirname(pillarsPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(pillarsPath, JSON.stringify(validated, null, 2), "utf-8");
+    console.info("[pillars] Initialized pillars.json at", pillarsPath);
+  } catch (err) {
+    console.error("[pillars] Failed to initialize pillars.json:", err);
+  }
 }

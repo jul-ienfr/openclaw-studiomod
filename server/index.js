@@ -6,6 +6,7 @@ const next = require("next");
 
 const { createAccessGate } = require("./access-gate");
 const { createGatewayProxy } = require("./gateway-proxy");
+const { handleKnownWsUpgrades } = require("./ws-proxy");
 const mobileTokenStore = require("./mobile-token-store");
 const tunnelDiscovery = require("./tunnel-discovery");
 const { assertPublicHostAllowed, resolveHosts } = require("./network-policy");
@@ -18,7 +19,7 @@ const { resolveStateDir, loadUpstreamGatewaySettings } = require("./studio-setti
 const KNOWN_DEFAULTS = new Set(["openclaw-studio-dev", "openclaw-studio"]);
 const MASTER_TOKEN_PATH = path.join(
   resolveStateDir(),
-  "openclaw-studio",
+  "openclaw-studio-v2",
   "master-token",
 );
 
@@ -83,9 +84,9 @@ globalThis.__tunnelUrlChangeCallback = (url) => {
 };
 
 const resolvePort = () => {
-  const raw = process.env.PORT?.trim() || "3000";
+  const raw = process.env.PORT?.trim() || "3001";
   const port = Number(raw);
-  if (!Number.isFinite(port) || port <= 0) return 3000;
+  if (!Number.isFinite(port) || port <= 0) return 3001;
   return port;
 };
 
@@ -139,53 +140,9 @@ async function main() {
       proxy.handleUpgrade(req, socket, head);
       return;
     }
-    // Proxy WebSocket AI Manager admin
-    if (resolvePathname(req.url) === '/ai-manager/admin/ws') {
-      const net = require('node:net');
-      const upstream = net.connect(18089, '127.0.0.1', () => {
-        // Whitelist safe WebSocket upgrade headers (prevents CRLF injection)
-        const WS_SAFE_HEADERS = new Set(['upgrade', 'connection', 'sec-websocket-key', 'sec-websocket-version', 'sec-websocket-extensions', 'origin', 'user-agent']);
-        let extraHeaders = '';
-        for (let i = 0; i < req.rawHeaders.length; i += 2) {
-          const name = req.rawHeaders[i].toLowerCase();
-          if (WS_SAFE_HEADERS.has(name)) {
-            const val = req.rawHeaders[i + 1].replace(/[\r\n]/g, '');
-            extraHeaders += `${name}: ${val}\r\n`;
-          }
-        }
-        upstream.write(`GET /admin/ws HTTP/1.1\r\nHost: 127.0.0.1:18089\r\n${extraHeaders}\r\n`);
-        socket.pipe(upstream);
-        upstream.pipe(socket);
-      });
-      upstream.setTimeout(10000, () => { upstream.destroy(); socket.destroy(); });
-      upstream.on('error', () => socket.destroy());
-      socket.on('error', () => upstream.destroy());
-      return;
-    }
-    // Proxy WebSocket noVNC viewer
-    if (resolvePathname(req.url) === '/browser-view/websockify') {
-      const net = require('node:net');
-      const upstream = net.connect(6080, '127.0.0.1', () => {
-        const WS_SAFE_HEADERS = new Set(['upgrade', 'connection', 'sec-websocket-key',
-          'sec-websocket-version', 'sec-websocket-extensions', 'sec-websocket-protocol',
-          'origin', 'user-agent']);
-        let extraHeaders = '';
-        for (let i = 0; i < req.rawHeaders.length; i += 2) {
-          const name = req.rawHeaders[i].toLowerCase();
-          if (WS_SAFE_HEADERS.has(name)) {
-            const val = req.rawHeaders[i + 1].replace(/[\r\n]/g, '');
-            extraHeaders += `${name}: ${val}\r\n`;
-          }
-        }
-        upstream.write(`GET /websockify HTTP/1.1\r\nHost: 127.0.0.1:6080\r\n${extraHeaders}\r\n`);
-        socket.pipe(upstream);
-        upstream.pipe(socket);
-      });
-      upstream.setTimeout(10000, () => { upstream.destroy(); socket.destroy(); });
-      upstream.on('error', () => socket.destroy());
-      socket.on('error', () => upstream.destroy());
-      return;
-    }
+    // Delegate to consolidated ws-proxy for known paths (AI Manager, noVNC)
+    if (handleKnownWsUpgrades(req, socket, head)) return;
+    // Fall back to Next.js upgrade handler (e.g. HMR in dev)
     handleUpgrade(req, socket, head);
   };
 

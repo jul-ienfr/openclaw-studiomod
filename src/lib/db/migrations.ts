@@ -63,6 +63,35 @@ const MIGRATIONS: Migration[] = [
       );
     `,
   },
+  {
+    version: 2,
+    description: "Auth: users and sessions tables",
+    up: `
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        username TEXT UNIQUE NOT NULL,
+        display_name TEXT,
+        password_hash TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'admin',
+        created_at INTEGER NOT NULL,
+        last_login INTEGER
+      );
+
+      CREATE TABLE IF NOT EXISTS sessions (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        token_hash TEXT UNIQUE NOT NULL,
+        expires_at INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        user_agent TEXT,
+        ip TEXT
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_sessions_token_hash ON sessions(token_hash);
+      CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
+      CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
+    `,
+  },
 ];
 
 /** Run all pending migrations */

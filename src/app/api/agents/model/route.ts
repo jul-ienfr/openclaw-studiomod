@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import fs from "node:fs";
 import path from "node:path";
 import { resolveStateDir } from "@/lib/clawdbot/paths";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
 
@@ -20,7 +21,7 @@ function writeConfig(config: Record<string, unknown>) {
 }
 
 /** PATCH /api/agents/model — persist an agent's default model to openclaw.json */
-export async function PATCH(request: Request) {
+async function patch_handler(request: Request) {
   try {
     const body = (await request.json()) as { agentId: string; model: string | null };
     const { agentId, model } = body;
@@ -59,7 +60,7 @@ export async function PATCH(request: Request) {
 }
 
 /** GET /api/agents/model?agentId=main — read current model for an agent */
-export async function GET(request: Request) {
+async function get_handler(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const agentId = searchParams.get("agentId");
@@ -88,3 +89,6 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }
 }
+
+export const GET = withErrorHandler(get_handler);
+export const PATCH = withErrorHandler(patch_handler);

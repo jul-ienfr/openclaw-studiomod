@@ -12,6 +12,7 @@ import { parseQuery, isValidationError } from "@/lib/api/validation";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
 
@@ -163,7 +164,7 @@ const MediaQuerySchema = z.object({
   path: z.string().min(1, "path is required").max(4096, "path too long"),
 });
 
-export async function GET(request: Request) {
+async function get_handler(request: Request) {
   try {
     const url = new URL(request.url);
     const query = parseQuery(url, MediaQuerySchema);
@@ -222,3 +223,5 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }
+
+export const GET = withErrorHandler(get_handler);

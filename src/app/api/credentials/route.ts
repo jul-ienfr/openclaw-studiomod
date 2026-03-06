@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { resolveStateDir } from "@/lib/clawdbot/paths";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
 
@@ -47,7 +48,7 @@ function vaultPath(agentId: string): string {
   return path.join(dir, `${agentId}.enc.json`);
 }
 
-export async function GET(request: Request) {
+async function get_handler(request: Request) {
   const { searchParams } = new URL(request.url);
   const agentId = searchParams.get("agentId");
   if (!agentId) return NextResponse.json({ error: "agentId required" }, { status: 400 });
@@ -64,7 +65,7 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+async function post_handler(request: Request) {
   try {
     const body = await request.json() as { agentId: string; credentials: Array<{ key: string; value: string }> };
     const { agentId, credentials } = body;
@@ -79,3 +80,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }
 }
+
+export const GET = withErrorHandler(get_handler);
+export const POST = withErrorHandler(post_handler);

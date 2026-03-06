@@ -3,6 +3,7 @@ import { resolveStateDir } from "@/lib/clawdbot/paths";
 import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,7 +46,7 @@ async function isServiceUp(url: string): Promise<boolean> {
   }
 }
 
-export async function GET() {
+async function get_handler() {
   try {
     const stateDir = resolveStateDir();
     const alerts: Alert[] = [];
@@ -120,3 +121,5 @@ export async function GET() {
     return NextResponse.json({ alerts: [], error: message }, { status: 500 });
   }
 }
+
+export const GET = withErrorHandler(get_handler);

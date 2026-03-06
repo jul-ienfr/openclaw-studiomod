@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { buildPersonaBuilderUserPrompt } from "@/features/agents/creation/personaBuilderPrompt";
 import { parsePersonaBuilderResult } from "@/features/agents/creation/personaBuilderSchema";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
 
@@ -9,7 +10,7 @@ type PersonaBuilderRequestBody = {
   feedback?: string;
 };
 
-export async function POST(request: Request) {
+async function post_handler(request: Request) {
   try {
     const body = (await request.json()) as unknown;
     if (!body || typeof body !== "object") {
@@ -79,3 +80,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+export const POST = withErrorHandler(post_handler);

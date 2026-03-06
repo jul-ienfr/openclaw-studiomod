@@ -10,6 +10,7 @@ import {
   runSshJson,
 } from "@/lib/ssh/gateway-host";
 import { loadStudioSettings } from "@/lib/studio/settings-store";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
 
@@ -100,7 +101,7 @@ const resolveDotEnvSshTarget = (): string | null => {
   return resolveGatewaySshTargetFromGatewayUrl(gatewayUrl, process.env);
 };
 
-export async function GET() {
+async function get_handler() {
   try {
     const settings = loadStudioSettings();
     const gatewayUrl = settings.gateway?.url ?? "";
@@ -123,3 +124,5 @@ export async function GET() {
   }
 }
 
+
+export const GET = withErrorHandler(get_handler);

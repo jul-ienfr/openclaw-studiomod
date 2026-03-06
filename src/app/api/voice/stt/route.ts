@@ -3,12 +3,13 @@ import { execFile } from "node:child_process";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
 
 const TRANSCRIBE_SCRIPT = "/home/jul/faster-whisper/transcribe.py";
 
-export async function POST(request: Request) {
+async function post_handler(request: Request) {
   let tmpPath = "";
   try {
     const formData = await request.formData();
@@ -57,3 +58,5 @@ export async function POST(request: Request) {
     }
   }
 }
+
+export const POST = withErrorHandler(post_handler);

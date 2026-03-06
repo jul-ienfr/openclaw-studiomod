@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { getCacheStats, pruneGatewayCache } from "@/lib/cache/gateway-cache";
 import { invalidateCacheByPrefix } from "@/lib/db/repositories/cache-repo";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /** GET /api/studio/cache — returns cache statistics */
-export async function GET() {
+async function get_handler() {
   try {
     const stats = getCacheStats();
     return NextResponse.json({
@@ -21,7 +22,7 @@ export async function GET() {
 }
 
 /** DELETE /api/studio/cache — purge cache entries */
-export async function DELETE(request: Request) {
+async function delete_handler(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const prefix = searchParams.get("prefix");
@@ -41,3 +42,6 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }
 }
+
+export const GET = withErrorHandler(get_handler);
+export const DELETE = withErrorHandler(delete_handler);

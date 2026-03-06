@@ -5,6 +5,7 @@ import path from "node:path";
 import { resolveStateDir } from "@/lib/clawdbot/paths";
 import { parseBody, isValidationError } from "@/lib/api/validation";
 import { createLogger } from "@/lib/logger";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,7 +46,7 @@ interface CronConfig {
   sessionRetention?: string;
 }
 
-export async function GET() {
+async function get_handler() {
   try {
     const stateDir = resolveStateDir();
 
@@ -78,7 +79,7 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+async function post_handler(request: Request) {
   try {
     const parsed = await parseBody(request, CronPostSchema);
     if (isValidationError(parsed)) return parsed;
@@ -108,3 +109,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+export const GET = withErrorHandler(get_handler);
+export const POST = withErrorHandler(post_handler);

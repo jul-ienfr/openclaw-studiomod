@@ -6,13 +6,14 @@ import {
   loadLocalGatewayDefaults,
   loadStudioSettings,
 } from "@/lib/studio/settings-store";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
 
 const isPatch = (value: unknown): value is StudioSettingsPatch =>
   Boolean(value && typeof value === "object");
 
-export async function GET() {
+async function get_handler() {
   try {
     const settings = loadStudioSettings();
     const localGatewayDefaults = loadLocalGatewayDefaults();
@@ -24,7 +25,7 @@ export async function GET() {
   }
 }
 
-export async function PUT(request: Request) {
+async function put_handler(request: Request) {
   try {
     const body = (await request.json()) as unknown;
     if (!isPatch(body)) {
@@ -38,3 +39,6 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+export const GET = withErrorHandler(get_handler);
+export const PUT = withErrorHandler(put_handler);

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { parseBody, isValidationError } from "@/lib/api/validation";
 import { createLogger } from "@/lib/logger";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
 
@@ -144,7 +145,7 @@ async function validateCohere(
   return { valid: false, error: `HTTP ${res.status}: ${text.slice(0, 200)}` };
 }
 
-export async function POST(request: Request) {
+async function post_handler(request: Request) {
   try {
     const parsed = await parseBody(request, ValidateBodySchema);
     if (isValidationError(parsed)) return parsed;
@@ -232,3 +233,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ valid: false, error: msg.slice(0, 200) });
   }
 }
+
+export const POST = withErrorHandler(post_handler);

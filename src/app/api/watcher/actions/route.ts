@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { execWatcher } from "@/lib/watcher/exec";
 import { getDbWrite } from "@/lib/watcher/db";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
 
-export async function POST(request: Request) {
+async function post_handler(request: Request) {
   try {
     const body = await request.json();
     const { action, source, level, itemId, dryRun, limit } = body as {
@@ -87,3 +88,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+export const POST = withErrorHandler(post_handler);

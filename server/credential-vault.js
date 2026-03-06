@@ -11,7 +11,7 @@ const IV_BYTES = 12;
  * One JSON file per agent: credentials/{agentId}.json
  */
 const resolveCredentialsDir = (env = process.env) => {
-  return path.join(resolveStateDir(env), "openclaw-studio", "credentials");
+  return path.join(resolveStateDir(env), "openclaw-studio-v2", "credentials");
 };
 
 const resolveAgentCredentialPath = (agentId, env = process.env) => {

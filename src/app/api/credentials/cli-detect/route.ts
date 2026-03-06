@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { detectCliCredentials } = require("../../../../../server/cli-detector");
 
 export const runtime = "nodejs";
 
-export async function GET() {
+async function get_handler() {
   try {
     const detected = detectCliCredentials();
     return NextResponse.json({ detected });
@@ -16,3 +17,5 @@ export async function GET() {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+export const GET = withErrorHandler(get_handler);

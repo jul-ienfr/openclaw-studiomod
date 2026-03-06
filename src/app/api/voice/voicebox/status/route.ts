@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
 
 const VOICEBOX_URL = "http://127.0.0.1:17493";
 
-export async function GET() {
+async function get_handler() {
   try {
     const res = await fetch(`${VOICEBOX_URL}/health`, {
       signal: AbortSignal.timeout(3000),
@@ -16,3 +17,5 @@ export async function GET() {
     return NextResponse.json({ running: false });
   }
 }
+
+export const GET = withErrorHandler(get_handler);

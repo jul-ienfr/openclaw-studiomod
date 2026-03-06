@@ -9,6 +9,7 @@ import {
 } from "@/lib/ssh/gateway-host";
 import { removeSkillOverSsh } from "@/lib/ssh/skills-remove";
 import { loadStudioSettings } from "@/lib/studio/settings-store";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
 
@@ -57,7 +58,7 @@ const normalizeRemoveRequest = (body: unknown): SkillRemoveRequest => {
   };
 };
 
-export async function POST(request: Request) {
+async function post_handler(request: Request) {
   try {
     const body = (await request.json()) as unknown;
     const removeRequest = normalizeRemoveRequest(body);
@@ -86,3 +87,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: message }, { status });
   }
 }
+
+export const POST = withErrorHandler(post_handler);

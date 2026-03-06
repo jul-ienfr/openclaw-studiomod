@@ -53,7 +53,15 @@ export const loadStudioSettings = (): StudioSettings => {
     return gateway ? { ...defaults, gateway } : defaults;
   }
   const raw = fs.readFileSync(settingsPath, "utf8");
-  const parsed = JSON.parse(raw) as unknown;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    // Corrupted settings file — fall back to defaults
+    const defaults = defaultStudioSettings();
+    const gateway = loadLocalGatewayDefaults();
+    return gateway ? { ...defaults, gateway } : defaults;
+  }
   const settings = normalizeStudioSettings(parsed);
   if (!settings.gateway?.token) {
     const gateway = loadLocalGatewayDefaults();

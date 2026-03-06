@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { getDb, getDbWrite } from "@/lib/watcher/db";
 import { execFile } from "child_process";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
 
-export async function GET(request: Request) {
+async function get_handler(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
@@ -28,7 +29,7 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+async function post_handler(request: Request) {
   try {
     const body = await request.json();
     const { action, implId } = body as { action?: string; implId?: string };
@@ -83,3 +84,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+export const GET = withErrorHandler(get_handler);
+export const POST = withErrorHandler(post_handler);

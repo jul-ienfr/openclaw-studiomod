@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 // TODO: Replace the placeholder logic with an actual LLM-based coherence
 // validator via the gateway client once LLM routing is wired.
@@ -17,7 +18,7 @@ function getCacheKey(body: unknown): string {
   return JSON.stringify(body);
 }
 
-export async function POST(request: Request) {
+async function post_handler(request: Request) {
   try {
     const body = await request.json();
 
@@ -101,3 +102,5 @@ export async function POST(request: Request) {
     );
   }
 }
+
+export const POST = withErrorHandler(post_handler);

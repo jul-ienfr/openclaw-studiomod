@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/watcher/db";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
 
@@ -14,7 +15,7 @@ const KNOWN_BOTS = new Set([
   "renovate[bot]", "renovate", "snyk-bot",
 ]);
 
-export async function GET(request: Request) {
+async function get_handler(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const author = searchParams.get("author");
@@ -77,3 +78,5 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+export const GET = withErrorHandler(get_handler);

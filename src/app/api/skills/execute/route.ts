@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { parseSkillMd } from "@/lib/skills/skill-parser";
 import { renderExecTemplate } from "@/lib/skills/skill-executor";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function POST(request: Request) {
+async function post_handler(request: Request) {
   try {
     const body = await request.json();
     const { skillPath, commandName, parameters } = body as {
@@ -63,3 +64,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: message }, { status });
   }
 }
+
+export const POST = withErrorHandler(post_handler);

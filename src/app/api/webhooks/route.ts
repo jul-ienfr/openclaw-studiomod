@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import fs from "node:fs";
 import path from "node:path";
 import { resolveStateDir } from "@/lib/clawdbot/paths";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
 
@@ -11,7 +12,7 @@ function getFilePath() {
   return path.join(resolveStateDir(), "openclaw-studio", WEBHOOKS_FILE);
 }
 
-export async function GET() {
+async function get_handler() {
   try {
     const fp = getFilePath();
     if (!fs.existsSync(fp)) return NextResponse.json({ webhooks: [] });
@@ -22,7 +23,7 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+async function post_handler(request: Request) {
   try {
     const body = await request.json() as { webhooks: unknown[] };
     const fp = getFilePath();
@@ -34,3 +35,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }
 }
+
+export const GET = withErrorHandler(get_handler);
+export const POST = withErrorHandler(post_handler);

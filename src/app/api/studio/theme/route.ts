@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readTheme, writeTheme } from "@/lib/theme/server";
 import { ThemeConfig } from "@/lib/theme";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+async function get_handler() {
   try {
     const theme = await readTheme();
     return NextResponse.json(theme);
@@ -16,7 +17,7 @@ export async function GET() {
   }
 }
 
-export async function PATCH(req: NextRequest) {
+async function patch_handler(req: NextRequest) {
   try {
     const body = (await req.json()) as Partial<ThemeConfig>;
     const current = await readTheme();
@@ -42,7 +43,7 @@ export async function PATCH(req: NextRequest) {
   }
 }
 
-export async function PUT(req: NextRequest) {
+async function put_handler(req: NextRequest) {
   // Full replacement
   try {
     const body = (await req.json()) as ThemeConfig;
@@ -55,3 +56,7 @@ export async function PUT(req: NextRequest) {
     );
   }
 }
+
+export const GET = withErrorHandler(get_handler);
+export const PUT = withErrorHandler(put_handler);
+export const PATCH = withErrorHandler(patch_handler);

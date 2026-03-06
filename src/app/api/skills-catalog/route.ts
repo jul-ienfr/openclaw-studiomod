@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import fs from "node:fs";
 import path from "node:path";
 import { resolveStateDir } from "@/lib/clawdbot/paths";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
 
@@ -25,7 +26,7 @@ function readSkillMd(skillDir: string): { name: string; description?: string } {
   }
 }
 
-export async function GET() {
+async function get_handler() {
   try {
     const stateDir = resolveStateDir();
     const agentsDir = path.join(stateDir, "agents");
@@ -77,3 +78,5 @@ export async function GET() {
     return NextResponse.json({ error: String(err), skills: [] }, { status: 500 });
   }
 }
+
+export const GET = withErrorHandler(get_handler);

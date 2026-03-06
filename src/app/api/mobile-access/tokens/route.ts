@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { parseBody, parseQuery, isValidationError } from "@/lib/api/validation";
 import { createLogger } from "@/lib/logger";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
 
@@ -51,7 +52,7 @@ function isMasterAuth(req: NextRequest): boolean {
 }
 
 /** GET — list all instance tokens (without raw token values) */
-export async function GET(req: NextRequest) {
+async function get_handler(req: NextRequest) {
   if (!isMasterAuth(req)) {
     return NextResponse.json(
       { error: "Master token required" },
@@ -70,7 +71,7 @@ export async function GET(req: NextRequest) {
 }
 
 /** POST — generate a new instance token */
-export async function POST(req: NextRequest) {
+async function post_handler(req: NextRequest) {
   if (!isMasterAuth(req)) {
     return NextResponse.json(
       { error: "Master token required" },
@@ -93,7 +94,7 @@ export async function POST(req: NextRequest) {
 }
 
 /** DELETE — revoke an instance token by ID */
-export async function DELETE(req: NextRequest) {
+async function delete_handler(req: NextRequest) {
   if (!isMasterAuth(req)) {
     return NextResponse.json(
       { error: "Master token required" },
@@ -116,7 +117,7 @@ export async function DELETE(req: NextRequest) {
 }
 
 /** PATCH — update token label */
-export async function PATCH(req: NextRequest) {
+async function patch_handler(req: NextRequest) {
   if (!isMasterAuth(req)) {
     return NextResponse.json(
       { error: "Master token required" },
@@ -136,3 +137,8 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
+
+export const GET = withErrorHandler(get_handler);
+export const POST = withErrorHandler(post_handler);
+export const PATCH = withErrorHandler(patch_handler);
+export const DELETE = withErrorHandler(delete_handler);

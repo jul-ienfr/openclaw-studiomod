@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
 
@@ -7,7 +8,7 @@ const VOICEBOX_URL = "http://127.0.0.1:17493";
 type Params = { params: Promise<{ id: string }> };
 
 // GET /api/voice/voicebox/profiles/[id] — get profile
-export async function GET(_req: NextRequest, { params }: Params) {
+async function get_handler(_req: NextRequest, { params }: Params) {
   const { id } = await params;
   const res = await fetch(`${VOICEBOX_URL}/profiles/${id}`, {
     signal: AbortSignal.timeout(5000),
@@ -17,7 +18,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
 }
 
 // PUT /api/voice/voicebox/profiles/[id] — update profile metadata
-export async function PUT(req: NextRequest, { params }: Params) {
+async function put_handler(req: NextRequest, { params }: Params) {
   const { id } = await params;
   const body = await req.json() as unknown;
   const res = await fetch(`${VOICEBOX_URL}/profiles/${id}`, {
@@ -31,7 +32,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
 }
 
 // DELETE /api/voice/voicebox/profiles/[id] — delete profile
-export async function DELETE(_req: NextRequest, { params }: Params) {
+async function delete_handler(_req: NextRequest, { params }: Params) {
   const { id } = await params;
   const res = await fetch(`${VOICEBOX_URL}/profiles/${id}`, {
     method: "DELETE",
@@ -40,3 +41,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
   const data = await res.json() as unknown;
   return NextResponse.json(data, { status: res.status });
 }
+
+export const GET = withErrorHandler(get_handler);
+export const PUT = withErrorHandler(put_handler);
+export const DELETE = withErrorHandler(delete_handler);

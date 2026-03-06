@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { startTunnel, stopTunnel, getTunnelStatus } from "@/lib/tunnel/manager";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
 
 /** GET — current tunnel status */
-export async function GET() {
+async function get_handler() {
   try {
     return NextResponse.json(getTunnelStatus());
   } catch (err) {
@@ -14,7 +15,7 @@ export async function GET() {
 }
 
 /** POST — start the tunnel */
-export async function POST() {
+async function post_handler() {
   try {
     const status = await startTunnel();
     return NextResponse.json(status);
@@ -25,7 +26,7 @@ export async function POST() {
 }
 
 /** DELETE — stop the tunnel */
-export async function DELETE() {
+async function delete_handler() {
   try {
     return NextResponse.json(stopTunnel());
   } catch (err) {
@@ -33,3 +34,7 @@ export async function DELETE() {
     return NextResponse.json({ active: false, error: msg }, { status: 500 });
   }
 }
+
+export const GET = withErrorHandler(get_handler);
+export const POST = withErrorHandler(post_handler);
+export const DELETE = withErrorHandler(delete_handler);

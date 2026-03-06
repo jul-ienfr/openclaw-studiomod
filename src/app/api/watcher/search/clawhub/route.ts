@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
 
@@ -11,7 +12,7 @@ interface ClawHubSearchResult {
   updatedAt: string;
 }
 
-export async function GET(request: Request) {
+async function get_handler(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const query = searchParams.get("q");
@@ -43,3 +44,5 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: message, items: [] }, { status: 500 });
   }
 }
+
+export const GET = withErrorHandler(get_handler);

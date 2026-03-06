@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/watcher/db";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
 
-export async function GET(
+async function get_handler(
   _request: Request,
   { params }: { params: Promise<{ itemId: string }> }
 ) {
@@ -19,3 +20,5 @@ export async function GET(
     return NextResponse.json({ error: err instanceof Error ? err.message : "Failed" }, { status: 500 });
   }
 }
+
+export const GET = withErrorHandler(get_handler);

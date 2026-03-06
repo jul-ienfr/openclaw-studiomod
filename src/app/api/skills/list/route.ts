@@ -7,6 +7,7 @@ import {
   getSkillMtime,
 } from "@/lib/skills/skill-parser";
 import { enrichWithUI, type SkillWithUI } from "@/lib/skills/ui-schema-builder";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -58,7 +59,7 @@ function setCache(skillDir: string, mtime: number, data: SkillWithUI): void {
   }
 }
 
-export async function GET() {
+async function get_handler() {
   try {
     const stateDir = resolveStateDir();
     const skillsBase = path.join(stateDir, "skills");
@@ -95,3 +96,5 @@ export async function GET() {
     );
   }
 }
+
+export const GET = withErrorHandler(get_handler);

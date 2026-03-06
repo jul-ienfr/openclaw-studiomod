@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 /* eslint-disable @typescript-eslint/no-require-imports */
 const {
@@ -26,7 +27,7 @@ const isValidBody = (body: unknown): body is BatchBody =>
     Array.isArray((body as BatchBody).providers),
   );
 
-export async function POST(request: Request) {
+async function post_handler(request: Request) {
   try {
     const body = (await request.json()) as unknown;
     if (!isValidBody(body)) {
@@ -76,3 +77,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+export const POST = withErrorHandler(post_handler);

@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
 
 const REPORTS_DIR = process.env.WATCHER_REPORTS_DIR
   ?? path.join(process.env.HOME ?? "/home/jul", ".openclaw/workspace-openclaw-watcher/reports");
 
-export async function GET(request: Request) {
+async function get_handler(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const file = searchParams.get("file");
@@ -41,3 +42,5 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+export const GET = withErrorHandler(get_handler);

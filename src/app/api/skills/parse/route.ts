@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { parseSkillMd } from "@/lib/skills/skill-parser";
 import { buildUISchemas } from "@/lib/skills/ui-schema-builder";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function POST(request: Request) {
+async function post_handler(request: Request) {
   try {
     const body = await request.json();
     const { skillPath } = body as { skillPath?: string };
@@ -38,3 +39,5 @@ export async function POST(request: Request) {
     );
   }
 }
+
+export const POST = withErrorHandler(post_handler);

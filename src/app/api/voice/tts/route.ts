@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
 
 const VOICEBOX_URL = "http://127.0.0.1:17493";
 
-export async function POST(request: Request) {
+async function post_handler(request: Request) {
   try {
     const body = await request.json() as { text: string; voice: string };
     const { text, voice } = body;
@@ -29,3 +30,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }
 }
+
+export const POST = withErrorHandler(post_handler);

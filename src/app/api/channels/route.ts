@@ -5,6 +5,7 @@ import path from "node:path";
 import { resolveStateDir } from "@/lib/clawdbot/paths";
 import { parseBody, parseQuery, isValidationError } from "@/lib/api/validation";
 import { createLogger } from "@/lib/logger";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
 
@@ -36,7 +37,7 @@ function maskSecret(val: string): string {
   return val.slice(0, 4) + "****" + val.slice(-4);
 }
 
-export async function GET(request: Request) {
+async function get_handler(request: Request) {
   try {
     const url = new URL(request.url);
     const parsed = parseQuery(url, ChannelsGetQuerySchema);
@@ -146,7 +147,7 @@ export async function GET(request: Request) {
   }
 }
 
-export async function PATCH(request: Request) {
+async function patch_handler(request: Request) {
   try {
     const parsed = await parseBody(request, ChannelsPatchSchema);
     if (isValidationError(parsed)) return parsed;
@@ -183,7 +184,7 @@ export async function PATCH(request: Request) {
   }
 }
 
-export async function DELETE(request: Request) {
+async function delete_handler(request: Request) {
   try {
     const url = new URL(request.url);
     const parsed = parseQuery(url, ChannelsDeleteQuerySchema);
@@ -208,3 +209,7 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }
 }
+
+export const GET = withErrorHandler(get_handler);
+export const PATCH = withErrorHandler(patch_handler);
+export const DELETE = withErrorHandler(delete_handler);

@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { loadWatcherConfigMasked, saveWatcherConfigLocked } from "@/lib/watcher/config";
 import { requireAuth } from "@/features/watcher/operations/authMiddleware";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
 
-export async function GET(request: Request) {
+async function get_handler(request: Request) {
   const authError = requireAuth(request);
   if (authError) return authError;
 
@@ -17,7 +18,7 @@ export async function GET(request: Request) {
   }
 }
 
-export async function PUT(request: Request) {
+async function put_handler(request: Request) {
   const authError = requireAuth(request);
   if (authError) return authError;
 
@@ -36,3 +37,6 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+export const GET = withErrorHandler(get_handler);
+export const PUT = withErrorHandler(put_handler);

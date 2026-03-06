@@ -1,46 +1,36 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readPillars, writePillars } from "@/lib/pillars/server";
-import { Pillar } from "@/lib/pillars";
+import { loadPillarsConfig, savePillarsConfig } from "@/lib/pillars/server";
+import type { Pillar } from "@/lib/pillars";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 export const dynamic = "force-dynamic";
 
-export async function PATCH(
+async function patch_handler(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  try {
-    const { id } = await params;
-    const body = (await req.json()) as Partial<Pillar>;
-    const config = await readPillars();
-    const idx = config.pillars.findIndex((p) => p.id === id);
-    if (idx === -1) {
-      return NextResponse.json({ error: "Pillar not found" }, { status: 404 });
-    }
-    config.pillars[idx] = { ...config.pillars[idx], ...body, id };
-    await writePillars(config);
-    return NextResponse.json(config.pillars[idx]);
-  } catch {
-    return NextResponse.json(
-      { error: "Failed to update pillar" },
-      { status: 500 },
-    );
+  const { id } = await params;
+  const body = (await req.json()) as Partial<Pillar>;
+  const config = loadPillarsConfig() ?? { version: "1" as const, pillars: [] };
+  const idx = config.pillars.findIndex((p) => p.id === id);
+  if (idx === -1) {
+    return NextResponse.json({ error: "Pillar not found" }, { status: 404 });
   }
+  config.pillars[idx] = { ...config.pillars[idx], ...body, id };
+  savePillarsConfig(config);
+  return NextResponse.json(config.pillars[idx]);
 }
 
-export async function DELETE(
+async function delete_handler(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  try {
-    const { id } = await params;
-    const config = await readPillars();
-    config.pillars = config.pillars.filter((p) => p.id !== id);
-    await writePillars(config);
-    return NextResponse.json({ ok: true });
-  } catch {
-    return NextResponse.json(
-      { error: "Failed to delete pillar" },
-      { status: 500 },
-    );
-  }
+  const { id } = await params;
+  const config = loadPillarsConfig() ?? { version: "1" as const, pillars: [] };
+  config.pillars = config.pillars.filter((p) => p.id !== id);
+  savePillarsConfig(config);
+  return NextResponse.json({ ok: true });
 }
+
+export const PATCH = withErrorHandler(patch_handler);
+export const DELETE = withErrorHandler(delete_handler);

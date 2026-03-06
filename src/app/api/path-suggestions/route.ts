@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { resolveUserPath } from "@/lib/clawdbot/paths";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
 
@@ -104,7 +105,7 @@ const listPathAutocompleteEntries = ({
   return { query: normalized, directory: directoryPath, entries };
 };
 
-export async function GET(request: Request) {
+async function get_handler(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const rawQuery = searchParams.get("q");
@@ -119,3 +120,5 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: message }, { status });
   }
 }
+
+export const GET = withErrorHandler(get_handler);

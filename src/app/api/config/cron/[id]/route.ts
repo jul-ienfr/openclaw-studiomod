@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import fs from "node:fs";
 import path from "node:path";
 import { resolveStateDir } from "@/lib/clawdbot/paths";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,7 +24,7 @@ type JobsFile = {
   jobs: Record<string, unknown>[];
 };
 
-export async function PATCH(
+async function patch_handler(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -66,7 +67,7 @@ export async function PATCH(
   }
 }
 
-export async function DELETE(
+async function delete_handler(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -101,3 +102,6 @@ export async function DELETE(
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+export const PATCH = withErrorHandler(patch_handler);
+export const DELETE = withErrorHandler(delete_handler);

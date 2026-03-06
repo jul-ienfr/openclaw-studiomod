@@ -358,7 +358,7 @@
     "sendNow": "Envoyer maintenant",
     "attachFile": "Joindre un fichier",
     "reply": "Répondre",
-    "forwardTo": "Transférer à\u2026",
+    "forwardTo": "Transférer à…",
     "forwarded": "Transféré"
   },
   "sessionSelector": {
@@ -872,5 +872,43 @@
     "switchLabel": "Langue",
     "en": "English",
     "fr": "Français"
+  },
+  "operations": {
+    "tab_logs": "Journaux",
+    "tab_analytics": "Analytics",
+    "tab_intercom": "Intercom"
+  },
+  "settings": {
+    "section_appearance": "Apparence",
+    "section_organisation": "Organisation",
+    "section_integrations": "Intégrations",
+    "section_automation": "Automatisation",
+    "section_system": "Système",
+    "sub_theme": "Thème & Mise en page",
+    "sub_branding": "Identité visuelle",
+    "sub_pillars": "Piliers",
+    "sub_workflows": "Workflows",
+    "sub_providers": "Fournisseurs",
+    "sub_credentials": "Identifiants",
+    "sub_channels": "Canaux",
+    "sub_skills": "Skills",
+    "sub_routing": "Routage",
+    "sub_webhooks": "Webhooks",
+    "sub_voice": "Voix",
+    "sub_mobile": "Mobile",
+    "sub_advanced": "Avancé"
+  },
+  "workflowEditor": {
+    "title": "Éditeur de workflow",
+    "nameLabel": "Nom",
+    "namePlaceholder": "Mon workflow",
+    "preview": "Aperçu du pipeline",
+    "nodes": "Nœuds",
+    "addNode": "Ajouter un nœud",
+    "noNodes": "Aucun nœud pour l'instant.",
+    "nodeLabelPlaceholder": "Libellé de l'étape",
+    "nodeAgentIdPlaceholder": "agent-id",
+    "removeNode": "Supprimer le nœud",
+    "emptyPreview": "Ajoutez des nœuds pour voir l'aperçu du pipeline."
   }
 }

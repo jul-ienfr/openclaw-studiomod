@@ -13,6 +13,7 @@ import {
 import { loadStudioSettings } from "@/lib/studio/settings-store";
 import { z } from "zod";
 import { parseBody, isValidationError } from "@/lib/api/validation";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
 
@@ -36,7 +37,7 @@ const resolveAgentStateSshTarget = (): string | null => {
   return resolveGatewaySshTargetFromGatewayUrl(gatewayUrl, process.env);
 };
 
-export async function POST(request: Request) {
+async function post_handler(request: Request) {
   try {
     const body = await parseBody(request, TrashAgentStateSchema);
     if (isValidationError(body)) return body;
@@ -54,7 +55,7 @@ export async function POST(request: Request) {
   }
 }
 
-export async function PUT(request: Request) {
+async function put_handler(request: Request) {
   try {
     const body = await parseBody(request, RestoreAgentStateSchema);
     if (isValidationError(body)) return body;
@@ -77,3 +78,6 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+export const POST = withErrorHandler(post_handler);
+export const PUT = withErrorHandler(put_handler);

@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 const vault = require("../../../../../server/credential-vault");
 import { z } from "zod";
 import { parseBody, isValidationError } from "@/lib/api/validation";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
 
@@ -18,7 +19,7 @@ const CredentialEntrySchema = z
 
 const PutBodySchema = z.array(CredentialEntrySchema);
 
-export async function GET(_request: Request, context: RouteContext) {
+async function get_handler(_request: Request, context: RouteContext) {
   try {
     const { agentId } = await context.params;
     const entries = vault.loadCredentials(agentId);
@@ -30,7 +31,7 @@ export async function GET(_request: Request, context: RouteContext) {
   }
 }
 
-export async function PUT(request: Request, context: RouteContext) {
+async function put_handler(request: Request, context: RouteContext) {
   try {
     const { agentId } = await context.params;
     const body = await parseBody(request, PutBodySchema);
@@ -44,7 +45,7 @@ export async function PUT(request: Request, context: RouteContext) {
   }
 }
 
-export async function DELETE(_request: Request, context: RouteContext) {
+async function delete_handler(_request: Request, context: RouteContext) {
   try {
     const { agentId } = await context.params;
     vault.removeCredentials(agentId);
@@ -55,3 +56,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+export const GET = withErrorHandler(get_handler);
+export const PUT = withErrorHandler(put_handler);
+export const DELETE = withErrorHandler(delete_handler);

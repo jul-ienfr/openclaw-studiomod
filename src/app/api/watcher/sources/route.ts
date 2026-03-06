@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/watcher/db";
+import { withErrorHandler } from "@/lib/api/error-handler";
 
 export const runtime = "nodejs";
 
-export async function GET() {
+async function get_handler() {
   try {
     const db = getDb();
     const rows = db.prepare("SELECT * FROM source_state ORDER BY source ASC").all();
@@ -13,3 +14,5 @@ export async function GET() {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+export const GET = withErrorHandler(get_handler);
