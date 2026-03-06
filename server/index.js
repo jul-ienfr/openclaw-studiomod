@@ -157,14 +157,63 @@ async function main() {
         socket.pipe(upstream);
         upstream.pipe(socket);
       });
+      upstream.setTimeout(10000, () => { upstream.destroy(); socket.destroy(); });
       upstream.on('error', () => socket.destroy());
+      socket.on('error', () => upstream.destroy());
+      return;
+    }
+    // Proxy WebSocket noVNC viewer
+    if (resolvePathname(req.url) === '/browser-view/websockify') {
+      const net = require('node:net');
+      const upstream = net.connect(6080, '127.0.0.1', () => {
+        const WS_SAFE_HEADERS = new Set(['upgrade', 'connection', 'sec-websocket-key',
+          'sec-websocket-version', 'sec-websocket-extensions', 'sec-websocket-protocol',
+          'origin', 'user-agent']);
+        let extraHeaders = '';
+        for (let i = 0; i < req.rawHeaders.length; i += 2) {
+          const name = req.rawHeaders[i].toLowerCase();
+          if (WS_SAFE_HEADERS.has(name)) {
+            const val = req.rawHeaders[i + 1].replace(/[\r\n]/g, '');
+            extraHeaders += `${name}: ${val}\r\n`;
+          }
+        }
+        upstream.write(`GET /websockify HTTP/1.1\r\nHost: 127.0.0.1:6080\r\n${extraHeaders}\r\n`);
+        socket.pipe(upstream);
+        upstream.pipe(socket);
+      });
+      upstream.setTimeout(10000, () => { upstream.destroy(); socket.destroy(); });
+      upstream.on('error', () => socket.destroy());
+      socket.on('error', () => upstream.destroy());
       return;
     }
     handleUpgrade(req, socket, head);
   };
 
+  const STATIC_SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+  };
+  const buildCSP = (host) => {
+    const h = (host || "localhost").replace(/:[0-9]+$/, "");
+    return [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      "style-src 'self' 'unsafe-inline'",
+      `connect-src 'self' ws://${h}:* wss://${h}:* http://${h}:* ws://localhost:* wss://localhost:* http://localhost:*`,
+      "img-src 'self' data: blob:",
+      "font-src 'self' data:",
+      "frame-src 'self'",
+      "frame-ancestors *",
+    ].join("; ");
+  };
+
   const createServer = () => {
     const srv = http.createServer((req, res) => {
+      // Security headers on all responses
+      for (const [k, v] of Object.entries(STATIC_SECURITY_HEADERS)) {
+        res.setHeader(k, v);
+      }
+      res.setHeader("Content-Security-Policy", buildCSP(req.headers.host));
       if (accessGate.handleHttp(req, res)) return;
       // Proxy AI Manager admin API
       if (req.url && req.url.startsWith('/ai-manager/admin/api/')) {
@@ -188,7 +237,9 @@ async function main() {
           res.writeHead(proxyRes.statusCode, proxyRes.headers);
           proxyRes.pipe(res);
         });
-        proxyReq.on('error', () => res.writeHead(502).end('Bad Gateway'));
+        proxyReq.on('error', () => {
+          if (!res.headersSent) res.writeHead(502).end('Bad Gateway');
+        });
         req.pipe(proxyReq);
         return;
       }
@@ -209,12 +260,40 @@ async function main() {
           const ext = path.extname(filePath);
           const mime = { '.js': 'application/javascript', '.css': 'text/css', '.html': 'text/html', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' }[ext] || 'application/octet-stream';
           res.writeHead(200, { 'Content-Type': mime });
-          fs.createReadStream(filePath).pipe(res);
+          fs.createReadStream(filePath).on('error', () => { if (!res.writableEnded) res.end(); }).pipe(res);
         } else {
           // SPA fallback: always serve index.html for client-side routing
           const indexPath = path.join(spaDir, 'index.html');
           res.writeHead(200, { 'Content-Type': 'text/html' });
-          fs.createReadStream(indexPath).pipe(res);
+          fs.createReadStream(indexPath).on('error', () => { if (!res.writableEnded) res.end(); }).pipe(res);
+        }
+        return;
+      }
+      // Serve noVNC static files for browser viewer
+      if (req.url && req.url.startsWith('/browser-view/') && !req.url.startsWith('/browser-view/websockify')) {
+        const spaDir = path.resolve(__dirname, '..', 'public', 'novnc');
+        const urlPathname = new URL(req.url, 'http://localhost').pathname;
+        const urlPath = urlPathname.replace('/browser-view', '') || '/';
+        const filePath = path.resolve(spaDir, '.' + urlPath);
+        if (!filePath.startsWith(spaDir + path.sep) && filePath !== spaDir) {
+          res.writeHead(403).end('Forbidden');
+          return;
+        }
+        if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+          const ext = path.extname(filePath);
+          const mime = { '.js': 'application/javascript', '.css': 'text/css', '.html': 'text/html',
+            '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.png': 'image/png',
+            '.woff': 'font/woff', '.woff2': 'font/woff2' }[ext] || 'application/octet-stream';
+          res.writeHead(200, { 'Content-Type': mime });
+          fs.createReadStream(filePath).on('error', () => { if (!res.writableEnded) res.end(); }).pipe(res);
+        } else {
+          const indexPath = path.join(spaDir, 'vnc.html');
+          if (fs.existsSync(indexPath)) {
+            res.writeHead(200, { 'Content-Type': 'text/html' });
+            fs.createReadStream(indexPath).on('error', () => { if (!res.writableEnded) res.end(); }).pipe(res);
+          } else {
+            res.writeHead(503).end('noVNC not installed yet. Run: sudo apt install novnc');
+          }
         }
         return;
       }
@@ -280,6 +359,23 @@ async function main() {
     await Promise.all(servers.map((server) => closeServer(server)));
     throw err;
   }
+
+  // ── Graceful shutdown ─────────────────────────────────────────────
+  const shutdown = () => {
+    console.log("[studio] shutting down gracefully...");
+    proxy.wss.close();
+    Promise.all(servers.map((s) => new Promise((resolve) => s.close(resolve))))
+      .then(() => {
+        console.log("[studio] all servers closed");
+        process.exit(0);
+      });
+    setTimeout(() => {
+      console.warn("[studio] forced exit after timeout");
+      process.exit(1);
+    }, 5000).unref();
+  };
+  process.on("SIGTERM", shutdown);
+  process.on("SIGINT", shutdown);
 
   const hostForBrowser = hostnames.some((value) => value === "127.0.0.1" || value === "::1")
     ? "localhost"

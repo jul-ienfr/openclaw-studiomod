@@ -66,7 +66,14 @@ export function useGatewayConfigSyncController(
       }
       return null;
     }
-  }, [params, logError]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    params.client,
+    params.isDisconnectLikeError,
+    params.setGatewayConfigSnapshot,
+    params.status,
+    logError,
+  ]);
 
   useEffect(() => {
     const repairIntent = resolveSandboxRepairIntent({
@@ -99,7 +106,14 @@ export function useGatewayConfigSyncController(
         await params.loadAgents();
       },
     });
-  }, [params]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    params.client,
+    params.enqueueConfigMutation,
+    params.gatewayConfigSnapshot,
+    params.loadAgents,
+    params.status,
+  ]);
 
   useEffect(() => {
     if (
@@ -112,7 +126,12 @@ export function useGatewayConfigSyncController(
       return;
     }
     void refreshGatewayConfigSnapshot();
-  }, [params, refreshGatewayConfigSnapshot]);
+  }, [
+    params.inspectSidebarAgentId,
+    params.settingsRouteActive,
+    params.status,
+    refreshGatewayConfigSnapshot,
+  ]);
 
   useEffect(() => {
     const syncIntent = resolveGatewayModelsSyncIntent({
@@ -168,7 +187,16 @@ export function useGatewayConfigSyncController(
     return () => {
       cancelled = true;
     };
-  }, [params, logError]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    params.client,
+    params.isDisconnectLikeError,
+    params.setGatewayConfigSnapshot,
+    params.setGatewayModels,
+    params.setGatewayModelsError,
+    params.status,
+    logError,
+  ]);
 
   return {
     refreshGatewayConfigSnapshot,

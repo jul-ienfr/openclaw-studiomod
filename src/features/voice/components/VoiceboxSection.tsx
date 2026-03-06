@@ -14,6 +14,8 @@ import {
   Activity,
   AlertCircle,
   Loader2,
+  Play,
+  Square,
 } from "lucide-react";
 
 type VoiceProfile = {
@@ -46,7 +48,9 @@ export function VoiceboxSection() {
   const [status, setStatus] = useState<ServiceStatus | null>(null);
   const [profiles, setProfiles] = useState<VoiceProfile[]>([]);
   const [samples, setSamples] = useState<Record<string, ProfileSample[]>>({});
-  const [expandedProfiles, setExpandedProfiles] = useState<Set<string>>(new Set());
+  const [expandedProfiles, setExpandedProfiles] = useState<Set<string>>(
+    new Set(),
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -72,10 +76,14 @@ export function VoiceboxSection() {
   const [deletingProfile, setDeletingProfile] = useState<string | null>(null);
   const [deletingSample, setDeletingSample] = useState<string | null>(null);
 
+  // Audio playback
+  const [playingSample, setPlayingSample] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
   const fetchStatus = useCallback(async () => {
     try {
       const res = await fetch("/api/voice/voicebox/status");
-      const data = await res.json() as ServiceStatus;
+      const data = (await res.json()) as ServiceStatus;
       setStatus(data);
     } catch {
       setStatus({ running: false });
@@ -86,21 +94,27 @@ export function VoiceboxSection() {
     try {
       const res = await fetch("/api/voice/voicebox/profiles");
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json() as VoiceProfile[];
+      const data = (await res.json()) as VoiceProfile[];
       setProfiles(data);
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Erreur de connexion à Voicebox");
+      setError(
+        e instanceof Error ? e.message : "Erreur de connexion à Voicebox",
+      );
     }
   }, []);
 
   const fetchSamples = useCallback(async (profileId: string) => {
     try {
-      const res = await fetch(`/api/voice/voicebox/profiles/${profileId}/samples`);
+      const res = await fetch(
+        `/api/voice/voicebox/profiles/${profileId}/samples`,
+      );
       if (!res.ok) return;
-      const data = await res.json() as ProfileSample[];
+      const data = (await res.json()) as ProfileSample[];
       setSamples((prev) => ({ ...prev, [profileId]: data }));
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, []);
 
   useEffect(() => {
@@ -111,20 +125,23 @@ export function VoiceboxSection() {
     })();
   }, [fetchStatus, fetchProfiles]);
 
-  const toggleExpand = useCallback(async (profileId: string) => {
-    setExpandedProfiles((prev) => {
-      const next = new Set(prev);
-      if (next.has(profileId)) {
-        next.delete(profileId);
-      } else {
-        next.add(profileId);
+  const toggleExpand = useCallback(
+    async (profileId: string) => {
+      setExpandedProfiles((prev) => {
+        const next = new Set(prev);
+        if (next.has(profileId)) {
+          next.delete(profileId);
+        } else {
+          next.add(profileId);
+        }
+        return next;
+      });
+      if (!samples[profileId]) {
+        await fetchSamples(profileId);
       }
-      return next;
-    });
-    if (!samples[profileId]) {
-      await fetchSamples(profileId);
-    }
-  }, [samples, fetchSamples]);
+    },
+    [samples, fetchSamples],
+  );
 
   const handleCreateProfile = useCallback(async () => {
     if (!newName.trim()) return;
@@ -133,7 +150,11 @@ export function VoiceboxSection() {
       const res = await fetch("/api/voice/voicebox/profiles", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newName.trim(), description: newDesc.trim() || null, language: newLang }),
+        body: JSON.stringify({
+          name: newName.trim(),
+          description: newDesc.trim() || null,
+          language: newLang,
+        }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       await fetchProfiles();
@@ -148,68 +169,155 @@ export function VoiceboxSection() {
     }
   }, [newName, newDesc, newLang, fetchProfiles]);
 
-  const handleRenameProfile = useCallback(async (profileId: string) => {
-    if (!editName.trim()) return;
-    try {
-      await fetch(`/api/voice/voicebox/profiles/${profileId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: editName.trim() }),
-      });
-      await fetchProfiles();
-    } catch { /* ignore */ } finally {
-      setEditingId(null);
-    }
-  }, [editName, fetchProfiles]);
+  const handleRenameProfile = useCallback(
+    async (profileId: string) => {
+      if (!editName.trim()) return;
+      try {
+        await fetch(`/api/voice/voicebox/profiles/${profileId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: editName.trim() }),
+        });
+        await fetchProfiles();
+      } catch {
+        /* ignore */
+      } finally {
+        setEditingId(null);
+      }
+    },
+    [editName, fetchProfiles],
+  );
 
-  const handleDeleteProfile = useCallback(async (profileId: string) => {
-    if (!confirm("Supprimer ce profil et tous ses échantillons ?")) return;
-    setDeletingProfile(profileId);
-    try {
-      await fetch(`/api/voice/voicebox/profiles/${profileId}`, { method: "DELETE" });
-      await fetchProfiles();
-      setExpandedProfiles((prev) => { const s = new Set(prev); s.delete(profileId); return s; });
-      setSamples((prev) => { const n = { ...prev }; delete n[profileId]; return n; });
-    } catch { /* ignore */ } finally {
-      setDeletingProfile(null);
-    }
-  }, [fetchProfiles]);
+  const handleDeleteProfile = useCallback(
+    async (profileId: string) => {
+      if (!confirm("Supprimer ce profil et tous ses échantillons ?")) return;
+      setDeletingProfile(profileId);
+      try {
+        await fetch(`/api/voice/voicebox/profiles/${profileId}`, {
+          method: "DELETE",
+        });
+        await fetchProfiles();
+        setExpandedProfiles((prev) => {
+          const s = new Set(prev);
+          s.delete(profileId);
+          return s;
+        });
+        setSamples((prev) => {
+          const n = { ...prev };
+          delete n[profileId];
+          return n;
+        });
+      } catch {
+        /* ignore */
+      } finally {
+        setDeletingProfile(null);
+      }
+    },
+    [fetchProfiles],
+  );
 
-  const handleUploadSample = useCallback(async (profileId: string) => {
-    if (!uploadFile || !uploadRefText.trim()) return;
-    setUploading(true);
-    try {
-      const form = new FormData();
-      form.append("file", uploadFile);
-      form.append("reference_text", uploadRefText.trim());
-      const res = await fetch(`/api/voice/voicebox/profiles/${profileId}/samples`, {
-        method: "POST",
-        body: form,
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      await fetchSamples(profileId);
-      setUploadingFor(null);
-      setUploadFile(null);
-      setUploadRefText("");
-    } catch (e) {
-      alert(e instanceof Error ? e.message : "Erreur lors de l'upload");
-    } finally {
-      setUploading(false);
-    }
-  }, [uploadFile, uploadRefText, fetchSamples]);
+  const handleUploadSample = useCallback(
+    async (profileId: string) => {
+      if (!uploadFile || !uploadRefText.trim()) return;
+      setUploading(true);
+      try {
+        const form = new FormData();
+        form.append("file", uploadFile);
+        form.append("reference_text", uploadRefText.trim());
+        const res = await fetch(
+          `/api/voice/voicebox/profiles/${profileId}/samples`,
+          {
+            method: "POST",
+            body: form,
+          },
+        );
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        await fetchSamples(profileId);
+        setUploadingFor(null);
+        setUploadFile(null);
+        setUploadRefText("");
+      } catch (e) {
+        alert(e instanceof Error ? e.message : "Erreur lors de l'upload");
+      } finally {
+        setUploading(false);
+      }
+    },
+    [uploadFile, uploadRefText, fetchSamples],
+  );
 
-  const handleDeleteSample = useCallback(async (sampleId: string, profileId: string) => {
-    setDeletingSample(sampleId);
-    try {
-      await fetch(`/api/voice/voicebox/profiles/samples/${sampleId}`, { method: "DELETE" });
-      setSamples((prev) => ({
-        ...prev,
-        [profileId]: (prev[profileId] ?? []).filter((s) => s.id !== sampleId),
-      }));
-    } catch { /* ignore */ } finally {
-      setDeletingSample(null);
+  const handleDeleteSample = useCallback(
+    async (sampleId: string, profileId: string) => {
+      setDeletingSample(sampleId);
+      try {
+        await fetch(`/api/voice/voicebox/profiles/samples/${sampleId}`, {
+          method: "DELETE",
+        });
+        setSamples((prev) => ({
+          ...prev,
+          [profileId]: (prev[profileId] ?? []).filter((s) => s.id !== sampleId),
+        }));
+      } catch {
+        /* ignore */
+      } finally {
+        setDeletingSample(null);
+      }
+    },
+    [],
+  );
+
+  const stopPlayback = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = "";
+      audioRef.current = null;
     }
+    setPlayingSample(null);
   }, []);
+
+  const handlePlaySample = useCallback(
+    async (sampleId: string) => {
+      if (playingSample === sampleId) {
+        stopPlayback();
+        return;
+      }
+      stopPlayback();
+      try {
+        const audio = new Audio(
+          `/api/voice/voicebox/profiles/samples/${sampleId}`,
+        );
+        audioRef.current = audio;
+        setPlayingSample(sampleId);
+        audio.onended = () => setPlayingSample(null);
+        audio.onerror = () => setPlayingSample(null);
+        await audio.play();
+      } catch {
+        setPlayingSample(null);
+      }
+    },
+    [playingSample, stopPlayback],
+  );
+
+  const handlePlayProfile = useCallback(
+    async (profileId: string) => {
+      let profileSamples = samples[profileId];
+      if (!profileSamples) {
+        try {
+          const res = await fetch(
+            `/api/voice/voicebox/profiles/${profileId}/samples`,
+          );
+          if (!res.ok) return;
+          const data = (await res.json()) as ProfileSample[];
+          setSamples((prev) => ({ ...prev, [profileId]: data }));
+          profileSamples = data;
+        } catch {
+          return;
+        }
+      }
+      if (profileSamples.length === 0) return;
+      await handlePlaySample(profileSamples[0].id);
+    },
+    [samples, handlePlaySample],
+  );
 
   if (loading) {
     return (
@@ -246,7 +354,10 @@ export function VoiceboxSection() {
         )}
         <button
           type="button"
-          onClick={() => { void fetchStatus(); void fetchProfiles(); }}
+          onClick={() => {
+            void fetchStatus();
+            void fetchProfiles();
+          }}
           className="ml-auto text-[10px] text-muted-foreground hover:text-foreground"
         >
           Actualiser
@@ -279,7 +390,9 @@ export function VoiceboxSection() {
       {/* Create profile form */}
       {showCreate && (
         <div className="space-y-3 rounded-lg border border-border bg-surface-2/50 p-3">
-          <h4 className="text-[11px] font-semibold text-foreground">Créer un profil</h4>
+          <h4 className="text-[11px] font-semibold text-foreground">
+            Créer un profil
+          </h4>
           <input
             type="text"
             value={newName}
@@ -301,7 +414,9 @@ export function VoiceboxSection() {
             className="ui-input w-full text-xs"
           >
             {LANGUAGES.map((l) => (
-              <option key={l} value={l}>{l}</option>
+              <option key={l} value={l}>
+                {l}
+              </option>
             ))}
           </select>
           <div className="flex gap-2">
@@ -311,11 +426,19 @@ export function VoiceboxSection() {
               disabled={!newName.trim() || creating}
               className="ui-btn-primary flex-1 py-1.5 text-xs disabled:opacity-50"
             >
-              {creating ? <Loader2 className="mx-auto h-3.5 w-3.5 animate-spin" /> : "Créer"}
+              {creating ? (
+                <Loader2 className="mx-auto h-3.5 w-3.5 animate-spin" />
+              ) : (
+                "Créer"
+              )}
             </button>
             <button
               type="button"
-              onClick={() => { setShowCreate(false); setNewName(""); setNewDesc(""); }}
+              onClick={() => {
+                setShowCreate(false);
+                setNewName("");
+                setNewDesc("");
+              }}
               className="ui-btn-secondary flex-1 py-1.5 text-xs"
             >
               Annuler
@@ -339,7 +462,10 @@ export function VoiceboxSection() {
           const isEditing = editingId === profile.id;
 
           return (
-            <div key={profile.id} className="rounded-lg border border-border bg-surface-2/30">
+            <div
+              key={profile.id}
+              className="rounded-lg border border-border bg-surface-2/30"
+            >
               {/* Profile row */}
               <div className="flex items-center gap-2 px-3 py-2.5">
                 <button
@@ -364,7 +490,8 @@ export function VoiceboxSection() {
                     className="ui-input flex-1 text-xs py-0.5"
                     autoFocus
                     onKeyDown={(e) => {
-                      if (e.key === "Enter") void handleRenameProfile(profile.id);
+                      if (e.key === "Enter")
+                        void handleRenameProfile(profile.id);
                       if (e.key === "Escape") setEditingId(null);
                     }}
                   />
@@ -404,7 +531,25 @@ export function VoiceboxSection() {
                   <>
                     <button
                       type="button"
-                      onClick={() => { setEditingId(profile.id); setEditName(profile.name); }}
+                      onClick={() => void handlePlayProfile(profile.id)}
+                      className="ui-btn-icon xs text-muted-foreground hover:text-primary"
+                      aria-label="Écouter"
+                    >
+                      {playingSample &&
+                      samples[profile.id]?.some(
+                        (s) => s.id === playingSample,
+                      ) ? (
+                        <Square className="h-3 w-3" />
+                      ) : (
+                        <Play className="h-3 w-3" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingId(profile.id);
+                        setEditName(profile.name);
+                      }}
                       className="ui-btn-icon xs text-muted-foreground hover:text-foreground"
                       aria-label="Renommer"
                     >
@@ -431,13 +576,16 @@ export function VoiceboxSection() {
               {expanded && (
                 <div className="border-t border-border px-3 pb-3 pt-2 space-y-2">
                   {profile.description && (
-                    <p className="text-[10px] text-muted-foreground">{profile.description}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {profile.description}
+                    </p>
                   )}
 
                   {/* Sample list */}
                   {profileSamples.length === 0 ? (
                     <p className="text-[10px] text-muted-foreground italic">
-                      Aucun échantillon audio — ajoutez-en pour améliorer le clonage.
+                      Aucun échantillon audio — ajoutez-en pour améliorer le
+                      clonage.
                     </p>
                   ) : (
                     <div className="space-y-1.5">
@@ -456,7 +604,21 @@ export function VoiceboxSection() {
                           </div>
                           <button
                             type="button"
-                            onClick={() => void handleDeleteSample(sample.id, profile.id)}
+                            onClick={() => void handlePlaySample(sample.id)}
+                            className="shrink-0 ui-btn-icon xs text-muted-foreground hover:text-primary"
+                            aria-label="Écouter l'échantillon"
+                          >
+                            {playingSample === sample.id ? (
+                              <Square className="h-3 w-3" />
+                            ) : (
+                              <Play className="h-3 w-3" />
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void handleDeleteSample(sample.id, profile.id)
+                            }
                             disabled={deletingSample === sample.id}
                             className="shrink-0 ui-btn-icon xs text-destructive/60 hover:text-destructive"
                             aria-label="Supprimer l'échantillon"
@@ -475,7 +637,9 @@ export function VoiceboxSection() {
                   {/* Upload form */}
                   {uploadingFor === profile.id ? (
                     <div className="space-y-2 rounded-md border border-border bg-surface-2/50 p-2.5">
-                      <p className="text-[10px] font-medium text-foreground">Ajouter un échantillon</p>
+                      <p className="text-[10px] font-medium text-foreground">
+                        Ajouter un échantillon
+                      </p>
 
                       {/* File drop zone */}
                       <div
@@ -484,14 +648,18 @@ export function VoiceboxSection() {
                       >
                         <Upload className="h-4 w-4 text-muted-foreground mb-1" />
                         <p className="text-[10px] text-muted-foreground">
-                          {uploadFile ? uploadFile.name : "Cliquer pour sélectionner (WAV, MP3, OGG…)"}
+                          {uploadFile
+                            ? uploadFile.name
+                            : "Cliquer pour sélectionner (WAV, MP3, OGG…)"}
                         </p>
                         <input
                           ref={fileInputRef}
                           type="file"
                           accept="audio/*"
                           className="hidden"
-                          onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
+                          onChange={(e) =>
+                            setUploadFile(e.target.files?.[0] ?? null)
+                          }
                         />
                       </div>
 
@@ -507,7 +675,9 @@ export function VoiceboxSection() {
                         <button
                           type="button"
                           onClick={() => void handleUploadSample(profile.id)}
-                          disabled={!uploadFile || !uploadRefText.trim() || uploading}
+                          disabled={
+                            !uploadFile || !uploadRefText.trim() || uploading
+                          }
                           className="ui-btn-primary flex-1 py-1 text-[11px] disabled:opacity-50"
                         >
                           {uploading ? (

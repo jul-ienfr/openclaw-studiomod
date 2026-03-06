@@ -106,6 +106,8 @@ function createGatewayProxy(options) {
     const closeBoth = (code, reason) => {
       if (closed) return;
       closed = true;
+      pendingUpstream.length = 0;
+      debugRequestIds.clear();
       try {
         browserWs.close(code, reason);
       } catch {}
@@ -131,6 +133,11 @@ function createGatewayProxy(options) {
       if (upstreamReady && upstreamWs && upstreamWs.readyState === WebSocket.OPEN) {
         upstreamWs.send(serialized);
       } else if (upstreamWs) {
+        if (pendingUpstream.length >= 1000) {
+          console.warn("[gateway-proxy] pendingUpstream overflow (1000), closing connection");
+          closeBoth(1013, "message queue overflow");
+          return;
+        }
         pendingUpstream.push(serialized);
       }
     };

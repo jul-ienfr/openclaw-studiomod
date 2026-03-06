@@ -494,7 +494,9 @@ export class GatewayBrowserClient {
     this.wsOpenTimer = window.setTimeout(() => {
       this.wsOpenTimer = null;
       if (this.ws && this.ws.readyState === WebSocket.CONNECTING) {
-        console.log("[gw-client] connection stuck in CONNECTING for 4s, forcing close & retry");
+        console.log(
+          "[gw-client] connection stuck in CONNECTING for 4s, forcing close & retry",
+        );
         this.ws.close();
       }
     }, 4000);
@@ -508,7 +510,12 @@ export class GatewayBrowserClient {
     this.ws.onmessage = (ev) => this.handleMessage(String(ev.data ?? ""));
     this.ws.onclose = (ev) => {
       this.clearWsOpenTimer();
-      console.log("[gw-client] WebSocket CLOSE code=", ev.code, "reason=", ev.reason);
+      console.log(
+        "[gw-client] WebSocket CLOSE code=",
+        ev.code,
+        "reason=",
+        ev.reason,
+      );
       const reason = String(ev.reason ?? "");
       this.ws = null;
       this.flushPending(new Error(`gateway closed (${ev.code}): ${reason}`));
@@ -524,7 +531,7 @@ export class GatewayBrowserClient {
   private scheduleReconnect() {
     if (this.closed) return;
     const delay = this.backoffMs;
-    this.backoffMs = Math.min(this.backoffMs * 1.7, 15_000);
+    this.backoffMs = Math.min(this.backoffMs * 2, 30_000);
     window.setTimeout(() => this.connect(), delay);
   }
 
@@ -684,7 +691,10 @@ export class GatewayBrowserClient {
     if (frame.type === "event") {
       const evt = parsed as GatewayEventFrame;
       if (evt.event === "connect.challenge") {
-        console.log("[gw-client] connect.challenge received, connectSent=", this.connectSent);
+        console.log(
+          "[gw-client] connect.challenge received, connectSent=",
+          this.connectSent,
+        );
         const payload = evt.payload as { nonce?: unknown } | undefined;
         const nonce =
           payload && typeof payload.nonce === "string" ? payload.nonce : null;
@@ -713,7 +723,12 @@ export class GatewayBrowserClient {
       const res = parsed as GatewayResponseFrame;
       const pending = this.pending.get(res.id);
       if (!pending) {
-        console.log("[gw-client] res with unknown id:", res.id, "pending size:", this.pending.size);
+        console.log(
+          "[gw-client] res with unknown id:",
+          res.id,
+          "pending size:",
+          this.pending.size,
+        );
         return;
       }
       console.log("[gw-client] resolving res:", res.id, "ok:", res.ok);

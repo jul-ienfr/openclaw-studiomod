@@ -4,10 +4,14 @@ import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { Toaster } from "@/components/Toaster";
 import { AppNav } from "@/components/AppNav";
+import { MobileShell } from "@/components/MobileShell";
+import { GlobalAlertBanner } from "@/components/GlobalAlertBanner";
+import { readTheme } from "@/lib/theme/server";
+import { isMobileLayout } from "@/lib/device";
+import { ThemeColors } from "@/lib/theme";
 import "./globals.css";
 
-export const dynamic = "force-dynamic";
-
+// NB: force-dynamic removed — set per-route where needed
 export const metadata: Metadata = {
   title: "OpenClaw Studio",
   description: "Focused operator studio for the OpenClaw gateway.",
@@ -38,17 +42,43 @@ const mono = IBM_Plex_Mono({
   subsets: ["latin"],
 });
 
+function colorsToCSSVars(colors: ThemeColors): string {
+  const lines: string[] = [];
+  const camel2kebab = (s: string) =>
+    s.replace(/([A-Z])/g, (m) => `-${m.toLowerCase()}`);
+  for (const [key, value] of Object.entries(colors)) {
+    lines.push(`  --${camel2kebab(key)}: ${value};`);
+  }
+  return lines.join("\n");
+}
+
 export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const locale = await getLocale();
-  const messages = await getMessages();
+  const [locale, messages, theme, mobile] = await Promise.all([
+    getLocale(),
+    getMessages(),
+    readTheme(),
+    isMobileLayout(),
+  ]);
+
+  const themeCSS = `
+:root {
+${colorsToCSSVars(theme.colors.light)}
+  --radius: ${theme.spacing.radius};
+  --radius-small: ${theme.spacing.radiusSmall};
+  --nav-width: ${theme.spacing.navWidth};
+}
+.dark {
+${colorsToCSSVars(theme.colors.dark)}
+}`.trim();
 
   return (
     <html lang={locale} suppressHydrationWarning>
       <head>
+        <style dangerouslySetInnerHTML={{ __html: themeCSS }} />
         <script
           dangerouslySetInnerHTML={{
             __html:
@@ -60,10 +90,17 @@ export default async function RootLayout({
         className={`${display.variable} ${sans.variable} ${mono.variable} antialiased`}
       >
         <NextIntlClientProvider messages={messages} locale={locale}>
-          <div className="flex h-screen w-full overflow-hidden">
-            <AppNav />
-            <div className="min-w-0 flex-1 overflow-hidden">{children}</div>
-          </div>
+          {mobile ? (
+            <MobileShell>{children}</MobileShell>
+          ) : (
+            <div className="flex h-screen w-full overflow-hidden">
+              <AppNav />
+              <div className="min-w-0 flex-1 overflow-hidden flex flex-col">
+                <GlobalAlertBanner />
+                <div className="flex-1 overflow-hidden">{children}</div>
+              </div>
+            </div>
+          )}
         </NextIntlClientProvider>
         <Toaster />
       </body>

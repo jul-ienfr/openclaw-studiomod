@@ -19,13 +19,25 @@ const resolve = (obj: Record<string, unknown>, path: string): string => {
 
 vi.mock("next-intl", async (importOriginal) => {
   const original = await importOriginal<typeof import("next-intl")>();
+
+  // Cache translators by namespace so the same stable function reference is
+  // returned across re-renders — mirrors real next-intl memoization behavior.
+  const translatorCache = new Map<
+    string,
+    (key: string, values?: Record<string, unknown>) => string
+  >();
+
   return {
     ...original,
     useTranslations: (namespace?: string) => {
+      const cacheKey = namespace ?? "";
+      const cached = translatorCache.get(cacheKey);
+      if (cached) return cached;
+
       const ns = namespace
         ? (messages as Record<string, unknown>)[namespace]
         : messages;
-      return (key: string, values?: Record<string, unknown>) => {
+      const translator = (key: string, values?: Record<string, unknown>) => {
         const raw =
           typeof ns === "object" && ns
             ? resolve(ns as Record<string, unknown>, key)
@@ -35,6 +47,8 @@ vi.mock("next-intl", async (importOriginal) => {
           values[k] != null ? String(values[k]) : `{${k}}`,
         );
       };
+      translatorCache.set(cacheKey, translator);
+      return translator;
     },
     useLocale: () => "en",
     NextIntlClientProvider: original.NextIntlClientProvider,

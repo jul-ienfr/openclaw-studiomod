@@ -104,7 +104,15 @@ export function useSettingsRouteController(
         replace: params.replace,
       });
     },
-    [params],
+    [
+      params.dispatchSelectAgent,
+      params.flushPendingDraft,
+      params.push,
+      params.replace,
+      params.setInspectSidebar,
+      params.setMobilePaneChat,
+      params.setPersonalityHasUnsavedChanges,
+    ],
   );
 
   const handleBackToChat = useCallback(() => {

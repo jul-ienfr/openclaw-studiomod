@@ -9,7 +9,6 @@ async function getPlugin() {
     if (window.Capacitor?.Plugins?.Preferences) {
       return window.Capacitor.Plugins.Preferences;
     }
-    // Dynamic import for Capacitor v7
     const { Preferences } = await import("@capacitor/preferences");
     return Preferences;
   } catch {
@@ -55,17 +54,29 @@ async function getServers() {
   }
 }
 
-async function saveServer({ url, token, name }) {
+/**
+ * Save a server entry.
+ * @param {object} opts - { lan?, tunnel?, discovery?, token, name? }
+ */
+async function saveServer({ lan, tunnel, discovery, token, name }) {
   const servers = await getServers();
-  const id = crypto.randomUUID();
-  const existing = servers.findIndex((s) => s.url === url);
-  const entry = { id: existing >= 0 ? servers[existing].id : id, url, token, name, lastUsed: Date.now() };
+  // Match on token (same server = same token)
+  const existing = servers.findIndex((s) => s.token === token);
+  const id = existing >= 0 ? servers[existing].id : crypto.randomUUID();
+  const entry = {
+    id,
+    lan: lan || undefined,
+    tunnel: tunnel || undefined,
+    discovery: discovery || undefined,
+    token,
+    name: name || tunnel || lan || "Server",
+    lastUsed: Date.now(),
+  };
   if (existing >= 0) {
     servers[existing] = entry;
   } else {
     servers.unshift(entry);
   }
-  // Keep max 10 servers
   const trimmed = servers.slice(0, 10);
   await prefSet(SERVERS_KEY, JSON.stringify(trimmed));
   return entry;

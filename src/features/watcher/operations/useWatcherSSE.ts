@@ -92,6 +92,7 @@ export function useWatcherSSE(dispatch: Dispatch) {
             es?.close();
             es = null;
             if (mounted) {
+              if (reconnectTimer) clearTimeout(reconnectTimer);
               reconnectTimer = setTimeout(() => {
                 retryDelay = Math.min(retryDelay * 2, 30_000);
                 open();

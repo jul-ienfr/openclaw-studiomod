@@ -1,7 +1,6 @@
 // app.js — Main application logic
 
-/** @type {object|null} Currently connected server (for disconnect state tracking). */
-// eslint-disable-next-line no-unused-vars
+/** @type {object|null} Currently connected server. */
 let currentServer = null;
 
 // ─── DOM refs ───
@@ -18,16 +17,14 @@ const serversList = document.getElementById("servers-list");
 const btnDisconnect = document.getElementById("btn-disconnect");
 const statusBar = document.getElementById("status-bar");
 const statusText = document.getElementById("status-text");
+const studioFrame = document.getElementById("studio-frame");
 
 // ─── Init ───
 async function init() {
   await renderSavedServers();
-
-  // Auto-connect to last server
   const last = await Storage.getLastServer();
   if (last) {
-    await connectToServer(last);
-    return;
+    await smartConnect(last);
   }
 }
 
@@ -44,15 +41,16 @@ async function renderSavedServers() {
     const li = document.createElement("li");
     const connectBtn = document.createElement("button");
     connectBtn.className = "server-item-btn";
+    const displayName = s.name ?? s.tunnel ?? s.lan ?? "Server";
     connectBtn.innerHTML = `
-      <span class="server-name">${s.name ?? s.url}</span>
-      ${s.name ? `<span class="server-url">${s.url}</span>` : ""}
+      <span class="server-name">${displayName}</span>
+      ${s.lan ? `<span class="server-url">${s.lan}</span>` : ""}
     `;
-    connectBtn.addEventListener("click", () => connectToServer(s));
+    connectBtn.addEventListener("click", () => smartConnect(s));
 
     const deleteBtn = document.createElement("button");
     deleteBtn.className = "server-delete-btn";
-    deleteBtn.textContent = "✕";
+    deleteBtn.textContent = "\u2715";
     deleteBtn.setAttribute("aria-label", "Remove server");
     deleteBtn.addEventListener("click", async (e) => {
       e.stopPropagation();
@@ -66,38 +64,14 @@ async function renderSavedServers() {
   }
 }
 
-// ─── Connect to server ───
-async function connectToServer(server) {
-  currentServer = server;
-  await Storage.setLastServerId(server.id);
-
-  const url = `${server.url}${server.token ? `?access_token=${encodeURIComponent(server.token)}` : ""}`;
-
-  // Check connectivity first
-  setStatus("Connecting...");
-  showStudioScreen();
-
+// ─── Test a single URL ───
+async function testUrl(url, token) {
   try {
-    // Use Capacitor WebView navigation
-    if (window.Capacitor?.Plugins?.WebView) {
-      await window.Capacitor.Plugins.WebView.setServerAssetPath({ path: "public" });
-    }
-
-    // Navigate the whole webview to the Studio URL
-    window.location.href = url;
-  } catch {
-    // Fallback: direct navigation
-    window.location.href = url;
-  }
-}
-
-// ─── Test connection ───
-async function testConnection(url, token) {
-  try {
-    const statusUrl = `${url.replace(/\/$/, "")}/api/mobile-access/status`;
+    let statusUrl = `${url.replace(/\/$/, "")}/api/mobile-access/status`;
+    if (token) statusUrl += `?access_token=${encodeURIComponent(token)}`;
     const res = await fetch(statusUrl, {
-      headers: token ? { Cookie: `studio_access=${token}` } : {},
       signal: AbortSignal.timeout(5000),
+      mode: "cors",
     });
     return res.ok;
   } catch {
@@ -105,17 +79,96 @@ async function testConnection(url, token) {
   }
 }
 
+// ─── Resolve discovery URL to actual tunnel ───
+async function resolveDiscovery(discoveryUrl) {
+  try {
+    const res = await fetch(discoveryUrl, {
+      signal: AbortSignal.timeout(8000),
+      redirect: "follow",
+    });
+    if (res.ok && res.url && res.url !== discoveryUrl) {
+      return new URL(res.url).origin;
+    }
+    const html = await res.text();
+    const match = html.match(/url=["']?(https:\/\/[^"'\s>]+)/i);
+    if (match) return new URL(match[1]).origin;
+    const jsMatch = html.match(/location\.href\s*=\s*["'](https:\/\/[^"']+)/i);
+    if (jsMatch) return new URL(jsMatch[1]).origin;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+// ─── Smart connect: try all URLs in order ───
+async function smartConnect(server) {
+  currentServer = server;
+  await Storage.setLastServerId(server.id);
+  showStudioScreen();
+
+  const candidates = [];
+
+  // 1. Tunnel first (HTTPS, works everywhere)
+  if (server.tunnel) candidates.push({ label: "tunnel", url: server.tunnel });
+  // 2. LAN (HTTP, same WiFi)
+  if (server.lan) candidates.push({ label: "LAN", url: server.lan });
+
+  for (const c of candidates) {
+    setStatus(`Trying ${c.label}...`);
+    if (await testUrl(c.url, server.token)) {
+      setStatus(`Connected via ${c.label}`, "ok");
+      loadStudio(c.url, server.token);
+      return;
+    }
+  }
+
+  // 3. Discovery fallback — resolve to current tunnel
+  if (server.discovery) {
+    setStatus("Resolving discovery link...");
+    const resolved = await resolveDiscovery(server.discovery);
+    if (resolved) {
+      server.tunnel = resolved;
+      await Storage.saveServer(server);
+      await renderSavedServers();
+
+      if (await testUrl(resolved, server.token)) {
+        setStatus("Connected via discovery", "ok");
+        loadStudio(resolved, server.token);
+        return;
+      }
+    }
+  }
+
+  setStatus("Cannot reach server", "error");
+  setTimeout(() => {
+    showPairingScreen();
+    showError("Cannot reach server. Tried tunnel, LAN, and discovery link.");
+  }, 1500);
+}
+
+// ─── Load Studio in iframe ───
+function loadStudio(url, token) {
+  const target = `${url}${token ? `?access_token=${encodeURIComponent(token)}&layout=mobile` : "?layout=mobile"}`;
+  studioFrame.src = target;
+  statusBar.classList.add("hide-after");
+}
+
 // ─── Screen helpers ───
 function showStudioScreen() {
   screenPairing.classList.add("hidden");
   screenStudio.classList.remove("hidden");
+  studioFrame.src = "about:blank";
+  statusBar.classList.remove("hide-after");
   setTimeout(() => statusBar.classList.add("visible"), 100);
 }
 
 function showPairingScreen() {
   screenStudio.classList.add("hidden");
   statusBar.classList.remove("visible");
+  statusBar.classList.remove("hide-after");
   screenPairing.classList.remove("hidden");
+  studioFrame.src = "about:blank";
+  currentServer = null;
 }
 
 function setStatus(text, type = "info") {
@@ -135,15 +188,27 @@ function clearError() {
 
 // ─── Event listeners ───
 
-// QR scan button
 btnScan.addEventListener("click", async () => {
   try {
     btnScan.disabled = true;
     btnScan.textContent = "Scanning...";
     const result = await Scanner.scanQRCode();
-    inputUrl.value = result.url;
+
+    inputUrl.value = result.tunnel || result.lan || "";
     inputToken.value = result.token;
     clearError();
+
+    if (result.token) {
+      const server = await Storage.saveServer({
+        lan: result.lan,
+        tunnel: result.tunnel,
+        discovery: result.discovery,
+        token: result.token,
+        name: result.tunnel ? new URL(result.tunnel).hostname : (result.lan || "Server"),
+      });
+      await renderSavedServers();
+      await smartConnect(server);
+    }
   } catch (e) {
     showError(e.message || "Scan failed");
   } finally {
@@ -154,7 +219,6 @@ btnScan.addEventListener("click", async () => {
   }
 });
 
-// Manual connect form
 formManual.addEventListener("submit", async (e) => {
   e.preventDefault();
   clearError();
@@ -167,29 +231,24 @@ formManual.addEventListener("submit", async (e) => {
   }
 
   btnConnect.disabled = true;
-  btnConnect.textContent = "Testing...";
+  btnConnect.textContent = "Connecting...";
 
-  const ok = await testConnection(url, token);
-  if (!ok) {
-    showError("Cannot reach server. Check URL, token, and network.");
-    btnConnect.disabled = false;
-    btnConnect.textContent = "Connect";
-    return;
-  }
-
-  const server = await Storage.saveServer({ url, token });
+  const isTunnel = url.startsWith("https://");
+  const server = await Storage.saveServer({
+    lan: isTunnel ? undefined : url,
+    tunnel: isTunnel ? url : undefined,
+    token,
+    name: new URL(url).hostname,
+  });
   await renderSavedServers();
-  await connectToServer(server);
+  await smartConnect(server);
 
   btnConnect.disabled = false;
   btnConnect.textContent = "Connect";
 });
 
-// Disconnect button
 btnDisconnect.addEventListener("click", () => {
-  currentServer = null;
   showPairingScreen();
 });
 
-// ─── Start ───
 document.addEventListener("DOMContentLoaded", init);

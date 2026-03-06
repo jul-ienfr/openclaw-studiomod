@@ -1,6 +1,5 @@
 "use server";
 
-import QRCode from "qrcode";
 import { headers } from "next/headers";
 import MobileAccessClient from "./MobileAccessClient";
 import { getTunnelStatus } from "@/lib/tunnel/manager";
@@ -20,20 +19,10 @@ export default async function MobileAccessPage() {
     port,
   };
 
-  // Placeholder QR without token — client generates the real one after creating an instance token
-  const qrData = JSON.stringify(connectionInfo);
-  const qrDataUrl = await QRCode.toDataURL(qrData, {
-    width: 280,
-    margin: 2,
-    color: { dark: "#000000", light: "#ffffff" },
-    errorCorrectionLevel: "M",
-  });
-
   const initialTunnel = getTunnelStatus();
 
   return (
     <MobileAccessClient
-      qrDataUrl={qrDataUrl}
       connectionInfo={connectionInfo}
       initialTunnel={initialTunnel}
     />

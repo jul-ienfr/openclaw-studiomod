@@ -86,8 +86,8 @@ export const AgentSkillsSetupModal = ({
   }
 
   const readiness = deriveSkillReadinessState(skill);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const readinessLabel = t(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     `readiness${readiness.charAt(0).toUpperCase() + readiness.slice(1)}` as any,
   );
   const readinessClassName = READINESS_CLASSES[readiness];

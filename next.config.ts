@@ -13,6 +13,14 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["better-sqlite3"],
   outputFileTracingRoot: __dirname,
   allowedDevOrigins: ["192.168.31.96"],
+  async rewrites() {
+    return [
+      {
+        source: "/ai-manager/admin/api/:path*",
+        destination: "http://localhost:18089/admin/api/:path*",
+      },
+    ];
+  },
 };
 
 export default withSentryConfig(withBundleAnalyzer(withNextIntl(nextConfig)), {

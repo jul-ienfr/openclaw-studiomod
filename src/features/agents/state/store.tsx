@@ -247,13 +247,25 @@ const createRuntimeAgentState = (
       : null,
     draft: sameSessionKey ? (existing?.draft ?? "") : "",
     queuedMessages,
-    sessionSettingsSynced: sameSessionKey ? (existing?.sessionSettingsSynced ?? false) : false,
-    historyLoadedAt: sameSessionKey ? (existing?.historyLoadedAt ?? null) : null,
-    historyFetchLimit: sameSessionKey ? (existing?.historyFetchLimit ?? null) : null,
-    historyFetchedCount: sameSessionKey ? (existing?.historyFetchedCount ?? null) : null,
-    historyMaybeTruncated: sameSessionKey ? (existing?.historyMaybeTruncated ?? false) : false,
-    toolCallingEnabled: seed.toolCallingEnabled ?? existing?.toolCallingEnabled ?? false,
-    showThinkingTraces: seed.showThinkingTraces ?? existing?.showThinkingTraces ?? true,
+    sessionSettingsSynced: sameSessionKey
+      ? (existing?.sessionSettingsSynced ?? false)
+      : false,
+    historyLoadedAt: sameSessionKey
+      ? (existing?.historyLoadedAt ?? null)
+      : null,
+    historyFetchLimit: sameSessionKey
+      ? (existing?.historyFetchLimit ?? null)
+      : null,
+    historyFetchedCount: sameSessionKey
+      ? (existing?.historyFetchedCount ?? null)
+      : null,
+    historyMaybeTruncated: sameSessionKey
+      ? (existing?.historyMaybeTruncated ?? false)
+      : false,
+    toolCallingEnabled:
+      seed.toolCallingEnabled ?? existing?.toolCallingEnabled ?? false,
+    showThinkingTraces:
+      seed.showThinkingTraces ?? existing?.showThinkingTraces ?? true,
     hideSystemMessages: existing?.hideSystemMessages ?? false,
     transcriptEntries,
     transcriptRevision: sameSessionKey
@@ -418,9 +430,14 @@ const reducer = (state: AgentStoreState, action: Action): AgentStoreState => {
             sequenceKey: nextSequence,
           });
           if (!nextEntry) {
+            const MAX_OUTPUT_LINES = 10_000;
+            const appended = [...agent.outputLines, action.line];
             return {
               ...agent,
-              outputLines: [...agent.outputLines, action.line],
+              outputLines:
+                appended.length > MAX_OUTPUT_LINES
+                  ? appended.slice(-MAX_OUTPUT_LINES)
+                  : appended,
             };
           }
           const nextEntryId = nextEntry.entryId.trim();
@@ -465,10 +482,16 @@ const reducer = (state: AgentStoreState, action: Action): AgentStoreState => {
 
           return {
             ...agent,
-            outputLines:
-              TRANSCRIPT_V2_ENABLED || hasReplacement
-                ? buildOutputLinesFromTranscriptEntries(nextEntries)
-                : [...agent.outputLines, action.line],
+            outputLines: (() => {
+              const MAX_OUTPUT_LINES = 10_000;
+              const lines =
+                TRANSCRIPT_V2_ENABLED || hasReplacement
+                  ? buildOutputLinesFromTranscriptEntries(nextEntries)
+                  : [...agent.outputLines, action.line];
+              return lines.length > MAX_OUTPUT_LINES
+                ? lines.slice(-MAX_OUTPUT_LINES)
+                : lines;
+            })(),
             transcriptEntries: nextEntries,
             transcriptRevision: (agent.transcriptRevision ?? 0) + 1,
             transcriptSequenceCounter: Math.max(

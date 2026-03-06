@@ -5,6 +5,7 @@ import {
   isTraceMarkdown,
   isMemoryFlushPrompt,
   isNoReplyResponse,
+  isAnnounceMessage,
   parseToolMarkdown,
   parseMetaMarkdown,
   stripTraceMarkdown,
@@ -160,6 +161,9 @@ export const buildFinalAgentChatItems = ({
         if (!hideSystemMessages && isMemoryFlushPrompt(text)) {
           continue;
         }
+        if (isAnnounceMessage(text)) {
+          continue;
+        }
         const normalized = normalizeUserDisplayText(text);
         const currentTimestamp =
           currentMeta?.role === "user" ? currentMeta.timestampMs : undefined;
@@ -201,6 +205,9 @@ export const buildFinalAgentChatItems = ({
     const normalizedAssistant = normalizeAssistantDisplayText(line);
     if (!normalizedAssistant) continue;
     if (!hideSystemMessages && isNoReplyResponse(normalizedAssistant)) {
+      continue;
+    }
+    if (isAnnounceMessage(normalizedAssistant)) {
       continue;
     }
     items.push({

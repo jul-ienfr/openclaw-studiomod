@@ -1,8 +1,37 @@
 "use client";
 
 import { useState } from "react";
-import { VoiceControls } from "@/features/voice/components/VoiceControls";
-import { VoiceboxSection } from "@/features/voice/components/VoiceboxSection";
+import dynamic from "next/dynamic";
+
+const VoiceControls = dynamic(
+  () =>
+    import("@/features/voice/components/VoiceControls").then(
+      (m) => m.VoiceControls,
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center justify-center py-16">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+      </div>
+    ),
+  },
+);
+
+const VoiceboxSection = dynamic(
+  () =>
+    import("@/features/voice/components/VoiceboxSection").then(
+      (m) => m.VoiceboxSection,
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center justify-center py-16">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+      </div>
+    ),
+  },
+);
 
 type Tab = "controls" | "voicebox";
 

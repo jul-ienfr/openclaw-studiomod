@@ -23,7 +23,8 @@ const THINKING_CLOSE_RE = /<\s*\/\s*(think(?:ing)?|analysis)\s*>/i;
 
 const THINKING_BLOCK_RE =
   /<\s*(think(?:ing)?|analysis)\s*>([\s\S]*?)<\s*\/\s*\1\s*>/gi;
-const THINKING_STREAM_TAG_RE = /<\s*(\/?)\s*(?:think(?:ing)?|analysis|thought|antthinking)\s*>/gi;
+const THINKING_STREAM_TAG_RE =
+  /<\s*(\/?)\s*(?:think(?:ing)?|analysis|thought|antthinking)\s*>/gi;
 const TRACE_MARKDOWN_PREFIX = "[[trace]]";
 
 const TOOL_CALL_PREFIX = "[[tool]]";
@@ -47,7 +48,8 @@ const stripAppendedExecApprovalPolicy = (text: string): string => {
   return text.slice(0, -suffix.length);
 };
 
-const ASSISTANT_PREFIX_RE = /^(?:\[\[reply_to_current\]\]|\[reply_to_current\])\s*(?:\|\s*)?/i;
+const ASSISTANT_PREFIX_RE =
+  /^(?:\[\[reply_to_current\]\]|\[reply_to_current\])\s*(?:\|\s*)?/i;
 const stripAssistantPrefix = (text: string): string => {
   if (!text) return text;
   if (!ASSISTANT_PREFIX_RE.test(text)) return text;
@@ -123,7 +125,8 @@ const extractRawText = (message: unknown): string | null => {
     const parts = content
       .map((p) => {
         const item = p as Record<string, unknown>;
-        if (item.type === "text" && typeof item.text === "string") return item.text;
+        if (item.type === "text" && typeof item.text === "string")
+          return item.text;
         return null;
       })
       .filter((v): v is string => typeof v === "string");
@@ -156,7 +159,8 @@ export const extractText = (message: unknown): string | null => {
     const parts = content
       .map((p) => {
         const item = p as Record<string, unknown>;
-        if (item.type === "text" && typeof item.text === "string") return item.text;
+        if (item.type === "text" && typeof item.text === "string")
+          return item.text;
         return null;
       })
       .filter((v): v is string => typeof v === "string");
@@ -186,7 +190,8 @@ export const extractImageMarkdown = (message: unknown): string[] => {
     const item = p as Record<string, unknown>;
     if (item.type === "image") {
       const data = typeof item.data === "string" ? item.data : "";
-      const mime = typeof item.mimeType === "string" ? item.mimeType : "image/png";
+      const mime =
+        typeof item.mimeType === "string" ? item.mimeType : "image/png";
       if (data) {
         images.push(`![image](data:${mime};base64,${data})`);
       }
@@ -210,7 +215,9 @@ export const extractThinking = (message: unknown): string | null => {
   const content = m.content;
   const parts: string[] = [];
 
-  const extractFromRecord = (record: Record<string, unknown>): string | null => {
+  const extractFromRecord = (
+    record: Record<string, unknown>,
+  ): string | null => {
     const directKeys = [
       "thinking",
       "analysis",
@@ -314,7 +321,8 @@ export function extractThinkingFromTaggedStream(text: string): string {
   const closed = extractThinkingFromTaggedText(text);
   if (closed) return closed;
   const openRe = /<\s*(?:think(?:ing)?|analysis|thought|antthinking)\s*>/gi;
-  const closeRe = /<\s*\/\s*(?:think(?:ing)?|analysis|thought|antthinking)\s*>/gi;
+  const closeRe =
+    /<\s*\/\s*(?:think(?:ing)?|analysis|thought|antthinking)\s*>/gi;
   const openMatches = [...text.matchAll(openRe)];
   if (openMatches.length === 0) return "";
   const closeMatches = [...text.matchAll(closeRe)];
@@ -359,17 +367,22 @@ export const stripTraceMarkdown = (line: string): string => {
 const formatJson = (value: unknown): string => {
   if (value === null || value === undefined) return "";
   if (typeof value === "string") return value;
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (typeof value === "number" || typeof value === "boolean")
+    return String(value);
   try {
     return JSON.stringify(value, null, 2);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to stringify tool args.";
+    const message =
+      err instanceof Error ? err.message : "Failed to stringify tool args.";
     console.warn(message);
     return String(value);
   }
 };
 
-const formatToolResultMeta = (details?: Record<string, unknown> | null, isError?: boolean) => {
+const formatToolResultMeta = (
+  details?: Record<string, unknown> | null,
+  isError?: boolean,
+) => {
   const parts: string[] = [];
   if (details && typeof details === "object") {
     const status = details.status;
@@ -413,7 +426,9 @@ export const extractToolCalls = (message: unknown): ToolCallRecord[] => {
   return calls;
 };
 
-export const extractToolResult = (message: unknown): ToolResultRecord | null => {
+export const extractToolResult = (
+  message: unknown,
+): ToolResultRecord | null => {
   if (!message || typeof message !== "object") return null;
   const record = message as Record<string, unknown>;
   const role = typeof record.role === "string" ? record.role : "";
@@ -423,7 +438,8 @@ export const extractToolResult = (message: unknown): ToolResultRecord | null => 
       ? (record.details as Record<string, unknown>)
       : null;
   return {
-    toolCallId: typeof record.toolCallId === "string" ? record.toolCallId : undefined,
+    toolCallId:
+      typeof record.toolCallId === "string" ? record.toolCallId : undefined,
     toolName: typeof record.toolName === "string" ? record.toolName : undefined,
     details,
     isError: typeof record.isError === "boolean" ? record.isError : undefined,
@@ -474,7 +490,8 @@ export const extractToolLines = (message: unknown): string[] => {
 export const isToolMarkdown = (line: string): boolean =>
   line.startsWith(TOOL_CALL_PREFIX) || line.startsWith(TOOL_RESULT_PREFIX);
 
-export const isMetaMarkdown = (line: string): boolean => line.startsWith(META_PREFIX);
+export const isMetaMarkdown = (line: string): boolean =>
+  line.startsWith(META_PREFIX);
 
 export const formatMetaMarkdown = (meta: {
   role: "user" | "assistant";
@@ -484,23 +501,35 @@ export const formatMetaMarkdown = (meta: {
   return `${META_PREFIX}${JSON.stringify({
     role: meta.role,
     timestamp: meta.timestamp,
-    ...(typeof meta.thinkingDurationMs === "number" ? { thinkingDurationMs: meta.thinkingDurationMs } : {}),
+    ...(typeof meta.thinkingDurationMs === "number"
+      ? { thinkingDurationMs: meta.thinkingDurationMs }
+      : {}),
   })}`;
 };
 
 export const parseMetaMarkdown = (
-  line: string
-): { role: "user" | "assistant"; timestamp: number; thinkingDurationMs?: number } | null => {
+  line: string,
+): {
+  role: "user" | "assistant";
+  timestamp: number;
+  thinkingDurationMs?: number;
+} | null => {
   if (!isMetaMarkdown(line)) return null;
   const raw = line.slice(META_PREFIX.length).trim();
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as Record<string, unknown>;
-    const role = parsed.role === "user" || parsed.role === "assistant" ? parsed.role : null;
-    const timestamp = typeof parsed.timestamp === "number" ? parsed.timestamp : null;
-    if (!role || !timestamp || !Number.isFinite(timestamp) || timestamp <= 0) return null;
+    const role =
+      parsed.role === "user" || parsed.role === "assistant"
+        ? parsed.role
+        : null;
+    const timestamp =
+      typeof parsed.timestamp === "number" ? parsed.timestamp : null;
+    if (!role || !timestamp || !Number.isFinite(timestamp) || timestamp <= 0)
+      return null;
     const thinkingDurationMs =
-      typeof parsed.thinkingDurationMs === "number" && Number.isFinite(parsed.thinkingDurationMs)
+      typeof parsed.thinkingDurationMs === "number" &&
+      Number.isFinite(parsed.thinkingDurationMs)
         ? parsed.thinkingDurationMs
         : undefined;
     return thinkingDurationMs !== undefined
@@ -512,7 +541,7 @@ export const parseMetaMarkdown = (
 };
 
 export const parseToolMarkdown = (
-  line: string
+  line: string,
 ): { kind: "call" | "result"; label: string; body: string } => {
   const kind = line.startsWith(TOOL_RESULT_PREFIX) ? "result" : "call";
   const prefix = kind === "result" ? TOOL_RESULT_PREFIX : TOOL_CALL_PREFIX;
@@ -520,7 +549,8 @@ export const parseToolMarkdown = (
   const [labelLine, ...rest] = content.split(/\r?\n/);
   return {
     kind,
-    label: labelLine?.trim() || (kind === "result" ? "Tool result" : "Tool call"),
+    label:
+      labelLine?.trim() || (kind === "result" ? "Tool result" : "Tool call"),
     body: rest.join("\n").trim(),
   };
 };
@@ -532,19 +562,22 @@ export const buildAgentInstruction = ({
 };
 
 const PROJECT_PROMPT_BLOCK_RE = /^(?:Project|Workspace) path:[\s\S]*?\n\s*\n/i;
-const PROJECT_PROMPT_INLINE_RE = /^(?:Project|Workspace) path:[\s\S]*?memory_search\.\s*/i;
+const PROJECT_PROMPT_INLINE_RE =
+  /^(?:Project|Workspace) path:[\s\S]*?memory_search\.\s*/i;
 const RESET_PROMPT_RE =
   /^A new session was started via \/new or \/reset[\s\S]*?reasoning\.\s*/i;
 const SYSTEM_EVENT_BLOCK_RE = /^System:\s*\[[^\]]+\][\s\S]*?\n\s*\n/;
 const MESSAGE_ID_RE = /\s*\[message_id:[^\]]+\]\s*/gi;
-export const EXEC_APPROVAL_AUTO_RESUME_MARKER = "[[openclaw-studio:auto-resume-exec-approval]]";
+export const EXEC_APPROVAL_AUTO_RESUME_MARKER =
+  "[[openclaw-studio:auto-resume-exec-approval]]";
 const LEGACY_EXEC_APPROVAL_AUTO_RESUME_RE =
   /exec approval was granted[\s\S]*continue where you left off/i;
 const UI_METADATA_PREFIX_RE =
   /^(?:Project path:|Workspace path:|A new session was started via \/new or \/reset)/i;
 const HEARTBEAT_PROMPT_RE = /^Read HEARTBEAT\.md if it exists\b/i;
 const HEARTBEAT_PATH_RE = /Heartbeat file path:/i;
-const MEMORY_FLUSH_RE = /\bmemory[\/\s].*\bNO_REPLY\b|\bNO_REPLY\b.*\bmemory[\/\s]/i;
+const MEMORY_FLUSH_RE =
+  /\bmemory[\/\s].*\bNO_REPLY\b|\bNO_REPLY\b.*\bmemory[\/\s]/i;
 const NO_REPLY_RE = /^\s*(?:NO_REPLY|NO)\s*$/;
 
 export const stripUiMetadata = (text: string) => {
@@ -583,4 +616,14 @@ export const isNoReplyResponse = (text: string) => {
   return NO_REPLY_RE.test(text);
 };
 
-export const isUiMetadataPrefix = (text: string) => UI_METADATA_PREFIX_RE.test(text);
+const ANNOUNCE_STEP_RE = /agent-to-agent announce step/i;
+const ANNOUNCE_SKIP_RE = /^\s*ANNOUNCE_SKIP\s*$/;
+
+export const isAnnounceMessage = (text: string) => {
+  if (!text) return false;
+  const trimmed = text.trim();
+  return ANNOUNCE_STEP_RE.test(trimmed) || ANNOUNCE_SKIP_RE.test(trimmed);
+};
+
+export const isUiMetadataPrefix = (text: string) =>
+  UI_METADATA_PREFIX_RE.test(text);

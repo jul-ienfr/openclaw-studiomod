@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { useTranslations } from "next-intl";
 import { ScrollText } from "lucide-react";
 import type { LogLevel, LogEntry } from "../types";
@@ -60,6 +61,13 @@ export const LogViewer = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [level, agentId, search, refreshKey],
   );
+
+  const virtualizer = useVirtualizer({
+    count: entries.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 32,
+    overscan: 10,
+  });
 
   const logCount = getLogCount();
 
@@ -127,7 +135,23 @@ export const LogViewer = () => {
             {t("noLogs")}
           </p>
         ) : (
-          entries.map((entry) => <LogRow key={entry.id} entry={entry} />)
+          <div
+            className="relative w-full"
+            style={{ height: `${virtualizer.getTotalSize()}px` }}
+          >
+            {virtualizer.getVirtualItems().map((virtualRow) => (
+              <div
+                key={virtualRow.key}
+                className="absolute left-0 top-0 w-full"
+                style={{
+                  height: `${virtualRow.size}px`,
+                  transform: `translateY(${virtualRow.start}px)`,
+                }}
+              >
+                <LogRow entry={entries[virtualRow.index]} />
+              </div>
+            ))}
+          </div>
         )}
       </div>
 

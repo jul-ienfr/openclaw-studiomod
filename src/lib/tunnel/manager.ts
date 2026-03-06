@@ -4,10 +4,22 @@
  * Downloads the cloudflared binary on first use (stored in {projectRoot}/.cloudflared/),
  * spawns a "quick tunnel" (`cloudflared tunnel --url http://localhost:<port>`),
  * and exposes start/stop/status helpers consumed by the API route.
+ *
+ * Only ONE cloudflared process may exist at a time.  Before spawning a new one,
+ * any pre-existing cloudflared process (including orphans from a previous crash)
+ * is killed.  A PID file (`{BIN_DIR}/cloudflared.pid`) tracks the running instance.
  */
 
-import { spawn, type ChildProcess } from "node:child_process";
-import { createWriteStream, existsSync, chmodSync, mkdirSync } from "node:fs";
+import { spawn, execSync, type ChildProcess } from "node:child_process";
+import {
+  createWriteStream,
+  existsSync,
+  chmodSync,
+  mkdirSync,
+  writeFileSync,
+  readFileSync,
+  unlinkSync,
+} from "node:fs";
 import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
 import path from "node:path";
@@ -26,6 +38,7 @@ export interface TunnelStatus {
 
 const PROJECT_ROOT = path.resolve(process.cwd());
 const BIN_DIR = path.join(PROJECT_ROOT, ".cloudflared");
+const PID_FILE = path.join(BIN_DIR, "cloudflared.pid");
 const TUNNEL_URL_RE = /https:\/\/[a-z0-9-]+\.trycloudflare\.com/;
 
 function getBinaryName(): string {
@@ -69,6 +82,57 @@ function notifyUrlChange(url: string | null) {
   }
 }
 
+// ── Orphan cleanup ────────────────────────────────────────────────────
+// Kill any pre-existing cloudflared processes before we start.
+// Handles the case where a previous Studio instance crashed without cleanup.
+
+function writePidFile(pid: number) {
+  try {
+    mkdirSync(BIN_DIR, { recursive: true });
+    writeFileSync(PID_FILE, String(pid), { mode: 0o644 });
+  } catch {
+    /* best-effort */
+  }
+}
+
+function removePidFile() {
+  try {
+    if (existsSync(PID_FILE)) unlinkSync(PID_FILE);
+  } catch {
+    /* best-effort */
+  }
+}
+
+function killOrphanCloudflared() {
+  // 1. Try the PID file first
+  try {
+    if (existsSync(PID_FILE)) {
+      const pid = parseInt(readFileSync(PID_FILE, "utf8").trim(), 10);
+      if (pid > 0) {
+        try {
+          process.kill(pid, "SIGTERM");
+        } catch {
+          /* already dead */
+        }
+      }
+      removePidFile();
+    }
+  } catch {
+    /* ignore */
+  }
+
+  // 2. Fallback: kill ALL cloudflared tunnel processes via pkill
+  //    This catches any orphans not tracked by the PID file.
+  try {
+    execSync("pkill -f 'cloudflared tunnel --url' 2>/dev/null || true", {
+      stdio: "ignore",
+      timeout: 5000,
+    });
+  } catch {
+    /* ignore — no matching process or pkill unavailable */
+  }
+}
+
 // ── Singleton state ────────────────────────────────────────────────────
 
 let tunnelProcess: ChildProcess | null = null;
@@ -82,6 +146,7 @@ function cleanup() {
     tunnelProcess.kill("SIGTERM");
     tunnelProcess = null;
   }
+  removePidFile();
 }
 process.on("exit", cleanup);
 process.on("SIGINT", cleanup);
@@ -129,6 +194,9 @@ export async function startTunnel(port?: number): Promise<TunnelStatus> {
     return { active: true, url: tunnelUrl };
   }
 
+  // Kill any orphaned cloudflared before spawning a new one
+  killOrphanCloudflared();
+
   tunnelUrl = undefined;
   tunnelError = undefined;
 
@@ -145,6 +213,7 @@ export async function startTunnel(port?: number): Promise<TunnelStatus> {
     );
 
     tunnelProcess = child;
+    if (child.pid) writePidFile(child.pid);
     let resolved = false;
 
     const timeout = setTimeout(() => {
@@ -194,6 +263,7 @@ export async function startTunnel(port?: number): Promise<TunnelStatus> {
     child.on("exit", (code) => {
       tunnelProcess = null;
       tunnelUrl = undefined;
+      removePidFile();
       if (!resolved) {
         resolved = true;
         clearTimeout(timeout);

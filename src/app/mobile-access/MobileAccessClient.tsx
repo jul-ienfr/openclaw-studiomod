@@ -41,13 +41,11 @@ interface TokenListEntry {
 }
 
 interface Props {
-  qrDataUrl: string;
   connectionInfo: ConnectionInfo;
   initialTunnel: TunnelStatus;
 }
 
 export default function MobileAccessClient({
-  qrDataUrl,
   connectionInfo,
   initialTunnel,
 }: Props) {
@@ -68,6 +66,7 @@ export default function MobileAccessClient({
   const [editLabel, setEditLabel] = useState("");
   const [confirmRevokeId, setConfirmRevokeId] = useState<string | null>(null);
   const [discoveryUrl, setDiscoveryUrl] = useState<string | null>(null);
+  const [apkQrDataUrl, setApkQrDataUrl] = useState<string | null>(null);
 
   const copyToClipboard = async (text: string, key: string) => {
     await navigator.clipboard.writeText(text);
@@ -106,24 +105,44 @@ export default function MobileAccessClient({
       .catch(() => {});
   }, []);
 
+  // Generate APK download QR code
+  useEffect(() => {
+    const apkUrl = isTunnelMode
+      ? `${tunnel.url}/openclaw-studio.apk`
+      : `${lanUrl}/openclaw-studio.apk`;
+    import("qrcode")
+      .then((QRCode) =>
+        QRCode.toDataURL(apkUrl, {
+          width: 160,
+          margin: 2,
+          color: { dark: "#000000", light: "#ffffff" },
+          errorCorrectionLevel: "M",
+        }),
+      )
+      .then(setApkQrDataUrl)
+      .catch(() => {});
+  }, [tunnel, lanUrl]);
+
   // Generate QR code when activeToken or tunnel changes
   useEffect(() => {
     if (!activeToken) {
       setActiveQrDataUrl(null);
       return;
     }
-    const tokenSuffix = `?access_token=${encodeURIComponent(activeToken.token)}`;
-    const fullUrl =
-      tunnel.active && tunnel.url
-        ? `${tunnel.url}${tokenSuffix}`
-        : `${lanUrl}${tokenSuffix}`;
 
-    const data = JSON.stringify({
-      lan: connectionInfo.lan,
-      port: tunnel.active && tunnel.url ? 443 : connectionInfo.port,
+    // Build JSON payload with ALL connection methods for the mobile app
+    const qrPayload: Record<string, string | number> = {
       token: activeToken.token,
-      ...(tunnel.active && tunnel.url ? { tunnel: fullUrl } : {}),
-    });
+      lan: connectionInfo.lan,
+      port: connectionInfo.port,
+    };
+    if (tunnel.active && tunnel.url) {
+      qrPayload.tunnel = tunnel.url;
+    }
+    if (discoveryUrl) {
+      qrPayload.discovery = discoveryUrl;
+    }
+    const data = JSON.stringify(qrPayload);
 
     import("qrcode")
       .then((QRCode) =>
@@ -136,7 +155,7 @@ export default function MobileAccessClient({
       )
       .then(setActiveQrDataUrl)
       .catch(() => setActiveQrDataUrl(null));
-  }, [activeToken, tunnel, lanUrl, connectionInfo]);
+  }, [activeToken, tunnel, lanUrl, connectionInfo, discoveryUrl]);
 
   // Generate a new token
   const generateAndShowQR = useCallback(async () => {
@@ -234,7 +253,6 @@ export default function MobileAccessClient({
     setTunnelLoading(false);
   }, []);
 
-  const displayQr = activeQrDataUrl ?? qrDataUrl;
   const isTunnelMode = tunnel.active && tunnel.url;
 
   const getFullUrl = (tokenValue: string) => {
@@ -359,18 +377,11 @@ export default function MobileAccessClient({
           </div>
         )}
 
-        {/* Placeholder QR when no token is active */}
+        {/* Placeholder when no token is active — no QR to avoid scanning a tokenless code */}
         {!activeToken && (
-          <div className="flex flex-col items-center rounded-xl border border-border bg-white p-6 shadow-sm">
-            <Image
-              src={displayQr}
-              alt="QR code placeholder"
-              width={280}
-              height={280}
-              unoptimized
-              className="opacity-30"
-            />
-            <p className="mt-3 text-xs text-muted-foreground">
+          <div className="flex flex-col items-center rounded-xl border border-dashed border-border bg-surface-1 px-6 py-10">
+            <Smartphone className="mb-3 h-10 w-10 text-muted-foreground/30" />
+            <p className="text-sm text-muted-foreground">
               Generate a token above to get a scannable QR code
             </p>
           </div>
@@ -657,6 +668,42 @@ export default function MobileAccessClient({
             </li>
           </ol>
         </div>
+
+        {/* Download the app */}
+        {apkQrDataUrl && (
+          <div className="space-y-3 rounded-xl border border-border bg-surface-1 p-4">
+            <div className="flex items-center gap-2">
+              <Download className="h-4 w-4 text-primary" />
+              <h2 className="text-sm font-semibold text-foreground">
+                Get the app
+              </h2>
+            </div>
+            <div className="flex items-center gap-4">
+              <Image
+                src={apkQrDataUrl}
+                alt="QR code to download the app"
+                width={120}
+                height={120}
+                unoptimized
+                className="rounded-lg"
+              />
+              <div className="space-y-1.5">
+                <p className="text-xs text-muted-foreground">
+                  Scan this QR code from your phone to download the OpenClaw
+                  Studio app (Android APK).
+                </p>
+                <a
+                  href="/openclaw-studio.apk"
+                  download
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+                >
+                  <Download className="h-3 w-3" />
+                  Direct download
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

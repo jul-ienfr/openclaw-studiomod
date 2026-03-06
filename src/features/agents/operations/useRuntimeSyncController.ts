@@ -123,7 +123,8 @@ export function useRuntimeSyncController(
         console.error("Failed to load summary snapshot.", error);
       }
     }
-  }, [params]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.client, params.dispatch, params.isDisconnectLikeError]);
 
   const loadAgentHistory = useCallback(
     async (agentId: string, options?: { limit?: number }) => {

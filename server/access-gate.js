@@ -57,6 +57,20 @@ function createAccessGate(options) {
     if (!enabled) return false;
     const host = req.headers?.host || "localhost";
     const url = new URL(req.url || "/", `http://${host}`);
+
+    // CORS: allow mobile app (Capacitor WebView) cross-origin requests to /api/
+    const origin = req.headers?.origin;
+    if (origin && url.pathname.startsWith("/api/")) {
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+      res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+      if (req.method === "OPTIONS") {
+        res.statusCode = 204;
+        res.end();
+        return true;
+      }
+    }
+
     const provided = url.searchParams.get(queryParam);
 
     if (provided !== null) {
@@ -68,8 +82,16 @@ function createAccessGate(options) {
         return true;
       }
 
+      // For API calls, authenticate inline without redirect (fetch loses cookies on redirect)
+      if (url.pathname.startsWith("/api/")) {
+        if (match.type === "instance" && tokenStore) {
+          tokenStore.touchLastUsed(match.entry.id);
+        }
+        return false;
+      }
+
       url.searchParams.delete(queryParam);
-      const cookieValue = `${cookieName}=${provided}; HttpOnly; Path=/; SameSite=Lax; Max-Age=31536000`;
+      const cookieValue = `${cookieName}=${provided}; HttpOnly; Path=/; SameSite=Lax; Max-Age=604800`;
       res.statusCode = 302;
       res.setHeader("Set-Cookie", cookieValue);
       res.setHeader("Location", buildRedirectUrl(req, url.pathname + url.search));

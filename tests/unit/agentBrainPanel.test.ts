@@ -1,3 +1,4 @@
+// @vitest-environment happy-dom
 import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -9,7 +10,7 @@ import {
 } from "@testing-library/react";
 
 import type { AgentState } from "@/features/agents/state/store";
-import { AgentBrainPanel } from "@/features/agents/components/AgentInspectPanels";
+import { AgentBrainPanel } from "@/features/agents/components/AgentBrainPanel";
 import type { GatewayClient } from "@/lib/gateway/GatewayClient";
 import { withIntl } from "./helpers/intlWrapper";
 

@@ -470,7 +470,14 @@ export function useAgentSettingsMutationController(
       cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [params, restartingMutationBlock]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    params.agents,
+    params.loadAgents,
+    params.setMobilePaneChat,
+    params.status,
+    restartingMutationBlock,
+  ]);
 
   const handleDeleteAgent = useCallback(
     async (agentId: string) => {

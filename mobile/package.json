@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@capacitor/core": "^7",
-    "@capawesome/capacitor-mlkit-barcode-scanning": "^7",
+    "@capacitor-mlkit/barcode-scanning": "^7",
     "@capacitor/preferences": "^7"
   },
   "devDependencies": {
