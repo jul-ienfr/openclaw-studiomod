@@ -1,7 +1,7 @@
 "use client";
 
-import { AgentStudioOrchestrator } from "@/features/agents/AgentStudioOrchestrator";
+import { DashboardPage } from "@/features/dashboard/components/DashboardPage";
 
-export default function DashboardPage() {
-  return <AgentStudioOrchestrator />;
+export default function DashboardRoute() {
+  return <DashboardPage />;
 }

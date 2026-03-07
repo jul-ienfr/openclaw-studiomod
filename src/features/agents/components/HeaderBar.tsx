@@ -76,7 +76,7 @@ export const HeaderBar = ({
   }, [menuOpen]);
 
   return (
-    <div className="ui-topbar relative z-[180]">
+    <div className="ui-topbar relative z-[180] backdrop-blur-sm bg-background/80 border-b border-border/50">
       <div className="grid h-10 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center px-3 sm:px-4 md:px-5">
         <div aria-hidden="true" />
         <p className="truncate text-sm font-semibold tracking-[0.01em] text-foreground">
@@ -125,7 +125,7 @@ export const HeaderBar = ({
                 <span className="sr-only">{t("openMenu")}</span>
               </button>
               {menuOpen ? (
-                <div className="ui-card ui-menu-popover absolute right-0 top-9 z-[260] min-w-44 p-1">
+                <div className="ui-card ui-menu-popover absolute right-0 top-9 z-[260] min-w-44 p-1 backdrop-blur-sm bg-background/80 border border-border/50 shadow-lg">
                   {onProviders ? (
                     <button
                       className="ui-btn-ghost w-full justify-start border-transparent px-3 py-2 text-left text-xs font-medium tracking-normal text-foreground"

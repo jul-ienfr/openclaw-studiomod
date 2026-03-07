@@ -6,6 +6,23 @@ import {
 } from "@/lib/gateway/GatewayClient";
 import { STUDIO_NOTICE_PREFIX } from "@/features/agents/components/chatItems";
 
+// Module-level debounce timer for cross-channel model persistence
+let configWriteTimer: ReturnType<typeof setTimeout> | null = null;
+
+const scheduleModelConfigWrite = (agentId: string, model: string) => {
+  if (configWriteTimer !== null) {
+    clearTimeout(configWriteTimer);
+  }
+  configWriteTimer = setTimeout(() => {
+    configWriteTimer = null;
+    void fetch("/api/agents/model", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ agentId, model }),
+    }).catch(console.warn);
+  }, 800);
+};
+
 type SessionSettingField = "model" | "thinkingLevel";
 
 type AgentSessionState = {
@@ -105,6 +122,10 @@ export const applySessionSettingMutation = async ({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ agentId, model: persistedModel }),
       });
+      // Debounced secondary write (POST) for cross-channel consistency
+      if (persistedModel) {
+        scheduleModelConfigWrite(agentId, persistedModel);
+      }
     } else {
       const nextThinkingLevel =
         typeof result.entry?.thinkingLevel === "string"

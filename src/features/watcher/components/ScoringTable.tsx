@@ -45,11 +45,11 @@ export function ScoringTable({ scores, total = scores.length, page = 1, onPageCh
   });
 
   return (
-    <div>
+    <div className="flex flex-col gap-4">
       {showFilters && (
-        <div className="mb-4 flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-2">
           <select
-            className="rounded border border-border bg-surface-2 px-3 py-1.5 text-xs text-foreground"
+            className="rounded-lg border border-border/50 bg-background/60 backdrop-blur-sm px-3 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 transition-shadow"
             value={filterSource}
             onChange={(e) => setFilterSource(e.target.value)}
           >
@@ -57,7 +57,7 @@ export function ScoringTable({ scores, total = scores.length, page = 1, onPageCh
             {sources.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
           <select
-            className="rounded border border-border bg-surface-2 px-3 py-1.5 text-xs text-foreground"
+            className="rounded-lg border border-border/50 bg-background/60 backdrop-blur-sm px-3 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 transition-shadow"
             value={filterDecision}
             onChange={(e) => setFilterDecision(e.target.value)}
           >
@@ -65,7 +65,7 @@ export function ScoringTable({ scores, total = scores.length, page = 1, onPageCh
             {DECISIONS.map((d) => <option key={d} value={d}>{d}</option>)}
           </select>
           <select
-            className="rounded border border-border bg-surface-2 px-3 py-1.5 text-xs text-foreground"
+            className="rounded-lg border border-border/50 bg-background/60 backdrop-blur-sm px-3 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 transition-shadow"
             value={filterCategory}
             onChange={(e) => setFilterCategory(e.target.value)}
           >
@@ -75,19 +75,19 @@ export function ScoringTable({ scores, total = scores.length, page = 1, onPageCh
         </div>
       )}
 
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto rounded-xl border border-border/50">
         <table className="w-full text-left text-sm">
-          <thead>
-            <tr className="border-b border-border text-xs text-muted-foreground">
-              <th className="px-3 py-2 font-medium">Titre</th>
-              <th className="px-3 py-2 font-medium">Source</th>
-              <th className="px-3 py-2 font-medium">Fiab.</th>
-              <th className="px-3 py-2 font-medium">Sec.</th>
-              <th className="px-3 py-2 font-medium">Fonct.</th>
-              <th className="px-3 py-2 font-medium">Int.</th>
-              <th className="px-3 py-2 font-medium">Global</th>
-              <th className="px-3 py-2 font-medium">Décision</th>
-              <th className="px-3 py-2 font-medium">Date</th>
+          <thead className="sticky top-0 z-10 backdrop-blur-sm bg-background/80 border-b border-border/50">
+            <tr className="text-xs text-muted-foreground">
+              <th className="px-3 py-2.5 font-semibold tracking-wide">Titre</th>
+              <th className="px-3 py-2.5 font-semibold tracking-wide">Source</th>
+              <th className="px-3 py-2.5 font-semibold tracking-wide">Fiab.</th>
+              <th className="px-3 py-2.5 font-semibold tracking-wide">Sec.</th>
+              <th className="px-3 py-2.5 font-semibold tracking-wide">Fonct.</th>
+              <th className="px-3 py-2.5 font-semibold tracking-wide">Int.</th>
+              <th className="px-3 py-2.5 font-semibold tracking-wide">Global</th>
+              <th className="px-3 py-2.5 font-semibold tracking-wide">Décision</th>
+              <th className="px-3 py-2.5 font-semibold tracking-wide">Date</th>
             </tr>
           </thead>
           <tbody>
@@ -101,7 +101,7 @@ export function ScoringTable({ scores, total = scores.length, page = 1, onPageCh
             {visible.map((s) => (
               <tr
                 key={s.item_id}
-                className="cursor-pointer border-b border-border/50 transition-colors hover:bg-surface-2/40"
+                className="cursor-pointer border-b border-border/30 transition-colors hover:bg-primary/5 hover:border-primary/20 group"
                 onClick={() => router.push(`/watcher/scoring/${s.item_id}`)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
@@ -112,17 +112,29 @@ export function ScoringTable({ scores, total = scores.length, page = 1, onPageCh
                 role="button"
                 tabIndex={0}
               >
-                <td className="max-w-[220px] px-3 py-2 font-medium text-foreground">
+                <td className="max-w-[220px] px-3 py-2.5 font-medium text-foreground group-hover:text-primary transition-colors">
                   {truncate(s.title ?? s.item_id, 38)}
                 </td>
-                <td className="px-3 py-2 text-xs text-muted-foreground">{s.source ?? "-"}</td>
-                <td className="px-3 py-2"><ScoreBar value={s.fiabilite} size="sm" /></td>
-                <td className="px-3 py-2"><ScoreBar value={s.securite} size="sm" /></td>
-                <td className="px-3 py-2"><ScoreBar value={s.fonctionnement} size="sm" /></td>
-                <td className="px-3 py-2"><ScoreBar value={s.interet} size="sm" /></td>
-                <td className="px-3 py-2 font-bold text-foreground">{s.global}%</td>
-                <td className="px-3 py-2"><DecisionBadge decision={s.decision} /></td>
-                <td className="whitespace-nowrap px-3 py-2 text-xs text-muted-foreground">
+                <td className="px-3 py-2.5 text-xs text-muted-foreground">{s.source ?? "-"}</td>
+                <td className="px-3 py-2.5"><ScoreBar value={s.fiabilite} size="sm" /></td>
+                <td className="px-3 py-2.5"><ScoreBar value={s.securite} size="sm" /></td>
+                <td className="px-3 py-2.5"><ScoreBar value={s.fonctionnement} size="sm" /></td>
+                <td className="px-3 py-2.5"><ScoreBar value={s.interet} size="sm" /></td>
+                <td className="px-3 py-2.5 font-bold text-foreground">
+                  <span
+                    className={`${
+                      (s.global ?? 0) >= 75
+                        ? "text-green-400"
+                        : (s.global ?? 0) >= 50
+                          ? "text-yellow-400"
+                          : "text-red-400"
+                    }`}
+                  >
+                    {s.global}%
+                  </span>
+                </td>
+                <td className="px-3 py-2.5"><DecisionBadge decision={s.decision} /></td>
+                <td className="whitespace-nowrap px-3 py-2.5 text-xs text-muted-foreground">
                   {formatDate(s.scored_at)}
                 </td>
               </tr>
@@ -131,7 +143,7 @@ export function ScoringTable({ scores, total = scores.length, page = 1, onPageCh
         </table>
       </div>
 
-      <div className="mt-4 flex items-center justify-between">
+      <div className="flex items-center justify-between">
         <span className="text-xs text-muted-foreground">
           Page {page} / {totalPages} ({total} items)
         </span>
@@ -140,7 +152,7 @@ export function ScoringTable({ scores, total = scores.length, page = 1, onPageCh
             type="button"
             disabled={page <= 1}
             onClick={() => onPageChange?.(page - 1)}
-            className="rounded border border-border px-3 py-1 text-xs font-medium text-foreground transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-lg border border-border/50 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-surface-2 hover:border-border disabled:cursor-not-allowed disabled:opacity-40"
           >
             Précédent
           </button>
@@ -148,7 +160,7 @@ export function ScoringTable({ scores, total = scores.length, page = 1, onPageCh
             type="button"
             disabled={page >= totalPages}
             onClick={() => onPageChange?.(page + 1)}
-            className="rounded border border-border px-3 py-1 text-xs font-medium text-foreground transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-lg border border-border/50 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-surface-2 hover:border-border disabled:cursor-not-allowed disabled:opacity-40"
           >
             Suivant
           </button>

@@ -1,7 +1,7 @@
 import type { AgentState, FocusFilter } from "@/features/agents/state/store";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Search, MessageSquare, Clock } from "lucide-react";
+import { Search, MessageSquare, Clock, Star } from "lucide-react";
 import { AgentAvatar } from "./AgentAvatar";
 import {
   NEEDS_APPROVAL_BADGE_CLASS,
@@ -10,6 +10,8 @@ import {
 } from "./colorSemantics";
 import { EmptyStatePanel } from "./EmptyStatePanel";
 import type { AgentChannelLink } from "@/features/routing/agentChannelResolver";
+
+type LocalFilter = FocusFilter | "favorites";
 
 type FleetSidebarProps = {
   agents: AgentState[];
@@ -21,9 +23,11 @@ type FleetSidebarProps = {
   createDisabled?: boolean;
   createBusy?: boolean;
   channelsByAgent?: Map<string, AgentChannelLink[]>;
+  favoriteAgentIds?: string[];
+  onToggleFavorite?: (agentId: string) => void;
 };
 
-const FILTER_KEYS = ["all", "running", "approvals"] as const;
+const BASE_FILTER_KEYS: FocusFilter[] = ["all", "running", "approvals"];
 
 const formatRelativeTime = (timestampMs: number | null): string | null => {
   if (!timestampMs) return null;
@@ -33,6 +37,16 @@ const formatRelativeTime = (timestampMs: number | null): string | null => {
   if (delta < 86_400_000) return `${Math.floor(delta / 3_600_000)}h`;
   return `${Math.floor(delta / 86_400_000)}d`;
 };
+
+const STATUS_DOT_CLASS: Record<string, string> = {
+  running: "bg-green-400 animate-pulse shadow-[0_0_4px_rgba(74,222,128,0.7)]",
+  idle: "bg-muted-foreground/40",
+  error: "bg-destructive",
+};
+
+function resolveStatusDotClass(status: AgentState["status"]): string {
+  return STATUS_DOT_CLASS[status] ?? "bg-muted-foreground/40";
+}
 
 export const FleetSidebar = ({
   agents,
@@ -44,13 +58,29 @@ export const FleetSidebar = ({
   createDisabled = false,
   createBusy = false,
   channelsByAgent,
+  favoriteAgentIds = [],
+  onToggleFavorite,
 }: FleetSidebarProps) => {
   const t = useTranslations("fleet");
   const ts = useTranslations("status");
   const [searchQuery, setSearchQuery] = useState("");
+  // Local "favorites" tab lives inside the sidebar, doesn't need to propagate up
+  const [localFilter, setLocalFilter] = useState<LocalFilter>(filter);
   const rowRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const previousTopByAgentIdRef = useRef<Map<string, number>>(new Map());
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+
+  const favoritesSet = useMemo(
+    () => new Set(favoriteAgentIds),
+    [favoriteAgentIds],
+  );
+
+  const handleFilterClick = (key: LocalFilter) => {
+    setLocalFilter(key);
+    if (key !== "favorites") {
+      onFilterChange(key as FocusFilter);
+    }
+  };
 
   const filteredBySearch = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -58,9 +88,34 @@ export const FleetSidebar = ({
     return agents.filter((a) => a.name.toLowerCase().includes(q));
   }, [agents, searchQuery]);
 
+  // Apply local filter (may include "favorites" tab)
+  const filteredByFilter = useMemo(() => {
+    const active = localFilter;
+    if (active === "favorites") {
+      return filteredBySearch.filter((a) => favoritesSet.has(a.agentId));
+    }
+    if (active === "running") {
+      return filteredBySearch.filter((a) => a.status === "running");
+    }
+    if (active === "approvals") {
+      return filteredBySearch.filter((a) => a.awaitingUserInput);
+    }
+    return filteredBySearch;
+  }, [localFilter, filteredBySearch, favoritesSet]);
+
+  // Sort: favorites first within the current view (unless in favorites-only view)
+  const sortedAgents = useMemo(() => {
+    if (localFilter === "favorites") return filteredByFilter;
+    return [...filteredByFilter].sort((a, b) => {
+      const aFav = favoritesSet.has(a.agentId) ? 0 : 1;
+      const bFav = favoritesSet.has(b.agentId) ? 0 : 1;
+      return aFav - bFav;
+    });
+  }, [filteredByFilter, favoritesSet, localFilter]);
+
   const agentOrderKey = useMemo(
-    () => filteredBySearch.map((agent) => agent.agentId).join("|"),
-    [filteredBySearch],
+    () => sortedAgents.map((agent) => agent.agentId).join("|"),
+    [sortedAgents],
   );
 
   useLayoutEffect(() => {
@@ -94,9 +149,15 @@ export const FleetSidebar = ({
     previousTopByAgentIdRef.current = nextTopByAgentId;
   }, [agentOrderKey]);
 
+  const baseFilterLabels: Record<FocusFilter, string> = {
+    all: t("filterAll"),
+    running: t("filterRunning"),
+    approvals: t("filterApprovals"),
+  };
+
   return (
     <aside
-      className="glass-panel fade-up-delay ui-panel ui-depth-sidepanel relative flex h-full w-full min-w-72 flex-col gap-3 bg-sidebar p-3 xl:max-w-[320px] xl:border-r xl:border-sidebar-border"
+      className="relative flex h-full w-full min-w-72 flex-col gap-3 backdrop-blur-sm bg-background/80 border-r border-border/50 p-3 xl:max-w-[320px]"
       data-testid="fleet-sidebar"
     >
       <div className="flex items-center justify-between gap-2 px-1">
@@ -130,44 +191,68 @@ export const FleetSidebar = ({
         />
       </div>
 
-      <div className="ui-segment ui-segment-fleet-filter grid-cols-3">
-        {FILTER_KEYS.map((key) => {
-          const active = filter === key;
-          const labels: Record<string, string> = {
-            all: t("filterAll"),
-            running: t("filterRunning"),
-            approvals: t("filterApprovals"),
-          };
+      {/* Filter bar — base filters + favorites star */}
+      <div className="flex items-center gap-0.5 rounded-md bg-surface-2/50 p-0.5">
+        {BASE_FILTER_KEYS.map((key) => {
+          const active = localFilter === key;
           return (
             <button
               key={key}
               type="button"
               data-testid={`fleet-filter-${key}`}
               aria-pressed={active}
-              className="ui-segment-item px-2 py-1 font-mono text-[12px] font-medium tracking-[0.02em]"
-              data-active={active ? "true" : "false"}
-              onClick={() => onFilterChange(key as FocusFilter)}
+              className={`flex-1 rounded-sm px-2 py-1 font-mono text-[11px] font-medium tracking-[0.02em] transition-colors ${
+                active
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              onClick={() => handleFilterClick(key)}
             >
-              {labels[key]}
+              {baseFilterLabels[key]}
             </button>
           );
         })}
+        {/* Favorites tab */}
+        <button
+          type="button"
+          data-testid="fleet-filter-favorites"
+          aria-pressed={localFilter === "favorites"}
+          aria-label="Favorites"
+          className={`shrink-0 rounded-sm px-2 py-1 transition-colors ${
+            localFilter === "favorites"
+              ? "bg-background text-yellow-400 shadow-sm"
+              : "text-muted-foreground hover:text-yellow-400"
+          }`}
+          onClick={() => handleFilterClick("favorites")}
+        >
+          <Star
+            className="h-3 w-3"
+            fill={localFilter === "favorites" ? "currentColor" : "none"}
+          />
+        </button>
       </div>
 
       <div
         ref={scrollContainerRef}
         className="ui-scroll min-h-0 flex-1 overflow-auto"
       >
-        {filteredBySearch.length === 0 ? (
+        {sortedAgents.length === 0 ? (
           <EmptyStatePanel
-            title={searchQuery ? t("noSearchResults") : t("noAgents")}
+            title={
+              localFilter === "favorites"
+                ? "No favorites yet"
+                : searchQuery
+                  ? t("noSearchResults")
+                  : t("noAgents")
+            }
             compact
             className="p-3 text-xs"
           />
         ) : (
-          <div className="flex flex-col gap-2.5">
-            {filteredBySearch.map((agent) => {
+          <div className="flex flex-col gap-1.5">
+            {sortedAgents.map((agent) => {
               const selected = selectedAgentId === agent.agentId;
+              const isFavorite = favoritesSet.has(agent.agentId);
               const avatarSeed = agent.avatarSeed ?? agent.agentId;
               return (
                 <button
@@ -181,27 +266,32 @@ export const FleetSidebar = ({
                   }}
                   type="button"
                   data-testid={`fleet-agent-row-${agent.agentId}`}
-                  className={`group relative ui-card flex w-full items-center gap-3 overflow-hidden border px-3 py-3 text-left transition-colors ${
-                    selected ? "ui-card-selected" : "hover:bg-surface-2/45"
+                  className={`group relative flex w-full items-center gap-3 overflow-hidden rounded-lg px-3 py-2.5 text-left transition-colors ${
+                    selected
+                      ? "bg-primary/10 border border-primary/20 shadow-sm"
+                      : "border border-transparent hover:bg-accent/50 hover:border-border/30"
                   }`}
                   onClick={() => onSelectAgent(agent.agentId)}
                 >
-                  <span
-                    aria-hidden="true"
-                    className={`ui-card-select-indicator ${selected ? "opacity-100" : "opacity-0 group-hover:opacity-35"}`}
-                  />
-                  <AgentAvatar
-                    seed={avatarSeed}
-                    name={agent.name}
-                    avatarUrl={agent.avatarUrl ?? null}
-                    size={42}
-                    isSelected={selected}
-                  />
+                  <div className="relative shrink-0">
+                    <AgentAvatar
+                      seed={avatarSeed}
+                      name={agent.name}
+                      avatarUrl={agent.avatarUrl ?? null}
+                      size={38}
+                      isSelected={selected}
+                    />
+                    {/* Status dot */}
+                    <span
+                      aria-hidden="true"
+                      className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-background ${resolveStatusDotClass(agent.status)}`}
+                    />
+                  </div>
                   <div className="min-w-0 flex-1">
-                    <p className="type-secondary-heading truncate text-foreground">
+                    <p className="truncate text-[13px] font-semibold leading-tight text-foreground">
                       {agent.name}
                     </p>
-                    <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
                       <span
                         className={`ui-badge ${resolveAgentStatusBadgeClass(agent.status)}`}
                         data-status={agent.status}
@@ -233,7 +323,7 @@ export const FleetSidebar = ({
                         ),
                       )}
                     </div>
-                    <div className="mt-1 flex items-center gap-3 text-[10px] text-muted-foreground">
+                    <div className="mt-0.5 flex items-center gap-3 text-[10px] text-muted-foreground">
                       <span className="flex items-center gap-0.5">
                         <MessageSquare
                           className="h-2.5 w-2.5"
@@ -249,6 +339,32 @@ export const FleetSidebar = ({
                       ) : null}
                     </div>
                   </div>
+                  {/* Favorite star button */}
+                  {onToggleFavorite ? (
+                    <button
+                      type="button"
+                      aria-label={
+                        isFavorite
+                          ? "Remove from favorites"
+                          : "Add to favorites"
+                      }
+                      aria-pressed={isFavorite}
+                      className={`shrink-0 rounded-sm p-0.5 transition-colors ${
+                        isFavorite
+                          ? "text-yellow-400"
+                          : "text-transparent group-hover:text-muted-foreground/50 hover:!text-yellow-400"
+                      }`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onToggleFavorite(agent.agentId);
+                      }}
+                    >
+                      <Star
+                        className="h-3.5 w-3.5"
+                        fill={isFavorite ? "currentColor" : "none"}
+                      />
+                    </button>
+                  ) : null}
                 </button>
               );
             })}

@@ -5,7 +5,6 @@ import type { WatchItem, ScoreRecord } from "@/features/watcher/types";
 import { DecisionBadge } from "./DecisionBadge";
 import { ScoreBar } from "./ScoreBar";
 import {
-  ChevronDown,
   ChevronRight,
   Check,
   X,
@@ -148,7 +147,7 @@ function ScoreDetail({ item }: { item: ReviewItem }) {
       {/* Ligne du haut : Score (1fr) | Auteur (1fr) | Détails (1fr) */}
       <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1.2fr] gap-3">
         {/* ── Score de confiance (compact) ── */}
-        <div className="rounded-lg border border-border bg-sidebar/50 p-3">
+        <div className="rounded-xl border border-border/50 bg-background/40 backdrop-blur-sm p-3">
           <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
             Score de confiance
           </h4>
@@ -173,7 +172,7 @@ function ScoreDetail({ item }: { item: ReviewItem }) {
         </div>
 
         {/* ── Confiance auteur ── */}
-        <div className="rounded-lg border border-border bg-sidebar/50 p-3">
+        <div className="rounded-xl border border-border/50 bg-background/40 backdrop-blur-sm p-3">
           <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
             Confiance auteur
           </h4>
@@ -242,7 +241,7 @@ function ScoreDetail({ item }: { item: ReviewItem }) {
         </div>
 
         {/* ── Détails ── */}
-        <div className="rounded-lg border border-border bg-sidebar/50 p-3">
+        <div className="rounded-xl border border-border/50 bg-background/40 backdrop-blur-sm p-3">
           <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
             Détails
           </h4>
@@ -283,7 +282,7 @@ function ScoreDetail({ item }: { item: ReviewItem }) {
 
       {/* ── Résumé des modifications (en dessous, pleine largeur) ── */}
       {item.impact && (
-        <div className="rounded-lg border border-border bg-sidebar/50 p-4">
+        <div className="rounded-xl border border-border/50 bg-background/40 backdrop-blur-sm p-4">
           <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
             Modifications si implémenté
           </h4>
@@ -297,6 +296,16 @@ function ScoreDetail({ item }: { item: ReviewItem }) {
 }
 
 // ─── Item Row ────────────────────────────────────────────────────────────────
+
+// Decision badge glow classes
+const DECISION_GLOW: Record<string, string> = {
+  AUTO: "shadow-[0_0_8px_rgba(74,222,128,0.35)]",
+  PROPOSE: "shadow-[0_0_8px_rgba(250,204,21,0.35)]",
+  NOTIFY: "shadow-[0_0_6px_rgba(148,163,184,0.2)]",
+  SUSPECT: "shadow-[0_0_8px_rgba(251,146,60,0.35)]",
+  BLOCK: "shadow-[0_0_8px_rgba(248,113,113,0.35)]",
+  ARCHIVE: "",
+};
 
 function ReviewItemRow({
   item,
@@ -315,24 +324,37 @@ function ReviewItemRow({
 }) {
   const catColor =
     CATEGORY_COLORS[item.category] ?? "bg-muted text-muted-foreground";
+  const decisionGlow = item.decision
+    ? (DECISION_GLOW[item.decision] ?? "")
+    : "";
 
   return (
-    <div className="rounded-lg border border-border bg-card overflow-hidden transition-colors hover:border-border/80">
+    <div
+      className={`rounded-xl border border-border/50 bg-card overflow-hidden transition-all hover:border-primary/30 ${isOpen ? "border-primary/20" : ""} ${decisionGlow}`}
+    >
       {/* Header row — always visible */}
       <div
         className="flex items-center gap-3 px-4 py-3 cursor-pointer select-none"
         onClick={onToggle}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onToggle();
+          }
+        }}
       >
         {/* Expand chevron */}
-        {isOpen ? (
-          <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-        ) : (
+        <span
+          className={`transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`}
+        >
           <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-        )}
+        </span>
 
         {/* Category badge */}
         <span
-          className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${catColor}`}
+          className={`inline-flex shrink-0 items-center rounded-md px-2 py-0.5 text-xs font-medium ${catColor}`}
         >
           {CATEGORY_LABELS[item.category] ?? item.category}
         </span>
@@ -341,19 +363,19 @@ function ReviewItemRow({
         {item.decision && <DecisionBadge decision={item.decision} />}
 
         {/* Titre (français si disponible) */}
-        <span className="flex-1 truncate text-sm text-foreground font-medium">
+        <span className="flex-1 truncate text-sm text-foreground font-medium min-w-0">
           {item.title_fr || item.title}
         </span>
 
-        {/* Score pill */}
+        {/* Score pill with gradient */}
         {typeof item.global === "number" && (
           <span
-            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-mono font-bold ${
+            className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-mono font-bold ${
               item.global >= 75
-                ? "bg-green-500/15 text-green-400"
+                ? "bg-green-500/15 text-green-400 shadow-[0_0_6px_rgba(74,222,128,0.25)]"
                 : item.global >= 50
-                  ? "bg-yellow-500/15 text-yellow-400"
-                  : "bg-red-500/15 text-red-400"
+                  ? "bg-yellow-500/15 text-yellow-400 shadow-[0_0_6px_rgba(250,204,21,0.25)]"
+                  : "bg-red-500/15 text-red-400 shadow-[0_0_6px_rgba(248,113,113,0.25)]"
             }`}
           >
             {item.global}%
@@ -361,21 +383,21 @@ function ReviewItemRow({
         )}
 
         {/* Time */}
-        <span className="flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap">
+        <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground whitespace-nowrap">
           <Clock className="h-3 w-3" />
           {timeAgo(item.timestamp)}
         </span>
 
         {/* Action buttons */}
         <div
-          className="flex items-center gap-1.5 ml-2"
+          className="flex shrink-0 items-center gap-1.5 ml-2"
           onClick={(e) => e.stopPropagation()}
         >
           {isActionable(item) && (
             <button
               onClick={onAccept}
               disabled={isProcessing}
-              className="inline-flex items-center gap-1 rounded-md bg-green-500/15 px-2.5 py-1 text-xs font-medium text-green-400 hover:bg-green-500/25 disabled:opacity-50 transition-colors"
+              className="inline-flex items-center gap-1 rounded-md bg-green-500/15 px-2.5 py-1 text-xs font-medium text-green-400 hover:bg-green-500/25 hover:shadow-[0_0_8px_rgba(74,222,128,0.3)] disabled:opacity-50 transition-all"
               title="Accepter et implémenter"
             >
               {isProcessing ? (
@@ -389,7 +411,7 @@ function ReviewItemRow({
           <button
             onClick={onReject}
             disabled={isProcessing}
-            className="inline-flex items-center gap-1 rounded-md bg-red-500/10 px-2.5 py-1 text-xs font-medium text-red-400 hover:bg-red-500/20 disabled:opacity-50 transition-colors"
+            className="inline-flex items-center gap-1 rounded-md bg-red-500/10 px-2.5 py-1 text-xs font-medium text-red-400 hover:bg-red-500/20 hover:shadow-[0_0_8px_rgba(248,113,113,0.3)] disabled:opacity-50 transition-all"
             title="Ignorer et archiver"
           >
             <X className="h-3.5 w-3.5" />
@@ -409,12 +431,15 @@ function ReviewItemRow({
         </div>
       </div>
 
-      {/* Expanded detail */}
-      {isOpen && (
-        <div className="border-t border-border bg-sidebar/30 px-4 py-3">
+      {/* Expanded detail — smooth height animation via max-height */}
+      <div
+        className={`overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? "max-h-[2000px] opacity-100" : "max-h-0 opacity-0"}`}
+        aria-hidden={!isOpen}
+      >
+        <div className="border-t border-border/50 bg-sidebar/20 px-4 py-3">
           <ScoreDetail item={item} />
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -482,9 +507,9 @@ export function ReviewList({ items, onRefresh }: ReviewListProps) {
 
   if (items.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-sidebar/30 py-12 px-4">
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/50 bg-sidebar/20 backdrop-blur-sm py-12 px-4">
         <p className="text-sm text-muted-foreground">Aucun item en attente</p>
-        <p className="text-xs text-muted-foreground mt-1">Tout est à jour ✓</p>
+        <p className="text-xs text-muted-foreground mt-1 opacity-70">Tout est à jour</p>
       </div>
     );
   }

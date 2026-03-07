@@ -209,6 +209,9 @@ export type AgentFleetControllerState = {
   persistAvatarSeed: (agentId: string, avatarSeed: string) => void;
   /** gatewayModelsError (passed through for error display) */
   gatewayModelsError: string | null;
+  /** Favorites */
+  favoriteAgentIds: string[];
+  handleToggleFavorite: (agentId: string) => void;
 };
 
 export const useAgentFleetController = ({
@@ -934,6 +937,38 @@ export const useAgentFleetController = ({
     [handleSettingsRouteTabChange],
   );
 
+  // ── Favorites ──────────────────────────────────────────────────────────────
+  const [favoriteAgentIds, setFavoriteAgentIds] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem("agent_favorites");
+      if (!stored) return [];
+      const parsed = JSON.parse(stored);
+      return Array.isArray(parsed) ? (parsed as string[]) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const handleToggleFavorite = useCallback((agentId: string) => {
+    setFavoriteAgentIds((prev) => {
+      const next = prev.includes(agentId)
+        ? prev.filter((id) => id !== agentId)
+        : [...prev, agentId];
+      try {
+        localStorage.setItem("agent_favorites", JSON.stringify(next));
+      } catch {
+        /* ignore */
+      }
+      // Best-effort persist to server preferences
+      void fetch("/api/studio/preferences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: "agent_favorites", value: JSON.stringify(next) }),
+      }).catch(() => {});
+      return next;
+    });
+  }, []);
+
   return {
     state,
     dispatch,
@@ -988,5 +1023,7 @@ export const useAgentFleetController = ({
     handleOpenSystemSkillSetup,
     persistAvatarSeed,
     gatewayModelsError: null,
+    favoriteAgentIds,
+    handleToggleFavorite,
   };
 };

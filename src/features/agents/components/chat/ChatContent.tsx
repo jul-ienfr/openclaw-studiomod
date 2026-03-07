@@ -73,7 +73,7 @@ const ThinkingDetailsRow = memo(function ThinkingDetailsRow({
   return (
     <details
       open={open}
-      className="ui-chat-thinking group rounded-md px-2 py-1.5 text-[10px] shadow-2xs"
+      className="ui-chat-thinking group rounded-xl border border-border/20 backdrop-blur-sm bg-surface-2/30 px-2.5 py-1.5 text-[10px] shadow-sm"
     >
       <summary
         className="flex cursor-pointer list-none items-center gap-2 opacity-65 [&::-webkit-details-marker]:hidden"
@@ -154,23 +154,23 @@ const UserMessageCard = memo(function UserMessageCard({
   }, [onForward, text]);
 
   return (
-    <div className="group/msg relative ui-chat-user-card w-full max-w-[70ch] self-end overflow-hidden rounded-[var(--radius-small)] bg-[color:var(--chat-user-bg)]">
+    <div className="group/msg relative w-full max-w-[70ch] self-end overflow-hidden rounded-2xl rounded-tr-sm bg-primary text-primary-foreground shadow-sm">
       <MessageActionBar
         onReply={onReply}
         onForward={forwardWithText}
         otherAgents={otherAgents}
       />
-      <div className="flex items-center justify-between gap-3 bg-[color:var(--chat-user-header-bg)] px-3 py-2 dark:px-3.5 dark:py-2.5">
-        <div className="type-meta min-w-0 truncate font-mono text-foreground/90">
+      <div className="flex items-center justify-between gap-3 border-b border-white/10 px-3 py-1.5">
+        <div className="type-meta min-w-0 truncate font-mono text-primary-foreground/80 text-[11px]">
           You
         </div>
         {typeof timestampMs === "number" ? (
-          <time className="type-meta shrink-0 rounded-md bg-surface-3 px-2 py-0.5 font-mono text-muted-foreground/70">
+          <time className="type-meta shrink-0 font-mono text-[10px] text-primary-foreground/60">
             {formatChatTimestamp(timestampMs)}
           </time>
         ) : null}
       </div>
-      <div className="agent-markdown type-body px-3 py-3 text-foreground dark:px-3.5 dark:py-3.5">
+      <div className="agent-markdown type-body px-3 py-3 text-primary-foreground">
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
           urlTransform={chatUrlTransform}
@@ -259,7 +259,7 @@ const AssistantMessageCard = memo(function AssistantMessageCard({
             {name}
           </div>
           {resolvedTimestamp !== null ? (
-            <time className="type-meta shrink-0 rounded-md bg-surface-3 px-2 py-0.5 font-mono text-muted-foreground/90">
+            <time className="type-meta shrink-0 font-mono text-[10px] text-muted-foreground/70">
               {formatChatTimestamp(resolvedTimestamp)}
             </time>
           ) : null}
@@ -312,7 +312,7 @@ const AssistantMessageCard = memo(function AssistantMessageCard({
             ) : null}
 
             {contentText ? (
-              <div className="ui-chat-assistant-card">
+              <div className="ui-chat-assistant-card rounded-2xl rounded-tl-sm backdrop-blur-sm bg-card/60 border border-border/30 p-3">
                 {streaming ? (
                   (() => {
                     if (!contentText.includes("MEDIA:")) {
@@ -393,7 +393,7 @@ const AssistantIntroCard = memo(function AssistantIntroCard({
             {name}
           </div>
         </div>
-        <div className="ui-chat-assistant-card mt-2">
+        <div className="ui-chat-assistant-card mt-2 rounded-2xl rounded-tl-sm backdrop-blur-sm bg-card/60 border border-border/30 p-3">
           <div className="text-[14px] leading-[1.65] text-foreground">
             {title}
           </div>

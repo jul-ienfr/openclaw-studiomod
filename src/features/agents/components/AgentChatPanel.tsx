@@ -224,7 +224,7 @@ const AgentChatComposer = memo(function AgentChatComposer({
   );
   const hasAttachments = attachments.length > 0;
   return (
-    <div className="rounded-2xl border border-border/65 bg-surface-2/45 px-3 py-2">
+    <div className="rounded-2xl border border-border/50 bg-background/60 backdrop-blur-sm px-3 py-2 ring-0 focus-within:ring-1 focus-within:ring-primary/30 transition-shadow">
       {hasAttachments ? (
         <div className="mb-2 flex flex-wrap gap-2">
           {attachments.map((att) => (
@@ -376,7 +376,7 @@ const AgentChatComposer = memo(function AgentChatComposer({
           </span>
         ) : null}
         <button
-          className="ui-btn-primary ui-btn-send px-3 py-2 font-mono text-[12px] font-medium tracking-[0.02em] disabled:cursor-not-allowed disabled:border-border disabled:bg-muted disabled:text-muted-foreground"
+          className="ui-btn-primary ui-btn-send px-3 py-2 font-mono text-[12px] font-medium tracking-[0.02em] disabled:cursor-not-allowed disabled:border-border disabled:bg-muted disabled:text-muted-foreground bg-gradient-to-br from-primary to-primary/80"
           type="button"
           onClick={onSend}
           disabled={sendDisabled}
