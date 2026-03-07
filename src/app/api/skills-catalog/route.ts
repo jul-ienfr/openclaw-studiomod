@@ -1,13 +1,17 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import fs from "node:fs";
 import path from "node:path";
 import { resolveStateDir } from "@/lib/clawdbot/paths";
-import { withErrorHandler } from "@/lib/api/error-handler";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 
 function readJson(p: string): unknown {
-  try { return JSON.parse(fs.readFileSync(p, "utf8")); } catch { return null; }
+  try {
+    return JSON.parse(fs.readFileSync(p, "utf8"));
+  } catch {
+    return null;
+  }
 }
 
 function readSkillMd(skillDir: string): { name: string; description?: string } {
@@ -26,7 +30,10 @@ function readSkillMd(skillDir: string): { name: string; description?: string } {
   }
 }
 
-async function get_handler() {
+export async function GET(request: NextRequest) {
+  const limited = applyRateLimit(request, RATE_LIMITS.skillsCatalog);
+  if (limited) return limited;
+
   try {
     const stateDir = resolveStateDir();
     const agentsDir = path.join(stateDir, "agents");
@@ -42,24 +49,36 @@ async function get_handler() {
 
     // Global skills
     if (fs.existsSync(globalSkillsDir)) {
-      for (const entry of fs.readdirSync(globalSkillsDir, { withFileTypes: true })) {
+      for (const entry of fs.readdirSync(globalSkillsDir, {
+        withFileTypes: true,
+      })) {
         if (!entry.isDirectory()) continue;
         const skillDir = path.join(globalSkillsDir, entry.name);
         const meta = readSkillMd(skillDir);
-        skills.push({ ...meta, agentId: "global", enabled: true, path: skillDir });
+        skills.push({
+          ...meta,
+          agentId: "global",
+          enabled: true,
+          path: skillDir,
+        });
       }
     }
 
     // Per-agent skills
     let agentIds: string[] = [];
     try {
-      agentIds = fs.readdirSync(agentsDir, { withFileTypes: true })
+      agentIds = fs
+        .readdirSync(agentsDir, { withFileTypes: true })
         .filter((d) => d.isDirectory())
         .map((d) => d.name);
-    } catch { /**/ }
+    } catch {
+      /**/
+    }
 
     for (const agentId of agentIds) {
-      const agentConf = readJson(path.join(agentsDir, agentId, "agent", "agent.json")) as Record<string, unknown> | null;
+      const agentConf = readJson(
+        path.join(agentsDir, agentId, "agent", "agent.json"),
+      ) as Record<string, unknown> | null;
       const skillsConf = (agentConf?.skills as Record<string, unknown>) ?? {};
 
       for (const [skillName, skillVal] of Object.entries(skillsConf)) {
@@ -75,8 +94,9 @@ async function get_handler() {
 
     return NextResponse.json({ skills });
   } catch (err) {
-    return NextResponse.json({ error: String(err), skills: [] }, { status: 500 });
+    return NextResponse.json(
+      { error: String(err), skills: [] },
+      { status: 500 },
+    );
   }
 }
-
-export const GET = withErrorHandler(get_handler);

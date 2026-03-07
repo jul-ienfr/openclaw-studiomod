@@ -62,10 +62,11 @@ export const rateLimit = (config: RateLimitConfig) => {
 };
 
 export const RATE_LIMITS = {
-  credentials: rateLimit({ windowMs: 60_000, maxRequests: 30 }),
+  credentials: rateLimit({ windowMs: 60_000, maxRequests: 10 }),
   studio: rateLimit({ windowMs: 60_000, maxRequests: 60 }),
   agentState: rateLimit({ windowMs: 60_000, maxRequests: 20 }),
   skillsRemove: rateLimit({ windowMs: 60_000, maxRequests: 10 }),
+  skillsCatalog: rateLimit({ windowMs: 60_000, maxRequests: 20 }),
   pathSuggestions: rateLimit({ windowMs: 60_000, maxRequests: 60 }),
 } as const;
 
