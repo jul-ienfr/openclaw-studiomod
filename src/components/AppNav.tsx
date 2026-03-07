@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, Bot, Eye, Zap, Settings, Bell } from "lucide-react";
 import { useNotifications } from "@/features/notifications/useNotifications";
+import { useNavBadges } from "@/hooks/useNavBadges";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -16,6 +17,7 @@ const NAV_ITEMS = [
 export function AppNav() {
   const pathname = usePathname();
   const { unreadCount } = useNotifications();
+  const navBadges = useNavBadges();
 
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + "/");
@@ -52,6 +54,16 @@ export function AppNav() {
                 <span className="absolute -left-[1px] top-2 h-7 w-[3px] rounded-r-full bg-primary" />
               )}
               <Icon className="h-5 w-5" strokeWidth={active ? 2 : 1.75} />
+              {/* Watcher badge: show count */}
+              {href === "/watcher" && navBadges["/watcher"] > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-0.5 text-[9px] font-bold text-destructive-foreground">
+                  {navBadges["/watcher"] > 99 ? "99+" : navBadges["/watcher"]}
+                </span>
+              )}
+              {/* Operations badge: show dot if errors */}
+              {href === "/operations" && navBadges["/operations"] > 0 && (
+                <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-destructive" />
+              )}
               <span className="pointer-events-none absolute left-full ml-3 z-50 hidden whitespace-nowrap rounded-lg border border-border bg-popover px-2.5 py-1.5 text-xs font-medium text-popover-foreground shadow-lg group-hover:block">
                 {label}
               </span>

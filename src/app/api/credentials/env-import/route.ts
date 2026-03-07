@@ -1,31 +1,18 @@
 import { NextResponse } from "next/server";
 import { withErrorHandler } from "@/lib/api/error-handler";
+import { EnvImportSchema } from "@/lib/api/schemas/config";
+import { parseBody, isValidationError } from "@/lib/api/validation";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { importFromEnvContent } = require("../../../../../server/env-importer");
 
 export const runtime = "nodejs";
 
-type EnvImportBody = {
-  content: string;
-};
-
-const isValidBody = (body: unknown): body is EnvImportBody =>
-  Boolean(
-    body &&
-    typeof body === "object" &&
-    typeof (body as EnvImportBody).content === "string",
-  );
-
 async function post_handler(request: Request) {
   try {
-    const body = (await request.json()) as unknown;
-    if (!isValidBody(body)) {
-      return NextResponse.json(
-        { error: "Expected { content: string } with .env file content." },
-        { status: 400 },
-      );
-    }
+    const body = await parseBody(request, EnvImportSchema);
+    if (isValidationError(body)) return body;
+
     const result = importFromEnvContent(body.content);
     return NextResponse.json(result);
   } catch (err) {

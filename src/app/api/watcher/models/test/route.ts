@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAuth } from "@/features/watcher/operations/authMiddleware";
 import { decryptApiKey } from "@/lib/watcher/config";
 import { withErrorHandler } from "@/lib/api/error-handler";
+import { WatcherModelTestSchema } from "@/lib/api/schemas/watcher";
 
 export const runtime = "nodejs";
 
@@ -95,23 +96,15 @@ async function post_handler(request: Request) {
 
   try {
     const body = await request.json();
-    const { models } = body as {
-      models: Array<{
-        id: string;
-        provider: string;
-        model_id: string;
-        base_url?: string;
-        api_key?: string;
-        timeout_seconds?: number;
-      }>;
-    };
-
-    if (!Array.isArray(models) || models.length === 0) {
+    const parsed = WatcherModelTestSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "models array required" },
+        { error: "Validation failed", details: parsed.error.issues },
         { status: 400 },
       );
     }
+
+    const { models } = parsed.data;
 
     const results = await Promise.all(
       models.map(async (m) => {

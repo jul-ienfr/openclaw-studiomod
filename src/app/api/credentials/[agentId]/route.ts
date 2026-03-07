@@ -1,10 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const vault = require("../../../../../server/credential-vault");
 import { z } from "zod";
 import { parseBody, isValidationError } from "@/lib/api/validation";
 import { withErrorHandler } from "@/lib/api/error-handler";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 
@@ -25,7 +26,8 @@ async function get_handler(_request: Request, context: RouteContext) {
     const entries = vault.loadCredentials(agentId);
     return NextResponse.json(entries);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to load credentials.";
+    const message =
+      err instanceof Error ? err.message : "Failed to load credentials.";
     console.error(message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
@@ -39,19 +41,24 @@ async function put_handler(request: Request, context: RouteContext) {
     vault.saveCredentials(agentId, body);
     return NextResponse.json({ ok: true });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to save credentials.";
+    const message =
+      err instanceof Error ? err.message : "Failed to save credentials.";
     console.error(message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
-async function delete_handler(_request: Request, context: RouteContext) {
+async function delete_handler(_request: NextRequest, context: RouteContext) {
+  const limited = applyRateLimit(_request, RATE_LIMITS.deleteGeneric);
+  if (limited) return limited;
+
   try {
     const { agentId } = await context.params;
     vault.removeCredentials(agentId);
     return NextResponse.json({ ok: true });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to remove credentials.";
+    const message =
+      err instanceof Error ? err.message : "Failed to remove credentials.";
     console.error(message);
     return NextResponse.json({ error: message }, { status: 500 });
   }

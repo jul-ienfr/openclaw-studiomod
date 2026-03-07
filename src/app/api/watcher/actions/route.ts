@@ -1,78 +1,105 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { execWatcher } from "@/lib/watcher/exec";
 import { getDbWrite } from "@/lib/watcher/db";
 import { withErrorHandler } from "@/lib/api/error-handler";
+import { WatcherActionSchema } from "@/lib/api/schemas/watcher";
+import { parseBody, isValidationError } from "@/lib/api/validation";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 
-async function post_handler(request: Request) {
+async function post_handler(request: NextRequest) {
+  const limited = applyRateLimit(request, RATE_LIMITS.watcherActions);
+  if (limited) return limited;
+
   try {
-    const body = await request.json();
-    const { action, source, level, itemId, dryRun, limit } = body as {
-      action?: string;
-      source?: string;
-      level?: string;
-      itemId?: string;
-      dryRun?: boolean;
-      limit?: number;
-    };
+    const parsed = await parseBody(request, WatcherActionSchema);
+    if (isValidationError(parsed)) return parsed;
+
+    const { action } = parsed;
 
     // ── Watcher script actions ──────────────────────────────────────────────
     if (action === "check") {
       const args = ["check"];
-      if (source) args.push("--source", source);
+      if (parsed.source) args.push("--source", parsed.source);
       const result = await execWatcher(args);
-      return NextResponse.json({ ok: result.code === 0, stdout: result.stdout, stderr: result.stderr });
+      return NextResponse.json({
+        ok: result.code === 0,
+        stdout: result.stdout,
+        stderr: result.stderr,
+      });
     }
 
-    if (action === "set-level" && level) {
-      const result = await execWatcher(["set-level", level]);
-      return NextResponse.json({ ok: result.code === 0, stdout: result.stdout, stderr: result.stderr });
+    if (action === "set-level") {
+      const result = await execWatcher(["set-level", parsed.level]);
+      return NextResponse.json({
+        ok: result.code === 0,
+        stdout: result.stdout,
+        stderr: result.stderr,
+      });
     }
 
     if (action === "status") {
       const result = await execWatcher(["status"]);
-      return NextResponse.json({ ok: result.code === 0, stdout: result.stdout, stderr: result.stderr });
+      return NextResponse.json({
+        ok: result.code === 0,
+        stdout: result.stdout,
+        stderr: result.stderr,
+      });
     }
 
     if (action === "vacuum") {
       const result = await execWatcher(["vacuum"]);
-      return NextResponse.json({ ok: result.code === 0, stdout: result.stdout, stderr: result.stderr });
+      return NextResponse.json({
+        ok: result.code === 0,
+        stdout: result.stdout,
+        stderr: result.stderr,
+      });
     }
 
     // ── Implement (execute AUTO decisions) ─────────────────────────────────
     if (action === "implement") {
       const args = ["implement"];
-      if (itemId) args.push("--item-id", itemId);
-      if (dryRun) args.push("--dry-run");
-      if (limit) args.push("--limit", String(limit));
+      if (parsed.itemId) args.push("--item-id", parsed.itemId);
+      if (parsed.dryRun) args.push("--dry-run");
+      if (parsed.limit) args.push("--limit", String(parsed.limit));
       const result = await execWatcher(args);
-      return NextResponse.json({ ok: result.code === 0, stdout: result.stdout, stderr: result.stderr });
+      return NextResponse.json({
+        ok: result.code === 0,
+        stdout: result.stdout,
+        stderr: result.stderr,
+      });
     }
 
     // ── DB direct mutations ─────────────────────────────────────────────────
 
-    if (action === "ignore" && itemId) {
+    if (action === "ignore") {
       const db = getDbWrite();
       try {
-        const item = db.prepare("SELECT id FROM items WHERE id = ?").get(itemId);
-        if (!item) return NextResponse.json({ error: "Item not found" }, { status: 404 });
-        db.prepare("UPDATE items SET status = 'archived' WHERE id = ?").run(itemId);
+        const item = db
+          .prepare("SELECT id FROM items WHERE id = ?")
+          .get(parsed.itemId);
+        if (!item)
+          return NextResponse.json(
+            { error: "Item not found" },
+            { status: 404 },
+          );
+        db.prepare("UPDATE items SET status = 'archived' WHERE id = ?").run(
+          parsed.itemId,
+        );
         return NextResponse.json({ ok: true });
       } finally {
         db.close();
       }
     }
 
-    if (action === "set-status" && itemId) {
-      const { status } = body as { status?: string };
-      const allowed = ["new", "scored", "implemented", "archived"];
-      if (!status || !allowed.includes(status)) {
-        return NextResponse.json({ error: `status must be one of: ${allowed.join(", ")}` }, { status: 400 });
-      }
+    if (action === "set-status") {
       const db = getDbWrite();
       try {
-        db.prepare("UPDATE items SET status = ? WHERE id = ?").run(status, itemId);
+        db.prepare("UPDATE items SET status = ? WHERE id = ?").run(
+          parsed.status,
+          parsed.itemId,
+        );
         return NextResponse.json({ ok: true });
       } finally {
         db.close();
@@ -80,11 +107,15 @@ async function post_handler(request: Request) {
     }
 
     return NextResponse.json(
-      { error: "Invalid action. Allowed: check, set-level, status, vacuum, implement, ignore, set-status" },
-      { status: 400 }
+      {
+        error:
+          "Invalid action. Allowed: check, set-level, status, vacuum, implement, ignore, set-status",
+      },
+      { status: 400 },
     );
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to execute action.";
+    const message =
+      err instanceof Error ? err.message : "Failed to execute action.";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

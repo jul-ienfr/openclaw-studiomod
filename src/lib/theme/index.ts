@@ -44,21 +44,29 @@ export type ThemeSpacing = {
   navWidth: string;
 };
 
+export type ThemeLayout = {
+  sidebarStyle: "glass" | "solid" | "minimal";
+  cardStyle: "glass" | "elevated" | "flat" | "bordered";
+  headerStyle: "transparent" | "solid" | "glass";
+};
+
 export type ThemeBranding = {
   appName: string;
   logoUrl: string | null;
 };
 
 export type ThemeConfig = {
-  version: "1";
+  version: "1" | "2";
   name: string;
   preset: string;
+  category?: "classic" | "premium";
   colors: {
     light: ThemeColors;
     dark: ThemeColors;
   };
   typography: ThemeTypography;
   spacing: ThemeSpacing;
+  layout: ThemeLayout;
   branding: ThemeBranding;
 };
 
@@ -120,10 +128,17 @@ export const DEFAULT_LIGHT_COLORS: ThemeColors = {
   neutralTint: "rgb(90 132 154)",
 };
 
+export const DEFAULT_LAYOUT: ThemeLayout = {
+  sidebarStyle: "glass",
+  cardStyle: "elevated",
+  headerStyle: "transparent",
+};
+
 export const DEFAULT_THEME: ThemeConfig = {
-  version: "1",
+  version: "2",
   name: "Default",
   preset: "default",
+  category: "classic",
   colors: {
     light: DEFAULT_LIGHT_COLORS,
     dark: DEFAULT_DARK_COLORS,
@@ -140,6 +155,7 @@ export const DEFAULT_THEME: ThemeConfig = {
     radiusSmall: "6px",
     navWidth: "56px",
   },
+  layout: DEFAULT_LAYOUT,
   branding: {
     appName: "OpenClaw Studio",
     logoUrl: null,
@@ -147,11 +163,13 @@ export const DEFAULT_THEME: ThemeConfig = {
 };
 
 export const THEME_PRESETS: ThemeConfig[] = [
+  // ── Classic presets ──
   DEFAULT_THEME,
   {
     ...DEFAULT_THEME,
     name: "Ocean Blue",
     preset: "ocean",
+    category: "classic",
     colors: {
       light: { ...DEFAULT_LIGHT_COLORS, primary: "oklch(0.55 0.15 230)" },
       dark: {
@@ -167,6 +185,7 @@ export const THEME_PRESETS: ThemeConfig[] = [
     ...DEFAULT_THEME,
     name: "Corporate",
     preset: "corporate",
+    category: "classic",
     colors: {
       light: {
         ...DEFAULT_LIGHT_COLORS,
@@ -186,6 +205,7 @@ export const THEME_PRESETS: ThemeConfig[] = [
     ...DEFAULT_THEME,
     name: "Neon",
     preset: "neon",
+    category: "classic",
     colors: {
       light: { ...DEFAULT_LIGHT_COLORS, primary: "oklch(0.60 0.25 140)" },
       dark: {
@@ -201,6 +221,7 @@ export const THEME_PRESETS: ThemeConfig[] = [
     ...DEFAULT_THEME,
     name: "Minimal",
     preset: "minimal",
+    category: "classic",
     colors: {
       light: {
         ...DEFAULT_LIGHT_COLORS,
@@ -215,6 +236,210 @@ export const THEME_PRESETS: ThemeConfig[] = [
         sidebar: "#161616",
         ring: "rgb(200 200 200)",
       },
+    },
+  },
+
+  // ── Premium presets ──
+  {
+    ...DEFAULT_THEME,
+    name: "Glassmorphism",
+    preset: "glassmorphism",
+    category: "premium",
+    colors: {
+      light: {
+        ...DEFAULT_LIGHT_COLORS,
+        primary: "oklch(0.55 0.12 250)",
+        background: "#f0f4ff",
+        sidebar: "rgba(255,255,255,0.6)",
+      },
+      dark: {
+        ...DEFAULT_DARK_COLORS,
+        primary: "#60a5fa",
+        background: "#050a15",
+        sidebar: "rgba(15,25,40,0.8)",
+        ring: "#60a5fa",
+      },
+    },
+    layout: {
+      sidebarStyle: "glass",
+      cardStyle: "glass",
+      headerStyle: "glass",
+    },
+  },
+  {
+    ...DEFAULT_THEME,
+    name: "Cyberpunk",
+    preset: "cyberpunk",
+    category: "premium",
+    colors: {
+      light: {
+        ...DEFAULT_LIGHT_COLORS,
+        primary: "oklch(0.65 0.28 330)",
+        background: "#faf0ff",
+      },
+      dark: {
+        ...DEFAULT_DARK_COLORS,
+        primary: "#ff00ff",
+        background: "#0a0010",
+        sidebar: "#120020",
+        accent: "#00ffff",
+        ring: "#ff00ff",
+      },
+    },
+    layout: {
+      sidebarStyle: "glass",
+      cardStyle: "bordered",
+      headerStyle: "solid",
+    },
+  },
+  {
+    ...DEFAULT_THEME,
+    name: "Sunset",
+    preset: "sunset",
+    category: "premium",
+    colors: {
+      light: {
+        ...DEFAULT_LIGHT_COLORS,
+        primary: "oklch(0.58 0.18 30)",
+        background: "#fff8f0",
+      },
+      dark: {
+        ...DEFAULT_DARK_COLORS,
+        primary: "#ff7b54",
+        background: "#120e0a",
+        sidebar: "#1a140e",
+        ring: "#ff7b54",
+      },
+    },
+    layout: {
+      sidebarStyle: "glass",
+      cardStyle: "elevated",
+      headerStyle: "transparent",
+    },
+  },
+  {
+    ...DEFAULT_THEME,
+    name: "Forest",
+    preset: "forest",
+    category: "premium",
+    colors: {
+      light: {
+        ...DEFAULT_LIGHT_COLORS,
+        primary: "oklch(0.50 0.12 150)",
+        background: "#f0faf0",
+      },
+      dark: {
+        ...DEFAULT_DARK_COLORS,
+        primary: "#4ade80",
+        background: "#060f06",
+        sidebar: "#0a150a",
+        ring: "#4ade80",
+      },
+    },
+    layout: {
+      sidebarStyle: "glass",
+      cardStyle: "elevated",
+      headerStyle: "transparent",
+    },
+  },
+  {
+    ...DEFAULT_THEME,
+    name: "Midnight",
+    preset: "midnight",
+    category: "premium",
+    colors: {
+      light: {
+        ...DEFAULT_LIGHT_COLORS,
+        primary: "oklch(0.45 0.15 270)",
+        background: "#f0f0ff",
+      },
+      dark: {
+        ...DEFAULT_DARK_COLORS,
+        primary: "#818cf8",
+        background: "#050510",
+        sidebar: "#0a0a18",
+        ring: "#818cf8",
+      },
+    },
+    layout: {
+      sidebarStyle: "solid",
+      cardStyle: "elevated",
+      headerStyle: "transparent",
+    },
+  },
+  {
+    ...DEFAULT_THEME,
+    name: "Lavender",
+    preset: "lavender",
+    category: "premium",
+    colors: {
+      light: {
+        ...DEFAULT_LIGHT_COLORS,
+        primary: "oklch(0.55 0.10 300)",
+        background: "#faf0ff",
+      },
+      dark: {
+        ...DEFAULT_DARK_COLORS,
+        primary: "#c084fc",
+        background: "#0e0818",
+        sidebar: "#140c20",
+        ring: "#c084fc",
+      },
+    },
+    layout: {
+      sidebarStyle: "glass",
+      cardStyle: "elevated",
+      headerStyle: "transparent",
+    },
+  },
+  {
+    ...DEFAULT_THEME,
+    name: "Arctic",
+    preset: "arctic",
+    category: "premium",
+    colors: {
+      light: {
+        ...DEFAULT_LIGHT_COLORS,
+        primary: "oklch(0.55 0.08 210)",
+        background: "#f0faff",
+      },
+      dark: {
+        ...DEFAULT_DARK_COLORS,
+        primary: "#67e8f9",
+        background: "#040e14",
+        sidebar: "#08141c",
+        ring: "#67e8f9",
+      },
+    },
+    layout: {
+      sidebarStyle: "minimal",
+      cardStyle: "flat",
+      headerStyle: "transparent",
+    },
+  },
+  {
+    ...DEFAULT_THEME,
+    name: "Ember",
+    preset: "ember",
+    category: "premium",
+    colors: {
+      light: {
+        ...DEFAULT_LIGHT_COLORS,
+        primary: "oklch(0.55 0.20 40)",
+        background: "#fff5f0",
+      },
+      dark: {
+        ...DEFAULT_DARK_COLORS,
+        primary: "#fb923c",
+        background: "#140a04",
+        sidebar: "#1c1008",
+        ring: "#fb923c",
+      },
+    },
+    layout: {
+      sidebarStyle: "glass",
+      cardStyle: "elevated",
+      headerStyle: "transparent",
     },
   },
 ];

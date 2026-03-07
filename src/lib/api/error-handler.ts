@@ -45,7 +45,17 @@ export function withErrorHandler(handler: RouteHandler): RouteHandler {
         );
       }
       // Log unexpected errors server-side
-      console.error(`[${requestId}] Unhandled error in ${req.method} ${new URL(req.url).pathname}:`, err);
+      const pathname = (() => {
+        try {
+          return new URL(req.url).pathname;
+        } catch {
+          return req.url;
+        }
+      })();
+      console.error(
+        `[${requestId}] Unhandled error in ${req.method} ${pathname}:`,
+        err,
+      );
       return NextResponse.json(
         { error: "Internal server error", requestId },
         { status: 500 },

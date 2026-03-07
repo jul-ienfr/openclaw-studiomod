@@ -1,30 +1,17 @@
-import { NextResponse } from "next/server";
-import { z } from "zod";
+import { NextRequest, NextResponse } from "next/server";
 import fs from "node:fs";
 import path from "node:path";
 import { resolveStateDir } from "@/lib/clawdbot/paths";
 import { parseBody, isValidationError } from "@/lib/api/validation";
+import { CronConfigPatchSchema } from "@/lib/api/schemas/config";
 import { createLogger } from "@/lib/logger";
 import { withErrorHandler } from "@/lib/api/error-handler";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const log = createLogger("api:config:cron");
-
-// --- Schemas ---
-
-const CronPostSchema = z
-  .object({
-    enabled: z.boolean().optional(),
-    maxConcurrentRuns: z.number().int().positive().optional(),
-    sessionRetention: z.string().optional(),
-  })
-  .strict()
-  .refine((data) => !("jobs" in (data as Record<string, unknown>)), {
-    message:
-      "Jobs must NOT be placed in openclaw.json cron section. They belong in cron/jobs.json.",
-  });
 
 // --- Helpers ---
 
@@ -79,9 +66,12 @@ async function get_handler() {
   }
 }
 
-async function post_handler(request: Request) {
+async function post_handler(request: NextRequest) {
+  const limited = applyRateLimit(request, RATE_LIMITS.configPatch);
+  if (limited) return limited;
+
   try {
-    const parsed = await parseBody(request, CronPostSchema);
+    const parsed = await parseBody(request, CronConfigPatchSchema);
     if (isValidationError(parsed)) return parsed;
 
     const stateDir = resolveStateDir();

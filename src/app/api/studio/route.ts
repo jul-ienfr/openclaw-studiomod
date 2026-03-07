@@ -7,11 +7,11 @@ import {
   loadStudioSettings,
 } from "@/lib/studio/settings-store";
 import { withErrorHandler } from "@/lib/api/error-handler";
+import { StudioSettingsPutSchema } from "@/lib/api/schemas/studio";
+import { parseBody, isValidationError } from "@/lib/api/validation";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
-
-const isPatch = (value: unknown): value is StudioSettingsPatch =>
-  Boolean(value && typeof value === "object");
 
 async function get_handler() {
   try {
@@ -19,22 +19,26 @@ async function get_handler() {
     const localGatewayDefaults = loadLocalGatewayDefaults();
     return NextResponse.json({ settings, localGatewayDefaults });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to load studio settings.";
+    const message =
+      err instanceof Error ? err.message : "Failed to load studio settings.";
     console.error(message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
 async function put_handler(request: Request) {
+  const limited = applyRateLimit(request, RATE_LIMITS.configPatch);
+  if (limited) return limited;
+
   try {
-    const body = (await request.json()) as unknown;
-    if (!isPatch(body)) {
-      return NextResponse.json({ error: "Invalid settings payload." }, { status: 400 });
-    }
-    const settings = applyStudioSettingsPatch(body);
+    const body = await parseBody(request, StudioSettingsPutSchema);
+    if (isValidationError(body)) return body;
+
+    const settings = applyStudioSettingsPatch(body as StudioSettingsPatch);
     return NextResponse.json({ settings });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to save studio settings.";
+    const message =
+      err instanceof Error ? err.message : "Failed to save studio settings.";
     console.error(message);
     return NextResponse.json({ error: message }, { status: 500 });
   }

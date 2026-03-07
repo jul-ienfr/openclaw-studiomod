@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withErrorHandler } from "@/lib/api/error-handler";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/rateLimit";
 import {
   getSessionToken,
   revokeSessionToken,
@@ -10,6 +11,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 async function handler(req: NextRequest) {
+  const limited = applyRateLimit(req, RATE_LIMITS.authLogout);
+  if (limited) return limited;
+
   const token = getSessionToken(req);
   if (token) {
     await revokeSessionToken(token);

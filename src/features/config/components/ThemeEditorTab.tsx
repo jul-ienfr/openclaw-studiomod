@@ -1,8 +1,13 @@
 "use client";
 
 import { useTheme } from "../hooks/useTheme";
-import { THEME_PRESETS, ThemeConfig, ThemeColors } from "@/lib/theme";
-import { Loader2, Check, Palette } from "lucide-react";
+import {
+  THEME_PRESETS,
+  ThemeConfig,
+  ThemeColors,
+  ThemeLayout,
+} from "@/lib/theme";
+import { Loader2, Check, Palette, Layout } from "lucide-react";
 import { useState } from "react";
 
 const COLOR_FIELDS: { key: keyof ThemeColors; label: string }[] = [
@@ -58,6 +63,12 @@ export function ThemeEditorTab() {
     await patchTheme({ branding: { ...theme.branding, [key]: value } });
   };
 
+  const handleLayoutChange = async (key: keyof ThemeLayout, value: string) => {
+    await patchTheme({
+      layout: { ...theme.layout, [key]: value } as ThemeLayout,
+    });
+  };
+
   const handleSave = async () => {
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
@@ -71,29 +82,42 @@ export function ThemeEditorTab() {
         <h3 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wider">
           Presets
         </h3>
-        <div className="flex flex-wrap gap-2">
-          {THEME_PRESETS.map((preset) => (
-            <button
-              key={preset.preset}
-              onClick={() => handlePreset(preset)}
-              disabled={saving}
-              className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm transition-colors ${
-                theme.preset === preset.preset
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-border hover:border-primary/50"
-              }`}
-            >
-              <span
-                className="h-3 w-3 rounded-full"
-                style={{ backgroundColor: preset.colors.dark.primary }}
-              />
-              {preset.name}
-              {theme.preset === preset.preset && (
-                <Check className="h-3.5 w-3.5" />
-              )}
-            </button>
-          ))}
-        </div>
+        {(["classic", "premium"] as const).map((cat) => {
+          const presets = THEME_PRESETS.filter(
+            (p) => (p.category ?? "classic") === cat,
+          );
+          if (presets.length === 0) return null;
+          return (
+            <div key={cat} className="mb-4">
+              <p className="mb-2 text-xs font-medium text-muted-foreground/70 uppercase tracking-wide">
+                {cat === "classic" ? "Classic" : "Premium"}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {presets.map((preset) => (
+                  <button
+                    key={preset.preset}
+                    onClick={() => handlePreset(preset)}
+                    disabled={saving}
+                    className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm transition-colors ${
+                      theme.preset === preset.preset
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border hover:border-primary/50"
+                    }`}
+                  >
+                    <span
+                      className="h-3 w-3 rounded-full"
+                      style={{ backgroundColor: preset.colors.dark.primary }}
+                    />
+                    {preset.name}
+                    {theme.preset === preset.preset && (
+                      <Check className="h-3.5 w-3.5" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })}
       </section>
 
       {/* Color mode toggle */}
@@ -156,6 +180,65 @@ export function ThemeEditorTab() {
               </div>
             );
           })}
+        </div>
+      </section>
+
+      {/* Layout */}
+      <section>
+        <h3 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+          Mise en page
+        </h3>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 max-w-lg">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-muted-foreground flex items-center gap-1.5">
+              <Layout className="h-3 w-3" strokeWidth={1.75} />
+              Sidebar
+            </label>
+            <select
+              value={theme.layout.sidebarStyle}
+              onChange={(e) =>
+                handleLayoutChange("sidebarStyle", e.target.value)
+              }
+              className="rounded-lg border border-border bg-surface-1 px-3 py-2 text-sm"
+            >
+              <option value="glass">Glass</option>
+              <option value="solid">Solid</option>
+              <option value="minimal">Minimal</option>
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-muted-foreground flex items-center gap-1.5">
+              <Layout className="h-3 w-3" strokeWidth={1.75} />
+              Cartes
+            </label>
+            <select
+              value={theme.layout.cardStyle}
+              onChange={(e) => handleLayoutChange("cardStyle", e.target.value)}
+              className="rounded-lg border border-border bg-surface-1 px-3 py-2 text-sm"
+            >
+              <option value="glass">Glass</option>
+              <option value="elevated">Elevated</option>
+              <option value="flat">Flat</option>
+              <option value="bordered">Bordered</option>
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-muted-foreground flex items-center gap-1.5">
+              <Layout className="h-3 w-3" strokeWidth={1.75} />
+              En-tete
+            </label>
+            <select
+              value={theme.layout.headerStyle}
+              onChange={(e) =>
+                handleLayoutChange("headerStyle", e.target.value)
+              }
+              className="rounded-lg border border-border bg-surface-1 px-3 py-2 text-sm"
+            >
+              <option value="transparent">Transparent</option>
+              <option value="solid">Solid</option>
+              <option value="glass">Glass</option>
+            </select>
+          </div>
         </div>
       </section>
 

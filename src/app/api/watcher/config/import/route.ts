@@ -1,11 +1,15 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { saveWatcherConfigLocked } from "@/lib/watcher/config";
 import { requireAuth } from "@/features/watcher/operations/authMiddleware";
 import { withErrorHandler } from "@/lib/api/error-handler";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 
-async function post_handler(request: Request) {
+async function post_handler(request: NextRequest) {
+  const limited = applyRateLimit(request, RATE_LIMITS.configPatch);
+  if (limited) return limited;
+
   const authError = requireAuth(request);
   if (authError) return authError;
 
@@ -20,28 +24,43 @@ async function post_handler(request: Request) {
       const formData = await request.formData();
       const file = formData.get("file");
       if (!file || typeof file === "string") {
-        return NextResponse.json({ error: "No file provided." }, { status: 400 });
+        return NextResponse.json(
+          { error: "No file provided." },
+          { status: 400 },
+        );
       }
       const text = await (file as Blob).text();
       config = JSON.parse(text);
     } else {
-      return NextResponse.json({ error: "Unsupported content type." }, { status: 415 });
+      return NextResponse.json(
+        { error: "Unsupported content type." },
+        { status: 415 },
+      );
     }
 
     if (!config || typeof config !== "object" || Array.isArray(config)) {
-      return NextResponse.json({ error: "Invalid config: must be a JSON object." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid config: must be a JSON object." },
+        { status: 400 },
+      );
     }
 
     // Basic structural validation
     if (config.sources && typeof config.sources !== "object") {
-      return NextResponse.json({ error: "Invalid config: sources must be an object." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid config: sources must be an object." },
+        { status: 400 },
+      );
     }
 
     await saveWatcherConfigLocked(config);
     return NextResponse.json({ ok: true });
   } catch (err) {
     if (err instanceof SyntaxError) {
-      return NextResponse.json({ error: "Invalid JSON file." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid JSON file." },
+        { status: 400 },
+      );
     }
     const message = err instanceof Error ? err.message : "Import failed.";
     return NextResponse.json({ error: message }, { status: 500 });

@@ -9,119 +9,10 @@ import {
   useState,
 } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import dynamic from "next/dynamic";
-import { AgentChatPanel } from "@/features/agents/components/AgentChatPanel";
-import { FleetSidebar } from "@/features/agents/components/FleetSidebar";
 import { HeaderBar } from "@/features/agents/components/HeaderBar";
 import { GatewayConnectScreen } from "@/features/agents/components/GatewayConnectScreen";
-import { EmptyStatePanel } from "@/features/agents/components/EmptyStatePanel";
 import { getChannelsByAgent } from "@/features/routing/agentChannelResolver";
-
-const AgentCreateModal = dynamic(
-  () =>
-    import("@/features/agents/components/AgentCreateModal").then(
-      (m) => m.AgentCreateModal,
-    ),
-  { ssr: false },
-);
-const AgentBrainPanel = dynamic(
-  () =>
-    import("@/features/agents/components/AgentInspectPanels").then(
-      (m) => m.AgentBrainPanel,
-    ),
-  { ssr: false },
-);
-const AgentSettingsPanel = dynamic(
-  () =>
-    import("@/features/agents/components/AgentInspectPanels").then(
-      (m) => m.AgentSettingsPanel,
-    ),
-  { ssr: false },
-);
-const ConnectionPanel = dynamic(
-  () =>
-    import("@/features/agents/components/ConnectionPanel").then(
-      (m) => m.ConnectionPanel,
-    ),
-  { ssr: false },
-);
-const ProvidersPanel = dynamic(
-  () =>
-    import("@/features/providers/components/ProvidersPanel").then(
-      (m) => m.ProvidersPanel,
-    ),
-  { ssr: false },
-);
-const ChannelsPanel = dynamic(
-  () =>
-    import("@/features/channels/components/ChannelsPanel").then(
-      (m) => m.ChannelsPanel,
-    ),
-  { ssr: false },
-);
-const RoutingPanel = dynamic(
-  () =>
-    import("@/features/routing/components/RoutingPanel").then(
-      (m) => m.RoutingPanel,
-    ),
-  { ssr: false },
-);
-const WebhooksPanel = dynamic(
-  () =>
-    import("@/features/webhooks/components/WebhooksPanel").then(
-      (m) => m.WebhooksPanel,
-    ),
-  { ssr: false },
-);
-const SkillsBrowser = dynamic(
-  () =>
-    import("@/features/skills/components/SkillsBrowser").then(
-      (m) => m.SkillsBrowser,
-    ),
-  { ssr: false },
-);
-const AnalyticsDashboard = dynamic(
-  () =>
-    import("@/features/analytics/components/AnalyticsDashboard").then(
-      (m) => m.AnalyticsDashboard,
-    ),
-  { ssr: false },
-);
-const LogViewer = dynamic(
-  () => import("@/features/logs/components/LogViewer").then((m) => m.LogViewer),
-  { ssr: false },
-);
-const CanvasPreview = dynamic(
-  () =>
-    import("@/features/canvas/components/CanvasPreview").then(
-      (m) => m.CanvasPreview,
-    ),
-  { ssr: false },
-);
-const InterAgentFeed = dynamic(
-  () =>
-    import("@/features/intercom/components/InterAgentFeed").then(
-      (m) => m.InterAgentFeed,
-    ),
-  { ssr: false },
-);
-const VoiceControls = dynamic(
-  () =>
-    import("@/features/voice/components/VoiceControls").then(
-      (m) => m.VoiceControls,
-    ),
-  { ssr: false },
-);
-const AgentPerformanceTab = dynamic(
-  () =>
-    import("@/features/agents/components/AgentPerformanceTab").then(
-      (m) => m.AgentPerformanceTab,
-    ),
-  { ssr: false },
-);
 import { useTranslations } from "next-intl";
-import { Users, MessageSquare, BarChart3, Settings } from "lucide-react";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { isHeartbeatPrompt } from "@/lib/text/message-extract";
 import { useGatewayConnection } from "@/lib/gateway/GatewayClient";
 import {
@@ -130,7 +21,6 @@ import {
   buildStaticModelCatalog,
   mergeModelCatalogs,
   filterModelsByConfiguredProviders,
-  getThinkingLevels,
 } from "@/lib/gateway/models";
 import { PROVIDER_REGISTRY } from "@/features/providers/providerRegistry";
 import { ProviderStoreProvider } from "@/features/providers/ProviderStoreProvider";
@@ -142,8 +32,7 @@ import {
   type FocusFilter,
   useAgentStore,
 } from "@/features/agents/state/store";
-import type { AgentState } from "@/features/agents/state/store";
-import { createGatewayRuntimeEventHandler } from "@/features/agents/state/gatewayRuntimeEventHandler";
+import { isGatewayDisconnectLikeError } from "@/lib/gateway/GatewayClient";
 import { initCollector } from "@/features/analytics/analyticsCollector";
 import {
   type CronJobSummary,
@@ -151,49 +40,29 @@ import {
   listCronJobs,
   resolveLatestCronJobForAgent,
 } from "@/lib/cron/types";
-import {
-  createGatewayAgent,
-  readConfigAgentList,
-  resolveDefaultConfigAgentId,
-  slugifyAgentName,
-} from "@/lib/gateway/agentConfig";
 import { buildAvatarDataUrl } from "@/lib/avatars/multiavatar";
 import { createStudioSettingsCoordinator } from "@/lib/studio/coordinator";
-import { applySessionSettingMutation } from "@/features/agents/state/sessionSettingsMutations";
-import {
-  loadAgentUiPrefs,
-  saveAgentUiPref,
-} from "@/features/agents/state/agentUiPrefs";
-import type { AgentCreateModalSubmitPayload } from "@/features/agents/creation/types";
-import {
-  isGatewayDisconnectLikeError,
-  type EventFrame,
-} from "@/lib/gateway/GatewayClient";
-import {
-  useConfigMutationQueue,
-  type ConfigMutationKind,
-} from "@/features/agents/operations/useConfigMutationQueue";
+import { loadAgentUiPrefs } from "@/features/agents/state/agentUiPrefs";
+import type { ConfigMutationKind } from "@/features/agents/operations/useConfigMutationQueue";
+import { useConfigMutationQueue } from "@/features/agents/operations/useConfigMutationQueue";
 import { useGatewayConfigSyncController } from "@/features/agents/operations/useGatewayConfigSyncController";
 import { isLocalGatewayUrl } from "@/lib/gateway/local-gateway";
 import { randomUUID } from "@/lib/uuid";
 import type {
-  ExecApprovalDecision,
-  PendingExecApproval,
-} from "@/features/agents/approvals/types";
+  InspectSidebarState,
+  SettingsRouteTab,
+} from "@/features/agents/operations/settingsRouteWorkflow";
 import {
-  planAwaitingUserInputPatches,
-  planPendingPruneDelay,
-  planPrunedPendingState,
-} from "@/features/agents/approvals/execApprovalControlLoopWorkflow";
-import {
-  runGatewayEventIngressOperation,
-  runPauseRunForExecApprovalOperation,
-  runResolveExecApprovalOperation,
-} from "@/features/agents/approvals/execApprovalRunControlOperation";
-import { mergePendingApprovalsForFocusedAgent } from "@/features/agents/approvals/pendingStore";
+  SETTINGS_ROUTE_AGENT_ID_QUERY_PARAM,
+  parseSettingsRouteAgentIdFromQueryParam,
+  parseSettingsRouteAgentIdFromPathname,
+} from "@/features/agents/operations/settingsRouteWorkflow";
+import { useAgentSettingsMutationController } from "@/features/agents/operations/useAgentSettingsMutationController";
+import { useRuntimeSyncController } from "@/features/agents/operations/useRuntimeSyncController";
+import { useChatInteractionController } from "@/features/agents/operations/useChatInteractionController";
+import { useSettingsRouteController } from "@/features/agents/operations/useSettingsRouteController";
 import { resolveLatestUpdateKind } from "@/features/agents/operations/latestUpdateWorkflow";
 import { createSpecialLatestUpdateOperation } from "@/features/agents/operations/specialLatestUpdateOperation";
-import { resolveAgentPermissionsDraft } from "@/features/agents/operations/agentPermissionsOperation";
 import {
   executeStudioBootstrapLoadCommands,
   executeStudioFocusedPatchCommands,
@@ -203,122 +72,24 @@ import {
   runStudioFocusedPreferenceLoadOperation,
   runStudioFocusedSelectionPersistenceOperation,
 } from "@/features/agents/operations/studioBootstrapOperation";
+
+// Extracted orchestrator pieces
 import {
-  CREATE_AGENT_DEFAULT_PERMISSIONS,
-  applyCreateAgentBootstrapPermissions,
-  executeCreateAgentBootstrapCommands,
-  runCreateAgentBootstrapOperation,
-} from "@/features/agents/operations/createAgentBootstrapOperation";
-import {
-  buildQueuedMutationBlock,
-  isCreateBlockTimedOut,
-  resolveConfigMutationStatusLine,
-  runCreateAgentMutationLifecycle,
-  type CreateAgentBlockState,
-} from "@/features/agents/operations/mutationLifecycleWorkflow";
-import { useAgentSettingsMutationController } from "@/features/agents/operations/useAgentSettingsMutationController";
-import { useRuntimeSyncController } from "@/features/agents/operations/useRuntimeSyncController";
-import { useChatInteractionController } from "@/features/agents/operations/useChatInteractionController";
-import {
-  SETTINGS_ROUTE_AGENT_ID_QUERY_PARAM,
-  parseSettingsRouteAgentIdFromQueryParam,
-  parseSettingsRouteAgentIdFromPathname,
-  type InspectSidebarState,
-  type SettingsRouteTab,
-} from "@/features/agents/operations/settingsRouteWorkflow";
-import { useSettingsRouteController } from "@/features/agents/operations/useSettingsRouteController";
-const PENDING_EXEC_APPROVAL_PRUNE_GRACE_MS = 500;
+  resolveControlUiUrl,
+  usePanelVisibility,
+  useExecApprovals,
+  useAgentSettingsContext,
+  useSessionControls,
+  useCreateAgent,
+  useGatewayEventSetup,
+  OverlayPanels,
+  SettingsRouteView,
+  ChatWorkspaceView,
+  BlockingModals,
+  MobileBottomNav,
+} from "@/features/agents/orchestrator";
 
 type MobilePane = "fleet" | "chat";
-type SettingsSidebarItem = SettingsRouteTab;
-
-const RESERVED_MAIN_AGENT_ID = "main";
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  Boolean(value && typeof value === "object" && !Array.isArray(value));
-
-const normalizeControlUiBasePath = (basePath: string): string => {
-  let normalized = basePath.trim();
-  if (!normalized || normalized === "/") return "";
-  if (!normalized.startsWith("/")) {
-    normalized = `/${normalized}`;
-  }
-  if (normalized.endsWith("/")) {
-    normalized = normalized.slice(0, -1);
-  }
-  return normalized;
-};
-
-const resolveControlUiUrl = (params: {
-  gatewayUrl: string;
-  configSnapshot: GatewayModelPolicySnapshot | null;
-}): string | null => {
-  const rawGatewayUrl = params.gatewayUrl.trim();
-  if (!rawGatewayUrl) return null;
-
-  let controlUiEnabled = true;
-  let controlUiBasePath = "";
-
-  const config = params.configSnapshot?.config;
-  if (isRecord(config)) {
-    const configRecord = config as Record<string, unknown>;
-    const gateway = isRecord(configRecord["gateway"])
-      ? (configRecord["gateway"] as Record<string, unknown>)
-      : null;
-    const controlUi =
-      gateway && isRecord(gateway.controlUi) ? gateway.controlUi : null;
-    if (controlUi && typeof controlUi.enabled === "boolean") {
-      controlUiEnabled = controlUi.enabled;
-    }
-    if (typeof controlUi?.basePath === "string") {
-      controlUiBasePath = normalizeControlUiBasePath(controlUi.basePath);
-    }
-  }
-
-  if (!controlUiEnabled) return null;
-
-  try {
-    const url = new URL(rawGatewayUrl);
-    if (url.protocol === "ws:") {
-      url.protocol = "http:";
-    } else if (url.protocol === "wss:") {
-      url.protocol = "https:";
-    }
-    url.pathname = controlUiBasePath ? `${controlUiBasePath}/` : "/";
-    url.search = "";
-    url.hash = "";
-    return url.toString();
-  } catch {
-    return null;
-  }
-};
-
-const resolveNextNewAgentName = (agents: AgentState[]) => {
-  const baseName = "New Agent";
-  const existingNames = new Set(
-    agents
-      .map((agent) => agent.name.trim().toLowerCase())
-      .filter((name) => name.length > 0),
-  );
-  const existingIds = new Set(
-    agents
-      .map((agent) => agent.agentId.trim().toLowerCase())
-      .filter((agentId) => agentId.length > 0),
-  );
-  const baseLower = baseName.toLowerCase();
-  if (
-    !existingNames.has(baseLower) &&
-    !existingIds.has(slugifyAgentName(baseName))
-  )
-    return baseName;
-  for (let index = 2; index < 10000; index += 1) {
-    const candidate = `${baseName} ${index}`;
-    if (existingNames.has(candidate.toLowerCase())) continue;
-    if (existingIds.has(slugifyAgentName(candidate))) continue;
-    return candidate;
-  }
-  throw new Error("Unable to allocate a unique agent name.");
-};
 
 const AgentStudioInner = () => {
   const tp = useTranslations("page");
@@ -352,17 +123,7 @@ const AgentStudioInner = () => {
 
   const { state, dispatch, hydrateAgents, setError, setLoading } =
     useAgentStore();
-  const [showConnectionPanel, setShowConnectionPanel] = useState(false);
-  const [showProvidersPanel, setShowProvidersPanel] = useState(false);
-  const [showChannelsPanel, setShowChannelsPanel] = useState(false);
-  const [showRoutingPanel, setShowRoutingPanel] = useState(false);
-  const [showWebhooksPanel, setShowWebhooksPanel] = useState(false);
-  const [showSkillsBrowser, setShowSkillsBrowser] = useState(false);
-  const [showAnalytics, setShowAnalytics] = useState(false);
-  const [showLogViewer, setShowLogViewer] = useState(false);
-  const [showCanvas, setShowCanvas] = useState(false);
-  const [showIntercom, setShowIntercom] = useState(false);
-  const [showVoice, setShowVoice] = useState(false);
+  const { panels, panelActions } = usePanelVisibility();
   const [focusFilter, setFocusFilter] = useState<FocusFilter>("all");
   const [focusedPreferencesLoaded, setFocusedPreferencesLoaded] =
     useState(false);
@@ -394,11 +155,6 @@ const AgentStudioInner = () => {
   );
   const [gatewayConfigSnapshot, setGatewayConfigSnapshot] =
     useState<GatewayModelPolicySnapshot | null>(null);
-  const [createAgentBusy, setCreateAgentBusy] = useState(false);
-  const [createAgentModalOpen, setCreateAgentModalOpen] = useState(false);
-  const [createAgentModalError, setCreateAgentModalError] = useState<
-    string | null
-  >(null);
   const [mobilePane, setMobilePane] = useState<MobilePane>("chat");
   const [inspectSidebar, setInspectSidebar] =
     useState<InspectSidebarState>(null);
@@ -408,23 +164,8 @@ const AgentStudioInner = () => {
   const [personalityHasUnsavedChanges, setPersonalityHasUnsavedChanges] =
     useState(false);
   const [settingsSidebarItem, setSettingsSidebarItem] =
-    useState<SettingsSidebarItem>("personality");
-  const [createAgentBlock, setCreateAgentBlock] =
-    useState<CreateAgentBlockState | null>(null);
-  const [pendingExecApprovalsByAgentId, setPendingExecApprovalsByAgentId] =
-    useState<Record<string, PendingExecApproval[]>>({});
-  const [unscopedPendingExecApprovals, setUnscopedPendingExecApprovals] =
-    useState<PendingExecApproval[]>([]);
-  const pendingExecApprovalsByAgentIdRef = useRef(
-    pendingExecApprovalsByAgentId,
-  );
-  const unscopedPendingExecApprovalsRef = useRef(unscopedPendingExecApprovals);
-  const specialUpdateRef = useRef<Map<string, string>>(new Map());
-  const seenCronEventIdsRef = useRef<Set<string>>(new Set());
+    useState<SettingsRouteTab>("personality");
   const preferredSelectedAgentIdRef = useRef<string | null>(null);
-  const runtimeEventHandlerRef = useRef<ReturnType<
-    typeof createGatewayRuntimeEventHandler
-  > | null>(null);
   const enqueueConfigMutationRef = useRef<
     (params: {
       kind: ConfigMutationKind;
@@ -437,7 +178,6 @@ const AgentStudioInner = () => {
       new Error(`Config mutation queue not ready for "${input.kind}".`),
     ),
   );
-  const approvalPausedRunIdByAgentRef = useRef<Map<string, string>>(new Map());
 
   const agents = state.agents;
   const selectedAgent = useMemo(() => getSelectedAgent(state), [state]);
@@ -467,18 +207,21 @@ const AgentStudioInner = () => {
   const inspectSidebarTab = inspectSidebar?.tab ?? null;
   const effectiveSettingsTab: SettingsRouteTab =
     inspectSidebarTab ?? "personality";
+
   useEffect(() => {
     initCollector();
   }, []);
   useEffect(() => {
     setSettingsSidebarItem(effectiveSettingsTab);
   }, [effectiveSettingsTab]);
+
   const inspectSidebarAgent = useMemo(() => {
     if (!inspectSidebarAgentId) return null;
     return (
       agents.find((entry) => entry.agentId === inspectSidebarAgentId) ?? null
     );
   }, [agents, inspectSidebarAgentId]);
+
   useEffect(() => {
     setSystemInitialSkillKey(null);
   }, [inspectSidebarAgentId]);
@@ -487,93 +230,23 @@ const AgentStudioInner = () => {
       setSystemInitialSkillKey(null);
     }
   }, [effectiveSettingsTab]);
-  const settingsAgentPermissionsDraft = useMemo(() => {
-    if (!inspectSidebarAgent) return null;
-    const baseConfig =
-      gatewayConfigSnapshot?.config &&
-      typeof gatewayConfigSnapshot.config === "object" &&
-      !Array.isArray(gatewayConfigSnapshot.config)
-        ? (gatewayConfigSnapshot.config as Record<string, unknown>)
-        : undefined;
-    const list = readConfigAgentList(baseConfig);
-    const configEntry =
-      list.find((entry) => entry.id === inspectSidebarAgent.agentId) ?? null;
-    const toolsRaw =
-      configEntry &&
-      typeof (configEntry as Record<string, unknown>).tools === "object"
-        ? ((configEntry as Record<string, unknown>).tools as unknown)
-        : null;
-    const tools =
-      toolsRaw && typeof toolsRaw === "object" && !Array.isArray(toolsRaw)
-        ? (toolsRaw as Record<string, unknown>)
-        : null;
-    return resolveAgentPermissionsDraft({
-      agent: inspectSidebarAgent,
-      existingTools: tools,
-    });
-  }, [gatewayConfigSnapshot, inspectSidebarAgent]);
-  const settingsAgentSkillsAllowlist = useMemo(() => {
-    if (!inspectSidebarAgent) return undefined;
-    const baseConfig =
-      gatewayConfigSnapshot?.config &&
-      typeof gatewayConfigSnapshot.config === "object" &&
-      !Array.isArray(gatewayConfigSnapshot.config)
-        ? (gatewayConfigSnapshot.config as Record<string, unknown>)
-        : undefined;
-    const list = readConfigAgentList(baseConfig);
-    const configEntry =
-      list.find((entry) => entry.id === inspectSidebarAgent.agentId) ?? null;
-    const raw = configEntry?.skills;
-    if (!Array.isArray(raw)) return undefined;
-    return raw
-      .filter((value): value is string => typeof value === "string")
-      .map((value) => value.trim())
-      .filter((value) => value.length > 0);
-  }, [gatewayConfigSnapshot, inspectSidebarAgent]);
-  const settingsDefaultAgentId = useMemo(() => {
-    const baseConfig =
-      gatewayConfigSnapshot?.config &&
-      typeof gatewayConfigSnapshot.config === "object" &&
-      !Array.isArray(gatewayConfigSnapshot.config)
-        ? (gatewayConfigSnapshot.config as Record<string, unknown>)
-        : undefined;
-    return resolveDefaultConfigAgentId(baseConfig);
-  }, [gatewayConfigSnapshot]);
-  const settingsSkillScopeWarning = useMemo(() => {
-    if (!inspectSidebarAgent) return null;
-    if (inspectSidebarAgent.agentId === settingsDefaultAgentId) {
-      return "Setup actions are shared across agents. Installs run in this shared workspace.";
-    }
-    return `Setup actions are shared across agents. Installs currently run in ${settingsDefaultAgentId} (shared workspace), not ${inspectSidebarAgent.agentId}.`;
-  }, [inspectSidebarAgent, settingsDefaultAgentId]);
-  const focusedPendingExecApprovals = useMemo(() => {
-    if (!focusedAgentId) return unscopedPendingExecApprovals;
-    const scoped = pendingExecApprovalsByAgentId[focusedAgentId] ?? [];
-    return mergePendingApprovalsForFocusedAgent({
-      scopedApprovals: scoped,
-      unscopedApprovals: unscopedPendingExecApprovals,
-    });
-  }, [
-    focusedAgentId,
-    pendingExecApprovalsByAgentId,
-    unscopedPendingExecApprovals,
-  ]);
-  const suggestedCreateAgentName = useMemo(() => {
-    try {
-      return resolveNextNewAgentName(state.agents);
-    } catch {
-      return "New Agent";
-    }
-  }, [state.agents]);
-  const faviconSeed = useMemo(() => {
-    const firstAgent = agents[0];
-    const seed = firstAgent?.avatarSeed ?? firstAgent?.agentId ?? "";
-    return seed.trim() || null;
-  }, [agents]);
-  const faviconHref = useMemo(
-    () => (faviconSeed ? buildAvatarDataUrl(faviconSeed) : null),
-    [faviconSeed],
-  );
+
+  // --- Extracted hooks ---
+  const {
+    settingsAgentPermissionsDraft,
+    settingsAgentSkillsAllowlist,
+    settingsSkillScopeWarning,
+  } = useAgentSettingsContext({
+    inspectSidebarAgent,
+    gatewayConfigSnapshot,
+  });
+
+  const sessionControls = useSessionControls({
+    client,
+    dispatch,
+    getAgents: () => stateRef.current.agents,
+  });
+
   const errorMessage = state.error ?? gatewayModelsError;
   const runningAgentCount = useMemo(
     () => agents.filter((agent) => agent.status === "running").length,
@@ -592,8 +265,17 @@ const AgentStudioInner = () => {
       }),
     [gatewayConfigSnapshot, gatewayUrl],
   );
-  const activeSettingsSidebarItem: SettingsSidebarItem = settingsSidebarItem;
 
+  // Favicon effect
+  const faviconSeed = useMemo(() => {
+    const firstAgent = agents[0];
+    const seed = firstAgent?.avatarSeed ?? firstAgent?.agentId ?? "";
+    return seed.trim() || null;
+  }, [agents]);
+  const faviconHref = useMemo(
+    () => (faviconSeed ? buildAvatarDataUrl(faviconSeed) : null),
+    [faviconSeed],
+  );
   useEffect(() => {
     const selector = 'link[data-agent-favicon="true"]';
     const existing = document.querySelector(selector) as HTMLLinkElement | null;
@@ -615,13 +297,13 @@ const AgentStudioInner = () => {
     document.head.appendChild(link);
   }, [faviconHref]);
 
+  // Special latest update (cron, heartbeat)
   const resolveCronJobForAgent = useCallback(
     (jobs: CronJobSummary[], agentId: string) => {
       return resolveLatestCronJobForAgent(jobs, agentId);
     },
     [],
   );
-
   const specialLatestUpdate = useMemo(() => {
     return createSpecialLatestUpdateOperation({
       callGateway: (method, params) => client.call(method, params),
@@ -635,12 +317,12 @@ const AgentStudioInner = () => {
       logError: (message) => console.error(message),
     });
   }, [client, dispatch, resolveCronJobForAgent]);
-
   const refreshHeartbeatLatestUpdate = useCallback(() => {
     const agents = stateRef.current.agents;
     specialLatestUpdate.refreshHeartbeat(agents);
   }, [specialLatestUpdate]);
 
+  // Load agents
   const loadAgents = useCallback(async () => {
     if (status !== "connected") return;
     setLoading(true);
@@ -665,7 +347,6 @@ const AgentStudioInner = () => {
         },
         setError,
       });
-      // Restore persisted UI prefs (Tools/Thinking/Notices toggles)
       const hydrateCmd = commands.find((c) => c.kind === "hydrate-agents");
       if (hydrateCmd && hydrateCmd.kind === "hydrate-agents") {
         for (const seed of hydrateCmd.seeds) {
@@ -679,7 +360,6 @@ const AgentStudioInner = () => {
             prefPatch.showThinkingTraces = prefs.showThinkingTraces;
           if (typeof prefs.hideSystemMessages === "boolean")
             prefPatch.hideSystemMessages = prefs.hideSystemMessages;
-          // Restore persisted model choice — overrides gateway seed if user changed it
           if (prefs.model !== undefined) prefPatch.model = prefs.model ?? null;
           if (Object.keys(prefPatch).length > 0) {
             dispatch({
@@ -736,7 +416,7 @@ const AgentStudioInner = () => {
     status,
     isLocalGateway,
     agents,
-    hasCreateBlock: Boolean(createAgentBlock),
+    hasCreateBlock: false, // updated below after useCreateAgent
     enqueueConfigMutation: enqueueConfigMutationFromRef,
     gatewayConfigSnapshot,
     settingsRouteActive,
@@ -744,9 +424,7 @@ const AgentStudioInner = () => {
     inspectSidebarTab,
     loadAgents,
     refreshGatewayConfigSnapshot,
-    clearInspectSidebar: () => {
-      setInspectSidebar(null);
-    },
+    clearInspectSidebar: () => setInspectSidebar(null),
     setInspectSidebarCapabilities: (agentId) => {
       setInspectSidebar((current) => {
         if (current?.agentId === agentId) return current;
@@ -754,29 +432,15 @@ const AgentStudioInner = () => {
       });
     },
     dispatchUpdateAgent: (agentId, patch) => {
-      dispatch({
-        type: "updateAgent",
-        agentId,
-        patch,
-      });
+      dispatch({ type: "updateAgent", agentId, patch });
     },
-    setMobilePaneChat: () => {
-      setMobilePane("chat");
-    },
+    setMobilePaneChat: () => setMobilePane("chat"),
     setError,
   });
 
-  const hasRenameMutationBlock =
-    settingsMutationController.hasRenameMutationBlock;
-  const hasDeleteMutationBlock =
-    settingsMutationController.hasDeleteMutationBlock;
-  const restartingMutationBlock =
-    settingsMutationController.restartingMutationBlock;
   const hasRestartBlockInProgress = Boolean(
-    settingsMutationController.hasRestartBlockInProgress ||
-    (createAgentBlock && createAgentBlock.phase !== "queued"),
+    settingsMutationController.hasRestartBlockInProgress,
   );
-
   const {
     enqueueConfigMutation,
     queuedCount: queuedConfigMutationCount,
@@ -793,14 +457,7 @@ const AgentStudioInner = () => {
     stateRef.current = state;
   }, [state]);
 
-  useEffect(() => {
-    pendingExecApprovalsByAgentIdRef.current = pendingExecApprovalsByAgentId;
-  }, [pendingExecApprovalsByAgentId]);
-
-  useEffect(() => {
-    unscopedPendingExecApprovalsRef.current = unscopedPendingExecApprovals;
-  }, [unscopedPendingExecApprovals]);
-
+  // Persistence effects
   useEffect(() => {
     if (status === "connected") return;
     setAgentsLoadedOnce(false);
@@ -831,7 +488,7 @@ const AgentStudioInner = () => {
         setPreferredSelectedAgentId: (agentId) => {
           preferredSelectedAgentIdRef.current = agentId;
         },
-        setFocusFilter: () => {}, // always start with "all" on load
+        setFocusFilter: () => {},
         logError: (message, error) => console.error(message, error),
       });
     };
@@ -884,16 +541,17 @@ const AgentStudioInner = () => {
 
   useEffect(() => {
     if (status !== "connected" || !focusedPreferencesLoaded) return;
-    if (restartingMutationBlock && restartingMutationBlock.phase !== "queued")
+    if (
+      settingsMutationController.restartingMutationBlock &&
+      settingsMutationController.restartingMutationBlock.phase !== "queued"
+    )
       return;
-    if (createAgentBlock && createAgentBlock.phase !== "queued") return;
     void loadAgents();
   }, [
-    createAgentBlock,
     focusedPreferencesLoaded,
     gatewayUrl,
     loadAgents,
-    restartingMutationBlock,
+    settingsMutationController.restartingMutationBlock,
     status,
   ]);
 
@@ -903,51 +561,7 @@ const AgentStudioInner = () => {
     }
   }, [setLoading, status]);
 
-  useEffect(() => {
-    const nowMs = Date.now();
-    const delayMs = planPendingPruneDelay({
-      pendingState: {
-        approvalsByAgentId: pendingExecApprovalsByAgentId,
-        unscopedApprovals: unscopedPendingExecApprovals,
-      },
-      nowMs,
-      graceMs: PENDING_EXEC_APPROVAL_PRUNE_GRACE_MS,
-    });
-    if (delayMs === null) return;
-    const timerId = window.setTimeout(() => {
-      const pendingState = planPrunedPendingState({
-        pendingState: {
-          approvalsByAgentId: pendingExecApprovalsByAgentIdRef.current,
-          unscopedApprovals: unscopedPendingExecApprovalsRef.current,
-        },
-        nowMs: Date.now(),
-        graceMs: PENDING_EXEC_APPROVAL_PRUNE_GRACE_MS,
-      });
-      pendingExecApprovalsByAgentIdRef.current =
-        pendingState.approvalsByAgentId;
-      unscopedPendingExecApprovalsRef.current = pendingState.unscopedApprovals;
-      setPendingExecApprovalsByAgentId(pendingState.approvalsByAgentId);
-      setUnscopedPendingExecApprovals(pendingState.unscopedApprovals);
-    }, delayMs);
-    return () => {
-      window.clearTimeout(timerId);
-    };
-  }, [pendingExecApprovalsByAgentId, unscopedPendingExecApprovals]);
-
-  useEffect(() => {
-    const patches = planAwaitingUserInputPatches({
-      agents,
-      approvalsByAgentId: pendingExecApprovalsByAgentId,
-    });
-    for (const patch of patches) {
-      dispatch({
-        type: "updateAgent",
-        agentId: patch.agentId,
-        patch: { awaitingUserInput: patch.awaitingUserInput },
-      });
-    }
-  }, [agents, dispatch, pendingExecApprovalsByAgentId]);
-
+  // Special latest update tracking
   useEffect(() => {
     for (const agent of agents) {
       const lastMessage = agent.lastUserMessage?.trim() ?? "";
@@ -961,7 +575,9 @@ const AgentStudioInner = () => {
       void specialLatestUpdate.update(agent.agentId, agent, lastMessage);
     }
   }, [agents, heartbeatTick, specialLatestUpdate]);
+  const specialUpdateRef = useRef<Map<string, string>>(new Map());
 
+  // Runtime sync
   const {
     loadSummarySnapshot,
     loadAgentHistory,
@@ -980,6 +596,7 @@ const AgentStudioInner = () => {
     isDisconnectLikeError: isGatewayDisconnectLikeError,
   });
 
+  // Chat interaction
   const {
     stopBusyAgentId,
     flushPendingDraft,
@@ -1007,12 +624,88 @@ const AgentStudioInner = () => {
     clearSpecialLatestUpdateInFlight: (agentId) => {
       specialLatestUpdate.clearInFlight(agentId);
     },
-    setInspectSidebarNull: () => {
-      setInspectSidebar(null);
+    setInspectSidebarNull: () => setInspectSidebar(null),
+    setMobilePaneChat: () => setMobilePane("chat"),
+  });
+
+  // Exec approvals
+  const {
+    focusedPendingExecApprovals,
+    handleResolveExecApproval,
+    handleGatewayEventIngress,
+    approvalPausedRunIdByAgentRef,
+  } = useExecApprovals({
+    client,
+    status,
+    agents,
+    focusedAgentId,
+    dispatch,
+    getAgents: () => stateRef.current.agents,
+    loadAgentHistory,
+    runtimeEventHandlerRef: { current: null } as React.MutableRefObject<{
+      clearRunTracking: (runId: string) => void;
+    } | null>, // Will be set below
+  });
+
+  // Gateway event setup
+  const { runtimeEventHandlerRef } = useGatewayEventSetup({
+    client,
+    status,
+    dispatch,
+    getAgents: () => stateRef.current.agents,
+    queueLivePatch,
+    clearPendingLivePatch,
+    loadSummarySnapshot,
+    loadAgentHistory,
+    refreshHeartbeatLatestUpdate,
+    setHeartbeatTick,
+    approvalPausedRunIdByAgentRef,
+    specialLatestUpdate,
+    handleGatewayEventIngress,
+  });
+
+  // Avatar persistence
+  const persistAvatarSeed = useCallback(
+    (agentId: string, avatarSeed: string) => {
+      const resolvedAgentId = agentId.trim();
+      const resolvedAvatarSeed = avatarSeed.trim();
+      const key = gatewayUrl.trim();
+      if (!resolvedAgentId || !resolvedAvatarSeed || !key) return;
+      settingsCoordinator.schedulePatch(
+        {
+          avatars: {
+            [key]: {
+              [resolvedAgentId]: resolvedAvatarSeed,
+            },
+          },
+        },
+        0,
+      );
     },
-    setMobilePaneChat: () => {
-      setMobilePane("chat");
-    },
+    [gatewayUrl, settingsCoordinator],
+  );
+
+  // Create agent
+  const createAgent = useCreateAgent({
+    client,
+    status,
+    agents,
+    dispatch,
+    setError,
+    getAgents: () => stateRef.current.agents,
+    focusedAgentId,
+    hasRenameMutationBlock: settingsMutationController.hasRenameMutationBlock,
+    hasDeleteMutationBlock: settingsMutationController.hasDeleteMutationBlock,
+    restartingMutationBlock: settingsMutationController.restartingMutationBlock,
+    enqueueConfigMutation,
+    loadAgents,
+    refreshGatewayConfigSnapshot,
+    persistAvatarSeed,
+    flushPendingDraft,
+    focusFilterTouchedRef,
+    setFocusFilter,
+    setInspectSidebar,
+    setMobilePane,
   });
 
   const handleFocusFilterChange = useCallback(
@@ -1045,14 +738,13 @@ const AgentStudioInner = () => {
       dispatch({ type: "selectAgent", agentId });
     },
     setInspectSidebar,
-    setMobilePaneChat: () => {
-      setMobilePane("chat");
-    },
+    setMobilePaneChat: () => setMobilePane("chat"),
     setPersonalityHasUnsavedChanges,
     push: router.push,
     replace: router.replace,
     confirmDiscard: () => window.confirm("Discard changes?"),
   });
+
   const handleOpenSystemSkillSetup = useCallback(
     (skillKey?: string) => {
       const normalized = skillKey?.trim() ?? "";
@@ -1062,412 +754,6 @@ const AgentStudioInner = () => {
     },
     [handleSettingsRouteTabChange],
   );
-
-  const handleOpenCreateAgentModal = useCallback(() => {
-    if (createAgentBusy) return;
-    if (createAgentBlock) return;
-    if (restartingMutationBlock) return;
-    setCreateAgentModalError(null);
-    setCreateAgentModalOpen(true);
-  }, [createAgentBlock, createAgentBusy, restartingMutationBlock]);
-
-  const persistAvatarSeed = useCallback(
-    (agentId: string, avatarSeed: string) => {
-      const resolvedAgentId = agentId.trim();
-      const resolvedAvatarSeed = avatarSeed.trim();
-      const key = gatewayUrl.trim();
-      if (!resolvedAgentId || !resolvedAvatarSeed || !key) return;
-      settingsCoordinator.schedulePatch(
-        {
-          avatars: {
-            [key]: {
-              [resolvedAgentId]: resolvedAvatarSeed,
-            },
-          },
-        },
-        0,
-      );
-    },
-    [gatewayUrl, settingsCoordinator],
-  );
-
-  const handleCreateAgentSubmit = useCallback(
-    async (payload: AgentCreateModalSubmitPayload) => {
-      await runCreateAgentMutationLifecycle(
-        {
-          payload,
-          status,
-          hasCreateBlock: Boolean(createAgentBlock),
-          hasRenameBlock: hasRenameMutationBlock,
-          hasDeleteBlock: hasDeleteMutationBlock,
-          createAgentBusy,
-        },
-        {
-          enqueueConfigMutation,
-          createAgent: async (name, avatarSeed) => {
-            const created = await createGatewayAgent({ client, name });
-            if (avatarSeed) {
-              persistAvatarSeed(created.id, avatarSeed);
-            }
-            flushPendingDraft(focusedAgent?.agentId ?? null);
-            focusFilterTouchedRef.current = true;
-            setFocusFilter("all");
-            dispatch({ type: "selectAgent", agentId: created.id });
-            return { id: created.id };
-          },
-          setQueuedBlock: ({ agentName, startedAt }) => {
-            const queuedCreateBlock = buildQueuedMutationBlock({
-              kind: "create-agent",
-              agentId: "",
-              agentName,
-              startedAt,
-            });
-            setCreateAgentBlock({
-              agentName: queuedCreateBlock.agentName,
-              phase: "queued",
-              startedAt: queuedCreateBlock.startedAt,
-            });
-          },
-          setCreatingBlock: (agentName) => {
-            setCreateAgentBlock((current) => {
-              if (!current || current.agentName !== agentName) return current;
-              return { ...current, phase: "creating" };
-            });
-          },
-          onCompletion: async (completion) => {
-            const personaPayload =
-              payload.persona || payload.directives || payload.userContext
-                ? {
-                    persona: payload.persona,
-                    directives: payload.directives,
-                    userContext: payload.userContext,
-                  }
-                : undefined;
-            const commands = await runCreateAgentBootstrapOperation({
-              completion,
-              focusedAgentId: focusedAgent?.agentId ?? null,
-              loadAgents,
-              findAgentById: (agentId) =>
-                stateRef.current.agents.find(
-                  (entry) => entry.agentId === agentId,
-                ) ?? null,
-              applyDefaultPermissions: async ({ agentId, sessionKey }) => {
-                await applyCreateAgentBootstrapPermissions({
-                  client,
-                  agentId,
-                  sessionKey,
-                  draft: { ...CREATE_AGENT_DEFAULT_PERMISSIONS },
-                  loadAgents,
-                });
-              },
-              refreshGatewayConfigSnapshot,
-              personaPayload,
-            });
-            executeCreateAgentBootstrapCommands({
-              commands,
-              client,
-              agentName: completion.agentName,
-              setCreateAgentModalError,
-              setGlobalError: setError,
-              setCreateAgentBlock: (value) => {
-                setCreateAgentBlock(value);
-              },
-              setCreateAgentModalOpen,
-              flushPendingDraft,
-              selectAgent: (agentId) => {
-                dispatch({ type: "selectAgent", agentId });
-              },
-              setInspectSidebarCapabilities: (agentId) => {
-                setInspectSidebar({ agentId, tab: "capabilities" });
-              },
-              setMobilePaneChat: () => {
-                setMobilePane("chat");
-              },
-            });
-          },
-          setCreateAgentModalError,
-          setCreateAgentBusy,
-          clearCreateBlock: () => {
-            setCreateAgentBlock(null);
-          },
-          onError: setError,
-        },
-      );
-    },
-    [
-      client,
-      createAgentBusy,
-      createAgentBlock,
-      dispatch,
-      enqueueConfigMutation,
-      flushPendingDraft,
-      focusedAgent,
-      hasDeleteMutationBlock,
-      hasRenameMutationBlock,
-      loadAgents,
-      persistAvatarSeed,
-      refreshGatewayConfigSnapshot,
-      setError,
-      status,
-    ],
-  );
-
-  useEffect(() => {
-    if (!createAgentBlock || createAgentBlock.phase === "queued") return;
-    const maxWaitMs = 90_000;
-    const timeoutNow = isCreateBlockTimedOut({
-      block: createAgentBlock,
-      nowMs: Date.now(),
-      maxWaitMs,
-    });
-    const handleTimeout = () => {
-      setCreateAgentBlock(null);
-      setCreateAgentModalOpen(false);
-      void loadAgents();
-      setError("Agent creation timed out.");
-    };
-    if (timeoutNow) {
-      handleTimeout();
-      return;
-    }
-    const elapsed = Date.now() - createAgentBlock.startedAt;
-    const remaining = Math.max(0, maxWaitMs - elapsed);
-    const timeoutId = window.setTimeout(() => {
-      if (
-        !isCreateBlockTimedOut({
-          block: createAgentBlock,
-          nowMs: Date.now(),
-          maxWaitMs,
-        })
-      ) {
-        return;
-      }
-      handleTimeout();
-    }, remaining);
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [createAgentBlock, loadAgents, setError]);
-
-  const handleSessionSettingChange = useCallback(
-    async (
-      agentId: string,
-      sessionKey: string,
-      field: "model" | "thinkingLevel",
-      value: string | null,
-    ) => {
-      await applySessionSettingMutation({
-        agents: stateRef.current.agents,
-        dispatch,
-        client,
-        agentId,
-        sessionKey,
-        field,
-        value,
-      });
-    },
-    [client, dispatch],
-  );
-
-  const handleModelChange = useCallback(
-    async (agentId: string, sessionKey: string, value: string | null) => {
-      // Persist immediately to localStorage so the choice survives WS reconnects/re-bootstrap
-      saveAgentUiPref(agentId, "model", value);
-      await handleSessionSettingChange(agentId, sessionKey, "model", value);
-    },
-    [handleSessionSettingChange],
-  );
-
-  const handleThinkingChange = useCallback(
-    async (agentId: string, sessionKey: string, value: string | null) => {
-      await handleSessionSettingChange(
-        agentId,
-        sessionKey,
-        "thinkingLevel",
-        value,
-      );
-    },
-    [handleSessionSettingChange],
-  );
-
-  const handleToolCallingToggle = useCallback(
-    (agentId: string, enabled: boolean) => {
-      dispatch({
-        type: "updateAgent",
-        agentId,
-        patch: { toolCallingEnabled: enabled },
-      });
-      saveAgentUiPref(agentId, "toolCallingEnabled", enabled);
-    },
-    [dispatch],
-  );
-
-  const handleThinkingTracesToggle = useCallback(
-    (agentId: string, enabled: boolean) => {
-      dispatch({
-        type: "updateAgent",
-        agentId,
-        patch: { showThinkingTraces: enabled },
-      });
-      saveAgentUiPref(agentId, "showThinkingTraces", enabled);
-    },
-    [dispatch],
-  );
-
-  const handleHideSystemMessagesToggle = useCallback(
-    (agentId: string, enabled: boolean) => {
-      dispatch({
-        type: "updateAgent",
-        agentId,
-        patch: { hideSystemMessages: enabled },
-      });
-      saveAgentUiPref(agentId, "hideSystemMessages", enabled);
-    },
-    [dispatch],
-  );
-
-  const handleResolveExecApproval = useCallback(
-    async (approvalId: string, decision: ExecApprovalDecision) => {
-      await runResolveExecApprovalOperation({
-        client,
-        approvalId,
-        decision,
-        getAgents: () => stateRef.current.agents,
-        getPendingState: () => ({
-          approvalsByAgentId: pendingExecApprovalsByAgentIdRef.current,
-          unscopedApprovals: unscopedPendingExecApprovalsRef.current,
-        }),
-        setPendingExecApprovalsByAgentId: (next) => {
-          setPendingExecApprovalsByAgentId((current) => {
-            const resolved = typeof next === "function" ? next(current) : next;
-            pendingExecApprovalsByAgentIdRef.current = resolved;
-            return resolved;
-          });
-        },
-        setUnscopedPendingExecApprovals: (next) => {
-          setUnscopedPendingExecApprovals((current) => {
-            const resolved = typeof next === "function" ? next(current) : next;
-            unscopedPendingExecApprovalsRef.current = resolved;
-            return resolved;
-          });
-        },
-        requestHistoryRefresh: (agentId) => loadAgentHistory(agentId),
-        pausedRunIdByAgentId: approvalPausedRunIdByAgentRef.current,
-        dispatch,
-        isDisconnectLikeError: isGatewayDisconnectLikeError,
-        logWarn: (message, error) => console.warn(message, error),
-        clearRunTracking: (runId) =>
-          runtimeEventHandlerRef.current?.clearRunTracking(runId),
-      });
-    },
-    [client, dispatch, loadAgentHistory],
-  );
-
-  const pauseRunForExecApproval = useCallback(
-    async (approval: PendingExecApproval, preferredAgentId?: string | null) => {
-      await runPauseRunForExecApprovalOperation({
-        status,
-        client,
-        approval,
-        preferredAgentId: preferredAgentId ?? null,
-        getAgents: () => stateRef.current.agents,
-        pausedRunIdByAgentId: approvalPausedRunIdByAgentRef.current,
-        isDisconnectLikeError: isGatewayDisconnectLikeError,
-        logWarn: (message, error) => console.warn(message, error),
-      });
-    },
-    [client, status],
-  );
-
-  const handleGatewayEventIngress = useCallback(
-    (event: EventFrame) => {
-      runGatewayEventIngressOperation({
-        event,
-        getAgents: () => stateRef.current.agents,
-        getPendingState: () => ({
-          approvalsByAgentId: pendingExecApprovalsByAgentIdRef.current,
-          unscopedApprovals: unscopedPendingExecApprovalsRef.current,
-        }),
-        pausedRunIdByAgentId: approvalPausedRunIdByAgentRef.current,
-        seenCronDedupeKeys: seenCronEventIdsRef.current,
-        nowMs: Date.now(),
-        replacePendingState: (pendingState) => {
-          if (
-            pendingState.approvalsByAgentId !==
-            pendingExecApprovalsByAgentIdRef.current
-          ) {
-            pendingExecApprovalsByAgentIdRef.current =
-              pendingState.approvalsByAgentId;
-            setPendingExecApprovalsByAgentId(pendingState.approvalsByAgentId);
-          }
-          if (
-            pendingState.unscopedApprovals !==
-            unscopedPendingExecApprovalsRef.current
-          ) {
-            unscopedPendingExecApprovalsRef.current =
-              pendingState.unscopedApprovals;
-            setUnscopedPendingExecApprovals(pendingState.unscopedApprovals);
-          }
-        },
-        pauseRunForApproval: (approval, commandPreferredAgentId) =>
-          pauseRunForExecApproval(approval, commandPreferredAgentId),
-        dispatch,
-        recordCronDedupeKey: (dedupeKey) =>
-          seenCronEventIdsRef.current.add(dedupeKey),
-      });
-    },
-    [dispatch, pauseRunForExecApproval],
-  );
-
-  useEffect(() => {
-    const handler = createGatewayRuntimeEventHandler({
-      getStatus: () => status,
-      getAgents: () => stateRef.current.agents,
-      dispatch,
-      queueLivePatch,
-      clearPendingLivePatch,
-      loadSummarySnapshot,
-      requestHistoryRefresh: ({ agentId }) => loadAgentHistory(agentId),
-      refreshHeartbeatLatestUpdate,
-      bumpHeartbeatTick: () => setHeartbeatTick((prev) => prev + 1),
-      setTimeout: (fn, delayMs) => window.setTimeout(fn, delayMs),
-      clearTimeout: (id) => window.clearTimeout(id),
-      isDisconnectLikeError: isGatewayDisconnectLikeError,
-      logWarn: (message, meta) => console.warn(message, meta),
-      shouldSuppressRunAbortedLine: ({ agentId, runId, stopReason }) => {
-        if (stopReason !== "rpc") return false;
-        const normalizedRunId = runId?.trim() ?? "";
-        if (!normalizedRunId) return false;
-        const pausedRunId =
-          approvalPausedRunIdByAgentRef.current.get(agentId)?.trim() ?? "";
-        return pausedRunId.length > 0 && pausedRunId === normalizedRunId;
-      },
-      updateSpecialLatestUpdate: (agentId, agent, message) => {
-        void specialLatestUpdate.update(agentId, agent, message);
-      },
-    });
-    runtimeEventHandlerRef.current = handler;
-    const unsubscribe = client.onEvent((event: EventFrame) => {
-      handler.handleEvent(event);
-      handleGatewayEventIngress(event);
-    });
-    return () => {
-      runtimeEventHandlerRef.current = null;
-      handler.dispose();
-      unsubscribe();
-    };
-  }, [
-    client,
-    dispatch,
-    loadAgentHistory,
-    loadSummarySnapshot,
-    clearPendingLivePatch,
-    queueLivePatch,
-    refreshHeartbeatLatestUpdate,
-    specialLatestUpdate,
-    handleGatewayEventIngress,
-    status,
-  ]);
 
   const handleAvatarShuffle = useCallback(
     async (agentId: string) => {
@@ -1482,8 +768,7 @@ const AgentStudioInner = () => {
     [dispatch, persistAvatarSeed],
   );
 
-  const connectionPanelVisible = showConnectionPanel;
-  const hasAnyAgents = agents.length > 0;
+  // Config mutation status line
   const configMutationStatusLine = activeConfigMutation
     ? `Applying config change: ${activeConfigMutation.label}`
     : queuedConfigMutationCount > 0
@@ -1493,50 +778,20 @@ const AgentStudioInner = () => {
           ? `Queued ${queuedConfigMutationCount} config change${queuedConfigMutationCount === 1 ? "" : "s"}; waiting for gateway connection`
           : `Queued ${queuedConfigMutationCount} config change${queuedConfigMutationCount === 1 ? "" : "s"}`
       : null;
-  const createBlockStatusLine = createAgentBlock
-    ? createAgentBlock.phase === "queued"
-      ? "Waiting for active runs to finish"
-      : createAgentBlock.phase === "creating"
-        ? "Submitting config change"
-        : null
-    : null;
-  const restartingMutationStatusLine = resolveConfigMutationStatusLine({
-    block: restartingMutationBlock
-      ? {
-          phase: restartingMutationBlock.phase,
-          sawDisconnect: restartingMutationBlock.sawDisconnect,
-        }
-      : null,
-    status,
-  });
-  const restartingMutationModalTestId = restartingMutationBlock
-    ? restartingMutationBlock.kind === "delete-agent"
-      ? "agent-delete-restart-modal"
-      : "agent-rename-restart-modal"
-    : null;
-  const restartingMutationAriaLabel = restartingMutationBlock
-    ? restartingMutationBlock.kind === "delete-agent"
-      ? "Deleting agent and restarting gateway"
-      : "Renaming agent and restarting gateway"
-    : null;
-  const restartingMutationHeading = restartingMutationBlock
-    ? restartingMutationBlock.kind === "delete-agent"
-      ? "Agent delete in progress"
-      : "Agent rename in progress"
-    : null;
 
+  // Connection attempt tracking
   useEffect(() => {
     if (status === "connecting") {
       setDidAttemptGatewayConnect(true);
     }
   }, [status]);
-
   useEffect(() => {
     if (gatewayError) {
       setDidAttemptGatewayConnect(true);
     }
   }, [gatewayError]);
 
+  // --- Early returns for loading/disconnected states ---
   if (
     !agentsLoadedOnce &&
     (!didAttemptGatewayConnect || status === "connecting")
@@ -1569,17 +824,17 @@ const AgentStudioInner = () => {
         <div className="relative z-10 flex h-screen flex-col">
           <HeaderBar
             status={status}
-            onConnectionSettings={() => setShowConnectionPanel(true)}
-            onProviders={() => setShowProvidersPanel(true)}
-            onChannels={() => setShowChannelsPanel(true)}
-            onRouting={() => setShowRoutingPanel(true)}
-            onWebhooks={() => setShowWebhooksPanel(true)}
-            onSkills={() => setShowSkillsBrowser(true)}
-            onAnalytics={() => setShowAnalytics(true)}
-            onLogs={() => setShowLogViewer(true)}
-            onCanvas={() => setShowCanvas(true)}
-            onIntercom={() => setShowIntercom(true)}
-            onVoice={() => setShowVoice(true)}
+            onConnectionSettings={() => panelActions.show("connection")}
+            onProviders={() => panelActions.show("providers")}
+            onChannels={() => panelActions.show("channels")}
+            onRouting={() => panelActions.show("routing")}
+            onWebhooks={() => panelActions.show("webhooks")}
+            onSkills={() => panelActions.show("skills")}
+            onAnalytics={() => panelActions.show("analytics")}
+            onLogs={() => panelActions.show("logViewer")}
+            onCanvas={() => panelActions.show("canvas")}
+            onIntercom={() => panelActions.show("intercom")}
+            onVoice={() => panelActions.show("voice")}
             configuredProviderCount={configuredProviderIds.length}
             totalProviderCount={PROVIDER_REGISTRY.length}
           />
@@ -1621,7 +876,7 @@ const AgentStudioInner = () => {
               OpenClaw Studio
             </div>
             <div className="mt-3 text-sm text-muted-foreground">
-              Loading agents…
+              Loading agents...
             </div>
           </div>
         </div>
@@ -1629,268 +884,47 @@ const AgentStudioInner = () => {
     );
   }
 
+  // --- Main connected view ---
   return (
     <div className="relative min-h-screen w-full overflow-hidden bg-background">
       {state.loading ? (
         <div className="pointer-events-none fixed bottom-4 left-0 right-0 z-50 flex justify-center px-3">
           <div className="glass-panel ui-card px-6 py-3 font-mono text-[11px] tracking-[0.08em] text-muted-foreground">
-            Loading agents…
+            Loading agents...
           </div>
         </div>
       ) : null}
       <div className="relative z-10 flex h-screen flex-col">
         <HeaderBar
           status={status}
-          onConnectionSettings={() => setShowConnectionPanel(true)}
-          onProviders={() => setShowProvidersPanel((prev) => !prev)}
-          onChannels={() => setShowChannelsPanel((prev) => !prev)}
-          onRouting={() => setShowRoutingPanel((prev) => !prev)}
-          onWebhooks={() => setShowWebhooksPanel((prev) => !prev)}
-          onSkills={() => setShowSkillsBrowser((prev) => !prev)}
-          onAnalytics={() => setShowAnalytics((prev) => !prev)}
-          onLogs={() => setShowLogViewer((prev) => !prev)}
-          onCanvas={() => setShowCanvas((prev) => !prev)}
-          onIntercom={() => setShowIntercom((prev) => !prev)}
-          onVoice={() => setShowVoice((prev) => !prev)}
+          onConnectionSettings={() => panelActions.show("connection")}
+          onProviders={() => panelActions.toggle("providers")}
+          onChannels={() => panelActions.toggle("channels")}
+          onRouting={() => panelActions.toggle("routing")}
+          onWebhooks={() => panelActions.toggle("webhooks")}
+          onSkills={() => panelActions.toggle("skills")}
+          onAnalytics={() => panelActions.toggle("analytics")}
+          onLogs={() => panelActions.toggle("logViewer")}
+          onCanvas={() => panelActions.toggle("canvas")}
+          onIntercom={() => panelActions.toggle("intercom")}
+          onVoice={() => panelActions.toggle("voice")}
           configuredProviderCount={configuredProviderIds.length}
           totalProviderCount={PROVIDER_REGISTRY.length}
         />
         <div className="flex min-h-0 flex-1 flex-col gap-3 px-3 pb-3 pt-2 sm:px-4 sm:pb-4 sm:pt-3 md:px-5 md:pb-5 md:pt-3">
-          {showProvidersPanel ? (
-            <div className="pointer-events-none fixed inset-x-0 top-12 z-[140] flex justify-center px-3 sm:px-4 md:px-5">
-              <div
-                className="glass-panel pointer-events-auto flex w-full max-w-3xl flex-col overflow-hidden !bg-card"
-                style={{ maxHeight: "calc(100vh - 5rem)" }}
-              >
-                <ErrorBoundary fallbackLabel={tp("providersError")}>
-                  <ProvidersPanel />
-                </ErrorBoundary>
-                <div className="flex justify-end border-t border-border px-4 py-2">
-                  <button
-                    type="button"
-                    className="ui-btn-ghost rounded-md px-3 py-1 text-xs font-medium"
-                    onClick={() => setShowProvidersPanel(false)}
-                  >
-                    {tp("close")}
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : null}
-          {showChannelsPanel ? (
-            <div className="pointer-events-none fixed inset-x-0 top-12 z-[140] flex justify-center px-3 sm:px-4 md:px-5">
-              <div
-                className="glass-panel pointer-events-auto flex w-full max-w-3xl flex-col overflow-hidden !bg-card"
-                style={{ maxHeight: "calc(100vh - 5rem)" }}
-              >
-                <ErrorBoundary fallbackLabel={tp("channelsError")}>
-                  <ChannelsPanel />
-                </ErrorBoundary>
-                <div className="flex justify-end border-t border-border px-4 py-2">
-                  <button
-                    type="button"
-                    className="ui-btn-ghost rounded-md px-3 py-1 text-xs font-medium"
-                    onClick={() => setShowChannelsPanel(false)}
-                  >
-                    {tp("close")}
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : null}
-          {showRoutingPanel ? (
-            <div className="pointer-events-none fixed inset-x-0 top-12 z-[140] flex justify-center px-3 sm:px-4 md:px-5">
-              <div
-                className="glass-panel pointer-events-auto flex w-full max-w-3xl flex-col overflow-hidden !bg-card"
-                style={{ maxHeight: "calc(100vh - 5rem)" }}
-              >
-                <ErrorBoundary fallbackLabel={tp("routingError")}>
-                  <RoutingPanel
-                    agents={agents.map((a) => ({
-                      id: a.agentId,
-                      name: a.name,
-                    }))}
-                  />
-                </ErrorBoundary>
-                <div className="flex justify-end border-t border-border px-4 py-2">
-                  <button
-                    type="button"
-                    className="ui-btn-ghost rounded-md px-3 py-1 text-xs font-medium"
-                    onClick={() => setShowRoutingPanel(false)}
-                  >
-                    {tp("close")}
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : null}
-          {showWebhooksPanel ? (
-            <div className="pointer-events-none fixed inset-x-0 top-12 z-[140] flex justify-center px-3 sm:px-4 md:px-5">
-              <div
-                className="glass-panel pointer-events-auto flex w-full max-w-3xl flex-col overflow-hidden !bg-card"
-                style={{ maxHeight: "calc(100vh - 5rem)" }}
-              >
-                <ErrorBoundary fallbackLabel={tp("webhooksError")}>
-                  <WebhooksPanel />
-                </ErrorBoundary>
-                <div className="flex justify-end border-t border-border px-4 py-2">
-                  <button
-                    type="button"
-                    className="ui-btn-ghost rounded-md px-3 py-1 text-xs font-medium"
-                    onClick={() => setShowWebhooksPanel(false)}
-                  >
-                    {tp("close")}
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : null}
-          {showSkillsBrowser ? (
-            <div className="pointer-events-none fixed inset-x-0 top-12 z-[140] flex justify-center px-3 sm:px-4 md:px-5">
-              <div
-                className="glass-panel pointer-events-auto flex w-full max-w-3xl flex-col overflow-hidden !bg-card"
-                style={{ maxHeight: "calc(100vh - 5rem)" }}
-              >
-                <ErrorBoundary fallbackLabel={tp("skillsError")}>
-                  <SkillsBrowser />
-                </ErrorBoundary>
-                <div className="flex justify-end border-t border-border px-4 py-2">
-                  <button
-                    type="button"
-                    className="ui-btn-ghost rounded-md px-3 py-1 text-xs font-medium"
-                    onClick={() => setShowSkillsBrowser(false)}
-                  >
-                    {tp("close")}
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : null}
-          {showAnalytics ? (
-            <div className="pointer-events-none fixed inset-x-0 top-12 z-[140] flex justify-center px-3 sm:px-4 md:px-5">
-              <div
-                className="glass-panel pointer-events-auto flex w-full max-w-4xl flex-col overflow-hidden !bg-card"
-                style={{ maxHeight: "calc(100vh - 5rem)" }}
-              >
-                <ErrorBoundary fallbackLabel={tp("analyticsError")}>
-                  <AnalyticsDashboard />
-                </ErrorBoundary>
-                <div className="flex justify-end border-t border-border px-4 py-2">
-                  <button
-                    type="button"
-                    className="ui-btn-ghost rounded-md px-3 py-1 text-xs font-medium"
-                    onClick={() => setShowAnalytics(false)}
-                  >
-                    {tp("close")}
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : null}
-          {showLogViewer ? (
-            <div className="pointer-events-none fixed inset-x-0 top-12 z-[140] flex justify-center px-3 sm:px-4 md:px-5">
-              <div
-                className="glass-panel pointer-events-auto flex w-full max-w-4xl flex-col overflow-hidden !bg-card"
-                style={{ maxHeight: "calc(100vh - 5rem)" }}
-              >
-                <ErrorBoundary fallbackLabel={tp("logViewerError")}>
-                  <LogViewer />
-                </ErrorBoundary>
-                <div className="flex justify-end border-t border-border px-4 py-2">
-                  <button
-                    type="button"
-                    className="ui-btn-ghost rounded-md px-3 py-1 text-xs font-medium"
-                    onClick={() => setShowLogViewer(false)}
-                  >
-                    {tp("close")}
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : null}
-          {showCanvas ? (
-            <div className="pointer-events-none fixed inset-x-0 top-12 z-[140] flex justify-center px-3 sm:px-4 md:px-5">
-              <div
-                className="glass-panel pointer-events-auto flex w-full max-w-3xl flex-col overflow-hidden !bg-card"
-                style={{ maxHeight: "calc(100vh - 5rem)" }}
-              >
-                <ErrorBoundary fallbackLabel={tp("canvasPreviewError")}>
-                  <CanvasPreview />
-                </ErrorBoundary>
-                <div className="flex justify-end border-t border-border px-4 py-2">
-                  <button
-                    type="button"
-                    className="ui-btn-ghost rounded-md px-3 py-1 text-xs font-medium"
-                    onClick={() => setShowCanvas(false)}
-                  >
-                    {tp("close")}
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : null}
-          {showIntercom ? (
-            <div className="pointer-events-none fixed inset-x-0 top-12 z-[140] flex justify-center px-3 sm:px-4 md:px-5">
-              <div
-                className="glass-panel pointer-events-auto flex w-full max-w-3xl flex-col overflow-hidden !bg-card"
-                style={{ maxHeight: "calc(100vh - 5rem)" }}
-              >
-                <ErrorBoundary fallbackLabel={tp("interAgentFeedError")}>
-                  <InterAgentFeed />
-                </ErrorBoundary>
-                <div className="flex justify-end border-t border-border px-4 py-2">
-                  <button
-                    type="button"
-                    className="ui-btn-ghost rounded-md px-3 py-1 text-xs font-medium"
-                    onClick={() => setShowIntercom(false)}
-                  >
-                    {tp("close")}
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : null}
-          {showVoice ? (
-            <div className="pointer-events-none fixed inset-x-0 top-12 z-[140] flex justify-center px-3 sm:px-4 md:px-5">
-              <div
-                className="glass-panel pointer-events-auto flex w-full max-w-3xl flex-col overflow-hidden !bg-card"
-                style={{ maxHeight: "calc(100vh - 5rem)" }}
-              >
-                <ErrorBoundary fallbackLabel={tp("voiceControlsError")}>
-                  <VoiceControls />
-                </ErrorBoundary>
-                <div className="flex justify-end border-t border-border px-4 py-2">
-                  <button
-                    type="button"
-                    className="ui-btn-ghost rounded-md px-3 py-1 text-xs font-medium"
-                    onClick={() => setShowVoice(false)}
-                  >
-                    {tp("close")}
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : null}
-          {connectionPanelVisible ? (
-            <div className="pointer-events-none fixed inset-x-0 top-12 z-[140] flex justify-center px-3 sm:px-4 md:px-5">
-              <div
-                className="glass-panel pointer-events-auto flex w-full max-w-4xl flex-col overflow-hidden !bg-card px-4 py-4 sm:px-6 sm:py-6"
-                style={{ maxHeight: "calc(100vh - 5rem)" }}
-              >
-                <ConnectionPanel
-                  gatewayUrl={gatewayUrl}
-                  token={token}
-                  status={status}
-                  error={gatewayError}
-                  onGatewayUrlChange={setGatewayUrl}
-                  onTokenChange={setToken}
-                  onConnect={() => void connect()}
-                  onDisconnect={disconnect}
-                  onClose={() => setShowConnectionPanel(false)}
-                />
-              </div>
-            </div>
-          ) : null}
+          <OverlayPanels
+            panels={panels}
+            panelActions={panelActions}
+            agents={agents}
+            gatewayUrl={gatewayUrl}
+            token={token}
+            status={status}
+            gatewayError={gatewayError}
+            onGatewayUrlChange={setGatewayUrl}
+            onTokenChange={setToken}
+            onConnect={() => void connect()}
+            onDisconnect={disconnect}
+          />
 
           {errorMessage ? (
             <div className="w-full">
@@ -1908,654 +942,120 @@ const AgentStudioInner = () => {
           ) : null}
 
           {settingsRouteActive ? (
-            <div
-              className="ui-panel ui-depth-workspace flex min-h-0 flex-1 overflow-hidden"
-              data-testid="agent-settings-route-panel"
-            >
-              <aside className="w-[240px] shrink-0 border-r border-border/60">
-                <div className="border-b border-border/60 px-4 py-3">
-                  <button
-                    type="button"
-                    className="ui-btn-secondary w-full px-3 py-1.5 font-mono text-[10px] font-semibold tracking-[0.06em]"
-                    onClick={handleBackToChat}
-                  >
-                    {tp("backToChat")}
-                  </button>
-                </div>
-                <nav className="py-3">
-                  {(
-                    [
-                      { id: "personality", label: "Behavior" },
-                      { id: "capabilities", label: "Capabilities" },
-                      { id: "skills", label: "Skills" },
-                      { id: "system", label: "System setup" },
-                      { id: "automations", label: "Automations" },
-                      { id: "credentials", label: "Credentials" },
-                      { id: "performance", label: "Performance" },
-                      { id: "advanced", label: "Advanced" },
-                    ] as const
-                  ).map((entry) => {
-                    const active = activeSettingsSidebarItem === entry.id;
-                    return (
-                      <button
-                        key={entry.id}
-                        type="button"
-                        className={`relative w-full px-5 py-3 text-left text-sm transition ${
-                          active
-                            ? "bg-surface-2/55 font-medium text-foreground"
-                            : "font-normal text-muted-foreground hover:bg-surface-2/35 hover:text-foreground"
-                        }`}
-                        onClick={() => {
-                          setSettingsSidebarItem(entry.id);
-                          handleSettingsRouteTabChange(entry.id);
-                        }}
-                      >
-                        {active ? (
-                          <span
-                            className="absolute inset-y-2 left-0 w-0.5 rounded-r bg-primary"
-                            aria-hidden="true"
-                          />
-                        ) : null}
-                        {entry.label}
-                      </button>
-                    );
-                  })}
-                </nav>
-              </aside>
-              <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-                <div className="flex items-start justify-between border-b border-border/60 px-6 py-4">
-                  <div className="min-w-0 flex-1">
-                    <div className="text-lg font-semibold text-foreground">
-                      {inspectSidebarAgent?.name ??
-                        settingsRouteAgentId ??
-                        "Agent settings"}
-                    </div>
-                    <div className="mt-2 flex flex-wrap items-center gap-3">
-                      <label className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
-                        <span className="font-semibold tracking-[0.04em]">
-                          Model
-                        </span>
-                        <select
-                          className="ui-input h-6 min-w-[140px] rounded-md px-1.5 text-[11px] font-semibold text-foreground"
-                          value={inspectSidebarAgent?.model ?? ""}
-                          onChange={(e) => {
-                            const agentId = inspectSidebarAgent?.agentId;
-                            const sessionKey = inspectSidebarAgent?.sessionKey;
-                            if (!agentId || !sessionKey) return;
-                            const next = e.target.value.trim();
-                            void handleModelChange(
-                              agentId,
-                              sessionKey,
-                              next || null,
-                            );
-                          }}
-                        >
-                          <option value="">Default (gateway)</option>
-                          {allModels.map((m) => {
-                            const key = `${m.provider}/${m.id}`;
-                            return (
-                              <option key={key} value={key}>
-                                {m.name || key}
-                                {m.reasoning ? " (Reasoning)" : ""}
-                              </option>
-                            );
-                          })}
-                        </select>
-                      </label>
-                      {(() => {
-                        const sidebarModel = allModels.find(
-                          (m) =>
-                            `${m.provider}/${m.id}` ===
-                            inspectSidebarAgent?.model,
-                        );
-                        if (sidebarModel?.reasoning === false) return null;
-                        const sidebarThinkingLevels = getThinkingLevels(
-                          inspectSidebarAgent?.model ?? "",
-                          sidebarModel?.reasoning,
-                        );
-                        return (
-                          <label className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
-                            <span className="font-semibold tracking-[0.04em]">
-                              Thinking
-                            </span>
-                            <select
-                              className="ui-input h-6 rounded-md px-1.5 text-[11px] font-semibold text-foreground"
-                              value={inspectSidebarAgent?.thinkingLevel ?? ""}
-                              onChange={(e) => {
-                                const agentId = inspectSidebarAgent?.agentId;
-                                const sessionKey =
-                                  inspectSidebarAgent?.sessionKey;
-                                if (!agentId || !sessionKey) return;
-                                const next = e.target.value.trim();
-                                void handleThinkingChange(
-                                  agentId,
-                                  sessionKey,
-                                  next || null,
-                                );
-                              }}
-                            >
-                              {sidebarThinkingLevels.map((level) => (
-                                <option key={level.value} value={level.value}>
-                                  {level.label}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                  <div className="shrink-0 rounded-md border border-border/70 bg-surface-1 px-3 py-1 font-mono text-[11px] text-muted-foreground">
-                    [{personalityHasUnsavedChanges ? "Unsaved" : "Saved ✓"}]
-                  </div>
-                </div>
-                <div className="min-h-0 flex-1 overflow-hidden">
-                  {inspectSidebarAgent ? (
-                    effectiveSettingsTab === "personality" ? (
-                      <AgentBrainPanel
-                        client={client}
-                        agents={agents}
-                        selectedAgentId={inspectSidebarAgent.agentId}
-                        onUnsavedChangesChange={setPersonalityHasUnsavedChanges}
-                      />
-                    ) : effectiveSettingsTab === "performance" ? (
-                      <div className="h-full overflow-y-auto px-6 py-6">
-                        <div className="mx-auto w-full max-w-[920px]">
-                          <AgentPerformanceTab agent={inspectSidebarAgent} />
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="h-full overflow-y-auto px-6 py-6">
-                        <div className="mx-auto w-full max-w-[920px]">
-                          <AgentSettingsPanel
-                            key={`${inspectSidebarAgent.agentId}:${effectiveSettingsTab}`}
-                            gatewayClient={client}
-                            mode={
-                              effectiveSettingsTab === "automations"
-                                ? "automations"
-                                : effectiveSettingsTab === "skills"
-                                  ? "skills"
-                                  : effectiveSettingsTab === "system"
-                                    ? "system"
-                                    : effectiveSettingsTab === "credentials"
-                                      ? "credentials"
-                                      : effectiveSettingsTab === "advanced"
-                                        ? "advanced"
-                                        : "capabilities"
-                            }
-                            showHeader={false}
-                            agent={inspectSidebarAgent}
-                            models={allModels}
-                            onModelChange={(value) =>
-                              handleModelChange(
-                                inspectSidebarAgent.agentId,
-                                inspectSidebarAgent.sessionKey,
-                                value,
-                              )
-                            }
-                            onThinkingChange={(value) =>
-                              handleThinkingChange(
-                                inspectSidebarAgent.agentId,
-                                inspectSidebarAgent.sessionKey,
-                                value,
-                              )
-                            }
-                            onRename={(name) =>
-                              settingsMutationController.handleRenameAgent(
-                                inspectSidebarAgent.agentId,
-                                name,
-                              )
-                            }
-                            onClose={handleBackToChat}
-                            permissionsDraft={
-                              settingsAgentPermissionsDraft ?? undefined
-                            }
-                            onUpdateAgentPermissions={(draft) =>
-                              settingsMutationController.handleUpdateAgentPermissions(
-                                inspectSidebarAgent.agentId,
-                                draft,
-                              )
-                            }
-                            onDelete={() =>
-                              settingsMutationController.handleDeleteAgent(
-                                inspectSidebarAgent.agentId,
-                              )
-                            }
-                            canDelete={
-                              inspectSidebarAgent.agentId !==
-                              RESERVED_MAIN_AGENT_ID
-                            }
-                            skillsReport={
-                              settingsMutationController.settingsSkillsReport
-                            }
-                            skillsLoading={
-                              settingsMutationController.settingsSkillsLoading
-                            }
-                            skillsError={
-                              settingsMutationController.settingsSkillsError
-                            }
-                            skillsBusy={
-                              settingsMutationController.settingsSkillsBusy
-                            }
-                            skillsBusyKey={
-                              settingsMutationController.settingsSkillsBusyKey
-                            }
-                            skillMessages={
-                              settingsMutationController.settingsSkillMessages
-                            }
-                            skillApiKeyDrafts={
-                              settingsMutationController.settingsSkillApiKeyDrafts
-                            }
-                            defaultAgentScopeWarning={settingsSkillScopeWarning}
-                            systemInitialSkillKey={systemInitialSkillKey}
-                            onSystemInitialSkillHandled={() => {
-                              setSystemInitialSkillKey(null);
-                            }}
-                            skillsAllowlist={settingsAgentSkillsAllowlist}
-                            onSetSkillEnabled={(skillName, enabled) =>
-                              settingsMutationController.handleSetSkillEnabled(
-                                inspectSidebarAgent.agentId,
-                                skillName,
-                                enabled,
-                              )
-                            }
-                            onOpenSystemSetup={handleOpenSystemSkillSetup}
-                            onInstallSkill={(skillKey, name, installId) =>
-                              settingsMutationController.handleInstallSkill(
-                                inspectSidebarAgent.agentId,
-                                skillKey,
-                                name,
-                                installId,
-                              )
-                            }
-                            onRemoveSkill={(skill) =>
-                              settingsMutationController.handleRemoveSkill(
-                                inspectSidebarAgent.agentId,
-                                skill,
-                              )
-                            }
-                            onSkillApiKeyChange={(skillKey, value) =>
-                              settingsMutationController.handleSkillApiKeyDraftChange(
-                                skillKey,
-                                value,
-                              )
-                            }
-                            onSaveSkillApiKey={(skillKey) =>
-                              settingsMutationController.handleSaveSkillApiKey(
-                                inspectSidebarAgent.agentId,
-                                skillKey,
-                              )
-                            }
-                            onSetSkillGlobalEnabled={(skillKey, enabled) =>
-                              settingsMutationController.handleSetSkillGlobalEnabled(
-                                inspectSidebarAgent.agentId,
-                                skillKey,
-                                enabled,
-                              )
-                            }
-                            cronJobs={
-                              settingsMutationController.settingsCronJobs
-                            }
-                            cronLoading={
-                              settingsMutationController.settingsCronLoading
-                            }
-                            cronError={
-                              settingsMutationController.settingsCronError
-                            }
-                            cronCreateBusy={
-                              settingsMutationController.cronCreateBusy
-                            }
-                            cronRunBusyJobId={
-                              settingsMutationController.cronRunBusyJobId
-                            }
-                            cronDeleteBusyJobId={
-                              settingsMutationController.cronDeleteBusyJobId
-                            }
-                            onCreateCronJob={(draft) =>
-                              settingsMutationController.handleCreateCronJob(
-                                inspectSidebarAgent.agentId,
-                                draft,
-                              )
-                            }
-                            onRunCronJob={(jobId) =>
-                              settingsMutationController.handleRunCronJob(
-                                inspectSidebarAgent.agentId,
-                                jobId,
-                              )
-                            }
-                            onDeleteCronJob={(jobId) =>
-                              settingsMutationController.handleDeleteCronJob(
-                                inspectSidebarAgent.agentId,
-                                jobId,
-                              )
-                            }
-                            controlUiUrl={controlUiUrl}
-                            connectedChannels={
-                              channelsByAgent.get(
-                                inspectSidebarAgent.agentId,
-                              ) ?? []
-                            }
-                          />
-                        </div>
-                      </div>
-                    )
-                  ) : (
-                    <EmptyStatePanel
-                      title={tp("agentNotFound")}
-                      description={tp("agentNotFoundDescription")}
-                      fillHeight
-                      className="items-center p-6 text-center text-sm"
-                    />
-                  )}
-                </div>
-              </div>
-            </div>
+            <SettingsRouteView
+              client={client}
+              agents={agents}
+              inspectSidebarAgent={inspectSidebarAgent}
+              settingsRouteAgentId={settingsRouteAgentId}
+              effectiveSettingsTab={effectiveSettingsTab}
+              activeSettingsSidebarItem={settingsSidebarItem}
+              personalityHasUnsavedChanges={personalityHasUnsavedChanges}
+              allModels={allModels}
+              settingsAgentPermissionsDraft={settingsAgentPermissionsDraft}
+              settingsAgentSkillsAllowlist={settingsAgentSkillsAllowlist}
+              settingsSkillScopeWarning={settingsSkillScopeWarning}
+              systemInitialSkillKey={systemInitialSkillKey}
+              controlUiUrl={controlUiUrl}
+              channelsByAgent={channelsByAgent}
+              settingsMutationController={settingsMutationController}
+              onBackToChat={handleBackToChat}
+              onSettingsSidebarItemChange={setSettingsSidebarItem}
+              onSettingsRouteTabChange={handleSettingsRouteTabChange}
+              onModelChange={sessionControls.handleModelChange}
+              onThinkingChange={sessionControls.handleThinkingChange}
+              onPersonalityUnsavedChange={setPersonalityHasUnsavedChanges}
+              onSystemInitialSkillHandled={() => setSystemInitialSkillKey(null)}
+              onOpenSystemSkillSetup={handleOpenSystemSkillSetup}
+            />
           ) : (
-            <div className="flex min-h-0 flex-1 flex-col gap-4 xl:flex-row">
-              <div
-                className="glass-panel ui-panel p-2 xl:hidden"
-                data-testid="mobile-pane-toggle"
-              >
-                <div className="ui-segment grid-cols-2">
-                  <button
-                    type="button"
-                    className="ui-segment-item px-2 py-2 font-mono text-[12px] font-medium tracking-[0.02em]"
-                    data-active={mobilePane === "fleet" ? "true" : "false"}
-                    onClick={() => setMobilePane("fleet")}
-                  >
-                    {tp("fleet")}
-                  </button>
-                  <button
-                    type="button"
-                    className="ui-segment-item px-2 py-2 font-mono text-[12px] font-medium tracking-[0.02em]"
-                    data-active={mobilePane === "chat" ? "true" : "false"}
-                    onClick={() => setMobilePane("chat")}
-                  >
-                    {tp("chat")}
-                  </button>
-                </div>
-              </div>
-              <div
-                className={`${mobilePane === "fleet" ? "block" : "hidden"} min-h-0 xl:block xl:min-h-0`}
-              >
-                <ErrorBoundary fallbackLabel={tp("fleetSidebarError")}>
-                  <FleetSidebar
-                    agents={filteredAgents}
-                    selectedAgentId={
-                      focusedAgent?.agentId ?? state.selectedAgentId
-                    }
-                    filter={focusFilter}
-                    onFilterChange={handleFocusFilterChange}
-                    onCreateAgent={() => {
-                      handleOpenCreateAgentModal();
-                    }}
-                    createDisabled={
-                      status !== "connected" || createAgentBusy || state.loading
-                    }
-                    createBusy={createAgentBusy}
-                    onSelectAgent={handleFleetSelectAgent}
-                    channelsByAgent={channelsByAgent}
-                  />
-                </ErrorBoundary>
-              </div>
-              <div
-                className={`${mobilePane === "chat" ? "flex" : "hidden"} ui-panel ui-depth-workspace min-h-0 flex-1 overflow-hidden xl:flex`}
-                data-testid="focused-agent-panel"
-              >
-                {focusedAgent ? (
-                  <div className="flex min-h-0 flex-1 flex-col">
-                    <div className="min-h-0 flex-1">
-                      <AgentChatPanel
-                        agent={focusedAgent}
-                        isSelected={false}
-                        canSend={status === "connected"}
-                        models={gatewayModels}
-                        stopBusy={stopBusyAgentId === focusedAgent.agentId}
-                        stopDisabledReason={focusedAgentStopDisabledReason}
-                        onLoadMoreHistory={() =>
-                          loadMoreAgentHistory(focusedAgent.agentId)
-                        }
-                        onOpenSettings={() =>
-                          handleOpenAgentSettingsRoute(focusedAgent.agentId)
-                        }
-                        onRename={(name) =>
-                          settingsMutationController.handleRenameAgent(
-                            focusedAgent.agentId,
-                            name,
-                          )
-                        }
-                        onNewSession={() =>
-                          handleNewSession(focusedAgent.agentId)
-                        }
-                        onModelChange={(value) =>
-                          handleModelChange(
-                            focusedAgent.agentId,
-                            focusedAgent.sessionKey,
-                            value,
-                          )
-                        }
-                        onThinkingChange={(value) =>
-                          handleThinkingChange(
-                            focusedAgent.agentId,
-                            focusedAgent.sessionKey,
-                            value,
-                          )
-                        }
-                        onToolCallingToggle={(enabled) =>
-                          handleToolCallingToggle(focusedAgent.agentId, enabled)
-                        }
-                        onThinkingTracesToggle={(enabled) =>
-                          handleThinkingTracesToggle(
-                            focusedAgent.agentId,
-                            enabled,
-                          )
-                        }
-                        onHideSystemMessagesToggle={(enabled) =>
-                          handleHideSystemMessagesToggle(
-                            focusedAgent.agentId,
-                            enabled,
-                          )
-                        }
-                        onDraftChange={(value) =>
-                          handleDraftChange(focusedAgent.agentId, value)
-                        }
-                        onSend={(message, attachments) =>
-                          handleSend(
-                            focusedAgent.agentId,
-                            focusedAgent.sessionKey,
-                            message,
-                            attachments,
-                          )
-                        }
-                        onRemoveQueuedMessage={(index) =>
-                          removeQueuedMessage(focusedAgent.agentId, index)
-                        }
-                        onSendQueuedNow={(index) => {
-                          const msg = focusedAgent.queuedMessages?.[index];
-                          if (!msg) return;
-                          removeQueuedMessage(focusedAgent.agentId, index);
-                          void handleSend(
-                            focusedAgent.agentId,
-                            focusedAgent.sessionKey,
-                            msg,
-                            undefined,
-                            { force: true },
-                          );
-                        }}
-                        onStopRun={() =>
-                          handleStopRun(
-                            focusedAgent.agentId,
-                            focusedAgent.sessionKey,
-                          )
-                        }
-                        onAvatarShuffle={() =>
-                          handleAvatarShuffle(focusedAgent.agentId)
-                        }
-                        otherAgents={agents
-                          .filter((a) => a.agentId !== focusedAgent.agentId)
-                          .map((a) => ({ agentId: a.agentId, name: a.name }))}
-                        onForwardToAgent={(targetAgentId, message) => {
-                          const target = agents.find(
-                            (a) => a.agentId === targetAgentId,
-                          );
-                          if (!target) return;
-                          void handleSend(
-                            target.agentId,
-                            target.sessionKey,
-                            message,
-                          );
-                        }}
-                        pendingExecApprovals={focusedPendingExecApprovals}
-                        onResolveExecApproval={(id, decision) => {
-                          void handleResolveExecApproval(id, decision);
-                        }}
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <EmptyStatePanel
-                    title={
-                      hasAnyAgents
-                        ? tp("noAgentsMatch")
-                        : tp("noAgentsAvailable")
-                    }
-                    description={
-                      hasAnyAgents
-                        ? undefined
-                        : status === "connected"
-                          ? tp("useNewAgent")
-                          : tp("connectToGateway")
-                    }
-                    fillHeight
-                    className="items-center p-6 text-center text-sm"
-                  />
-                )}
-              </div>
-            </div>
+            <ChatWorkspaceView
+              agents={agents}
+              filteredAgents={filteredAgents}
+              focusedAgent={focusedAgent}
+              selectedAgentId={state.selectedAgentId}
+              status={status}
+              mobilePane={mobilePane}
+              focusFilter={focusFilter}
+              gatewayModels={gatewayModels}
+              stopBusyAgentId={stopBusyAgentId}
+              focusedAgentStopDisabledReason={focusedAgentStopDisabledReason}
+              focusedPendingExecApprovals={focusedPendingExecApprovals}
+              channelsByAgent={channelsByAgent}
+              isLoading={state.loading}
+              createAgentBusy={createAgent.createAgentBusy}
+              onMobilePaneChange={setMobilePane}
+              onFocusFilterChange={handleFocusFilterChange}
+              onCreateAgent={createAgent.handleOpenCreateAgentModal}
+              onFleetSelectAgent={handleFleetSelectAgent}
+              onLoadMoreHistory={loadMoreAgentHistory}
+              onOpenSettings={handleOpenAgentSettingsRoute}
+              onRename={(agentId, name) =>
+                settingsMutationController.handleRenameAgent(agentId, name)
+              }
+              onNewSession={handleNewSession}
+              onModelChange={sessionControls.handleModelChange}
+              onThinkingChange={sessionControls.handleThinkingChange}
+              onToolCallingToggle={sessionControls.handleToolCallingToggle}
+              onThinkingTracesToggle={
+                sessionControls.handleThinkingTracesToggle
+              }
+              onHideSystemMessagesToggle={
+                sessionControls.handleHideSystemMessagesToggle
+              }
+              onDraftChange={handleDraftChange}
+              onSend={handleSend}
+              onRemoveQueuedMessage={removeQueuedMessage}
+              onSendQueuedNow={(agentId, index, sessionKey, message) => {
+                removeQueuedMessage(agentId, index);
+                void handleSend(agentId, sessionKey, message, undefined, {
+                  force: true,
+                });
+              }}
+              onStopRun={handleStopRun}
+              onAvatarShuffle={handleAvatarShuffle}
+              onForwardToAgent={(targetAgentId, message) => {
+                const target = agents.find((a) => a.agentId === targetAgentId);
+                if (!target) return;
+                void handleSend(target.agentId, target.sessionKey, message);
+              }}
+              onResolveExecApproval={(id, decision) => {
+                void handleResolveExecApproval(id, decision);
+              }}
+            />
           )}
         </div>
       </div>
-      {createAgentModalOpen ? (
-        <AgentCreateModal
-          open={createAgentModalOpen}
-          suggestedName={suggestedCreateAgentName}
-          busy={createAgentBusy}
-          submitError={createAgentModalError}
-          models={allModels}
-          onClose={() => {
-            if (createAgentBusy) return;
-            setCreateAgentModalError(null);
-            setCreateAgentModalOpen(false);
-          }}
-          onSubmit={(payload) => {
-            void handleCreateAgentSubmit(payload);
-          }}
-        />
-      ) : null}
-      {createAgentBlock && createAgentBlock.phase !== "queued" ? (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80"
-          data-testid="agent-create-restart-modal"
-          role="dialog"
-          aria-modal="true"
-          aria-label={tp("creatingAgent")}
-        >
-          <div className="ui-panel w-full max-w-md p-6">
-            <div className="font-mono text-[10px] font-semibold tracking-[0.06em] text-muted-foreground">
-              {tp("agentCreateInProgress")}
-            </div>
-            <div className="mt-2 text-base font-semibold text-foreground">
-              {createAgentBlock.agentName}
-            </div>
-            <div className="mt-3 text-sm text-muted-foreground">
-              {tp("studioLockedCreation")}
-            </div>
-            {createBlockStatusLine ? (
-              <div className="ui-card mt-4 px-3 py-2 font-mono text-[11px] tracking-[0.06em] text-foreground">
-                {createBlockStatusLine}
-              </div>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
-      {restartingMutationBlock && restartingMutationBlock.phase !== "queued" ? (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80"
-          data-testid={restartingMutationModalTestId ?? undefined}
-          role="dialog"
-          aria-modal="true"
-          aria-label={restartingMutationAriaLabel ?? undefined}
-        >
-          <div className="ui-panel w-full max-w-md p-6">
-            <div className="font-mono text-[10px] font-semibold tracking-[0.06em] text-muted-foreground">
-              {restartingMutationHeading}
-            </div>
-            <div className="mt-2 text-base font-semibold text-foreground">
-              {restartingMutationBlock.agentName}
-            </div>
-            <div className="mt-3 text-sm text-muted-foreground">
-              {tp("studioLockedRestart")}
-            </div>
-            {restartingMutationStatusLine ? (
-              <div className="ui-card mt-4 px-3 py-2 font-mono text-[11px] tracking-[0.06em] text-foreground">
-                {restartingMutationStatusLine}
-              </div>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
-      <nav className="mobile-bottom-nav" aria-label="Mobile navigation">
-        <button
-          type="button"
-          className="mobile-bottom-nav-item"
-          data-active={
-            mobilePane === "fleet" && !inspectSidebar ? "true" : "false"
-          }
-          onClick={() => {
-            setMobilePane("fleet");
-            setInspectSidebar(null);
-          }}
-        >
-          <Users />
-          <span>{tp("fleet")}</span>
-        </button>
-        <button
-          type="button"
-          className="mobile-bottom-nav-item"
-          data-active={
-            mobilePane === "chat" && !inspectSidebar ? "true" : "false"
-          }
-          onClick={() => {
-            setMobilePane("chat");
-            setInspectSidebar(null);
-          }}
-        >
-          <MessageSquare />
-          <span>{tp("chat")}</span>
-        </button>
-        <button
-          type="button"
-          className="mobile-bottom-nav-item"
-          data-active={showAnalytics ? "true" : "false"}
-          onClick={() => setShowAnalytics((v) => !v)}
-        >
-          <BarChart3 />
-          <span>{tp("analytics")}</span>
-        </button>
-        <button
-          type="button"
-          className="mobile-bottom-nav-item"
-          data-active={!!inspectSidebar ? "true" : "false"}
-          onClick={() => {
-            if (focusedAgent) {
-              handleOpenAgentSettingsRoute(focusedAgent.agentId);
-            }
-          }}
-        >
-          <Settings />
-          <span>{tp("settings")}</span>
-        </button>
-      </nav>
+      <BlockingModals
+        createAgentModalOpen={createAgent.createAgentModalOpen}
+        suggestedCreateAgentName={createAgent.suggestedCreateAgentName}
+        createAgentBusy={createAgent.createAgentBusy}
+        createAgentModalError={createAgent.createAgentModalError}
+        allModels={allModels}
+        onCloseCreateModal={() => {
+          if (createAgent.createAgentBusy) return;
+          createAgent.setCreateAgentModalError(null);
+          createAgent.setCreateAgentModalOpen(false);
+        }}
+        onCreateAgentSubmit={(payload) => {
+          void createAgent.handleCreateAgentSubmit(payload);
+        }}
+        createAgentBlock={createAgent.createAgentBlock}
+        createBlockStatusLine={createAgent.createBlockStatusLine}
+        restartingMutationBlock={
+          settingsMutationController.restartingMutationBlock
+        }
+        status={status}
+      />
+      <MobileBottomNav
+        mobilePane={mobilePane}
+        inspectSidebar={inspectSidebar}
+        showAnalytics={panels.analytics}
+        focusedAgentId={focusedAgent?.agentId ?? null}
+        onSetMobilePane={setMobilePane}
+        onClearInspectSidebar={() => setInspectSidebar(null)}
+        onToggleAnalytics={() => panelActions.toggle("analytics")}
+        onOpenAgentSettings={handleOpenAgentSettingsRoute}
+      />
     </div>
   );
 };

@@ -2,44 +2,25 @@ import { NextResponse } from "next/server";
 import { buildPersonaBuilderUserPrompt } from "@/features/agents/creation/personaBuilderPrompt";
 import { parsePersonaBuilderResult } from "@/features/agents/creation/personaBuilderSchema";
 import { withErrorHandler } from "@/lib/api/error-handler";
+import { PersonaBuilderSchema } from "@/lib/api/schemas/studio";
+import { parseBody, isValidationError } from "@/lib/api/validation";
 
 export const runtime = "nodejs";
 
-type PersonaBuilderRequestBody = {
-  description: string;
-  feedback?: string;
-};
-
 async function post_handler(request: Request) {
   try {
-    const body = (await request.json()) as unknown;
-    if (!body || typeof body !== "object") {
-      return NextResponse.json(
-        { error: "Invalid request body." },
-        { status: 400 },
-      );
-    }
+    const body = await parseBody(request, PersonaBuilderSchema);
+    if (isValidationError(body)) return body;
 
-    const { description, feedback } =
-      body as Partial<PersonaBuilderRequestBody>;
-    if (
-      !description ||
-      typeof description !== "string" ||
-      !description.trim()
-    ) {
-      return NextResponse.json(
-        { error: "description is required." },
-        { status: 400 },
-      );
-    }
+    const { description, feedback } = body;
 
-    buildPersonaBuilderUserPrompt(description.trim(), feedback?.trim());
+    buildPersonaBuilderUserPrompt(description, feedback);
 
     // Use fetch to call the gateway's LLM endpoint
     // This is a placeholder — in production, this would route through the gateway client
     // For now, return a structured fallback that the frontend can use
     const fallbackResult = {
-      name: description.trim().split(" ").slice(0, 3).join(" "),
+      name: description.split(" ").slice(0, 3).join(" "),
       persona: {
         traits: {
           formality: 50,
@@ -55,7 +36,7 @@ async function post_handler(request: Request) {
           "- I do not fabricate information.\n- I ask for clarification when unsure.",
       },
       directives: {
-        mission: `Assist the user with: ${description.trim()}`,
+        mission: `Assist the user with: ${description}`,
         rules:
           "- Respond clearly and directly.\n- Adapt to the user's communication style.",
         priorities: "1. Accuracy\n2. Helpfulness\n3. Clarity",

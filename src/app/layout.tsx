@@ -6,6 +6,7 @@ import { Toaster } from "@/components/Toaster";
 import { AppNav } from "@/components/AppNav";
 import { SectionErrorBoundary } from "@/components/SectionErrorBoundary";
 import { NotificationProvider } from "@/features/notifications/notificationStore";
+import { ToastContainer } from "@/features/notifications/ToastContainer";
 import { CommandPaletteProvider } from "@/features/command-palette/CommandPaletteProvider";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import "./globals.css";
@@ -75,6 +76,7 @@ export default async function RootLayout({
                 </main>
               </div>
               <CommandPaletteProvider />
+              <ToastContainer />
             </NotificationProvider>
           </NextIntlClientProvider>
         </ThemeProvider>

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { parseBody, parseQuery, isValidationError } from "@/lib/api/validation";
 import { createLogger } from "@/lib/logger";
 import { withErrorHandler } from "@/lib/api/error-handler";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 
@@ -95,6 +96,9 @@ async function post_handler(req: NextRequest) {
 
 /** DELETE — revoke an instance token by ID */
 async function delete_handler(req: NextRequest) {
+  const limited = applyRateLimit(req, RATE_LIMITS.deleteGeneric);
+  if (limited) return limited;
+
   if (!isMasterAuth(req)) {
     return NextResponse.json(
       { error: "Master token required" },

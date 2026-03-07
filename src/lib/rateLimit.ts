@@ -30,11 +30,23 @@ export const rateLimit = (config: RateLimitConfig) => {
   ensureCleanup();
 
   return (
-    req: NextRequest,
+    req: NextRequest | Request,
   ): { allowed: boolean; headers: Record<string, string> } => {
     const ip =
-      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-    const key = `${ip}:${req.nextUrl.pathname}`;
+      req.headers?.get?.("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+    const pathname = (() => {
+      try {
+        return (req as NextRequest).nextUrl?.pathname;
+      } catch {
+        /* fallthrough */
+      }
+      try {
+        return new URL(req.url).pathname;
+      } catch {
+        return req.url ?? "unknown";
+      }
+    })();
+    const key = `${ip}:${pathname}`;
     const now = Date.now();
 
     let entry = store.get(key);
@@ -68,10 +80,19 @@ export const RATE_LIMITS = {
   skillsRemove: rateLimit({ windowMs: 60_000, maxRequests: 10 }),
   skillsCatalog: rateLimit({ windowMs: 60_000, maxRequests: 20 }),
   pathSuggestions: rateLimit({ windowMs: 60_000, maxRequests: 60 }),
+  // ── Sensitive routes ──
+  authSetup: rateLimit({ windowMs: 60_000, maxRequests: 3 }),
+  authLogout: rateLimit({ windowMs: 60_000, maxRequests: 10 }),
+  themePatch: rateLimit({ windowMs: 60_000, maxRequests: 10 }),
+  themePut: rateLimit({ windowMs: 60_000, maxRequests: 5 }),
+  watcherActions: rateLimit({ windowMs: 60_000, maxRequests: 15 }),
+  configPatch: rateLimit({ windowMs: 60_000, maxRequests: 5 }),
+  agentModel: rateLimit({ windowMs: 60_000, maxRequests: 10 }),
+  deleteGeneric: rateLimit({ windowMs: 60_000, maxRequests: 10 }),
 } as const;
 
 export const applyRateLimit = (
-  req: NextRequest,
+  req: NextRequest | Request,
   limiter: ReturnType<typeof rateLimit>,
 ): NextResponse | null => {
   const { allowed, headers } = limiter(req);

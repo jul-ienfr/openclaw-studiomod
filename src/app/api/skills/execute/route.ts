@@ -2,31 +2,18 @@ import { NextResponse } from "next/server";
 import { parseSkillMd } from "@/lib/skills/skill-parser";
 import { renderExecTemplate } from "@/lib/skills/skill-executor";
 import { withErrorHandler } from "@/lib/api/error-handler";
+import { SkillExecuteSchema } from "@/lib/api/schemas/studio";
+import { parseBody, isValidationError } from "@/lib/api/validation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 async function post_handler(request: Request) {
   try {
-    const body = await request.json();
-    const { skillPath, commandName, parameters } = body as {
-      skillPath?: string;
-      commandName?: string;
-      parameters?: Record<string, string>;
-    };
+    const validated = await parseBody(request, SkillExecuteSchema);
+    if (isValidationError(validated)) return validated;
 
-    if (!skillPath || typeof skillPath !== "string") {
-      return NextResponse.json(
-        { error: "skillPath is required" },
-        { status: 400 },
-      );
-    }
-    if (!commandName || typeof commandName !== "string") {
-      return NextResponse.json(
-        { error: "commandName is required" },
-        { status: 400 },
-      );
-    }
+    const { skillPath, commandName, parameters } = validated;
 
     const parsed = parseSkillMd(skillPath);
     if (!parsed) {
@@ -49,7 +36,7 @@ async function post_handler(request: Request) {
 
     const rendered = renderExecTemplate(
       command.exec,
-      parameters ?? {},
+      (parameters ?? {}) as Record<string, string>,
       skillPath,
     );
 

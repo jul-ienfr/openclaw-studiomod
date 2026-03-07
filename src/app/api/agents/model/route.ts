@@ -1,8 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import fs from "node:fs";
 import path from "node:path";
 import { resolveStateDir } from "@/lib/clawdbot/paths";
 import { withErrorHandler } from "@/lib/api/error-handler";
+import { AgentModelPatchSchema } from "@/lib/api/schemas/agents";
+import { parseBody, isValidationError } from "@/lib/api/validation";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 
@@ -21,12 +24,15 @@ function writeConfig(config: Record<string, unknown>) {
 }
 
 /** PATCH /api/agents/model — persist an agent's default model to openclaw.json */
-async function patch_handler(request: Request) {
-  try {
-    const body = (await request.json()) as { agentId: string; model: string | null };
-    const { agentId, model } = body;
+async function patch_handler(request: NextRequest) {
+  const limited = applyRateLimit(request, RATE_LIMITS.agentModel);
+  if (limited) return limited;
 
-    if (!agentId) return NextResponse.json({ error: "agentId required" }, { status: 400 });
+  try {
+    const body = await parseBody(request, AgentModelPatchSchema);
+    if (isValidationError(body)) return body;
+
+    const { agentId, model } = body;
 
     const config = readConfig();
     const agentsSection = (config.agents ?? {}) as Record<string, unknown>;
@@ -35,7 +41,7 @@ async function patch_handler(request: Request) {
       // Remove per-agent override → fall back to global default
       const list = (agentsSection.list ?? []) as Record<string, unknown>[];
       agentsSection.list = list.map((entry) =>
-        entry.id === agentId ? { ...entry, model: undefined } : entry
+        entry.id === agentId ? { ...entry, model: undefined } : entry,
       );
     } else {
       // Set per-agent model override
@@ -71,18 +77,24 @@ async function get_handler(request: Request) {
     const defaults = (agentsSection.defaults ?? {}) as Record<string, unknown>;
 
     const entry = list.find((e) => e.id === agentId);
-    const entryModel = entry?.model as { primary?: string } | string | undefined;
-    const defaultsModel = defaults.model as { primary?: string } | string | undefined;
+    const entryModel = entry?.model as
+      | { primary?: string }
+      | string
+      | undefined;
+    const defaultsModel = defaults.model as
+      | { primary?: string }
+      | string
+      | undefined;
 
     const agentModel =
       typeof entryModel === "string"
         ? entryModel
-        : entryModel?.primary ?? null;
+        : (entryModel?.primary ?? null);
 
     const defaultModel =
       typeof defaultsModel === "string"
         ? defaultsModel
-        : defaultsModel?.primary ?? null;
+        : (defaultsModel?.primary ?? null);
 
     return NextResponse.json({ model: agentModel ?? defaultModel });
   } catch (err) {

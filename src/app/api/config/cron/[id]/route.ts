@@ -1,8 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import fs from "node:fs";
 import path from "node:path";
 import { resolveStateDir } from "@/lib/clawdbot/paths";
 import { withErrorHandler } from "@/lib/api/error-handler";
+import { CronJobPatchSchema } from "@/lib/api/schemas/config";
+import { parseBody, isValidationError } from "@/lib/api/validation";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,12 +28,16 @@ type JobsFile = {
 };
 
 async function patch_handler(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const limited = applyRateLimit(request, RATE_LIMITS.configPatch);
+  if (limited) return limited;
+
   try {
     const { id } = await params;
-    const body = (await request.json()) as Record<string, unknown>;
+    const body = await parseBody(request, CronJobPatchSchema);
+    if (isValidationError(body)) return body;
 
     const stateDir = resolveStateDir();
     const jobsPath = path.join(stateDir, "cron", "jobs.json");
@@ -68,9 +75,12 @@ async function patch_handler(
 }
 
 async function delete_handler(
-  _request: Request,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const limited = applyRateLimit(_request, RATE_LIMITS.deleteGeneric);
+  if (limited) return limited;
+
   try {
     const { id } = await params;
 

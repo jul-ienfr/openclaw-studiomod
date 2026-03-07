@@ -100,8 +100,13 @@ export async function POST(request: NextRequest) {
       credentials: Array<{ key: string; value: string }>;
     };
     const { agentId, credentials } = body;
-    if (!agentId)
+    if (!agentId || typeof agentId !== "string")
       return NextResponse.json({ error: "agentId required" }, { status: 400 });
+    if (!Array.isArray(credentials))
+      return NextResponse.json(
+        { error: "credentials array required" },
+        { status: 400 },
+      );
 
     const vp = vaultPath(agentId);
     const plaintext = JSON.stringify(credentials);

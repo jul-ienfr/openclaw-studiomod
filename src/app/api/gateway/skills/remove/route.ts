@@ -1,8 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 import { isLocalGatewayUrl } from "@/lib/gateway/local-gateway";
 import { removeSkillLocally } from "@/lib/skills/remove-local";
-import type { RemovableSkillSource, SkillRemoveRequest } from "@/lib/skills/types";
+import type {
+  RemovableSkillSource,
+  SkillRemoveRequest,
+} from "@/lib/skills/types";
 import {
   resolveConfiguredSshTarget,
   resolveGatewaySshTargetFromGatewayUrl,
@@ -10,6 +13,7 @@ import {
 import { removeSkillOverSsh } from "@/lib/ssh/skills-remove";
 import { loadStudioSettings } from "@/lib/studio/settings-store";
 import { withErrorHandler } from "@/lib/api/error-handler";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 
@@ -54,11 +58,17 @@ const normalizeRemoveRequest = (body: unknown): SkillRemoveRequest => {
     source: sourceRaw as RemovableSkillSource,
     baseDir: normalizeRequired(record.baseDir, "baseDir"),
     workspaceDir: normalizeRequired(record.workspaceDir, "workspaceDir"),
-    managedSkillsDir: normalizeRequired(record.managedSkillsDir, "managedSkillsDir"),
+    managedSkillsDir: normalizeRequired(
+      record.managedSkillsDir,
+      "managedSkillsDir",
+    ),
   };
 };
 
-async function post_handler(request: Request) {
+async function post_handler(request: NextRequest) {
+  const limited = applyRateLimit(request, RATE_LIMITS.skillsRemove);
+  if (limited) return limited;
+
   try {
     const body = (await request.json()) as unknown;
     const removeRequest = normalizeRemoveRequest(body);
@@ -70,7 +80,8 @@ async function post_handler(request: Request) {
 
     return NextResponse.json({ result });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to remove skill.";
+    const message =
+      err instanceof Error ? err.message : "Failed to remove skill.";
     const status =
       message.includes("required") ||
       message.includes("Invalid request payload") ||

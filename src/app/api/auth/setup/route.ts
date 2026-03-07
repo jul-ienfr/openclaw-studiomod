@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withErrorHandler, AppError } from "@/lib/api/error-handler";
 import { SetupSchema } from "@/lib/api/schemas/auth";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/rateLimit";
 import {
   createAdminUser,
   createAuthSession,
@@ -11,12 +12,15 @@ import { countUsers } from "@/lib/db/repositories/auth-repo";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-async function getHandler(_req: NextRequest) {
+async function getHandler() {
   const count = countUsers();
   return NextResponse.json({ setup_required: count === 0 });
 }
 
 async function postHandler(req: NextRequest) {
+  const limited = applyRateLimit(req, RATE_LIMITS.authSetup);
+  if (limited) return limited;
+
   // Check that no users exist yet (first-run only)
   const count = countUsers();
   if (count > 0) {
