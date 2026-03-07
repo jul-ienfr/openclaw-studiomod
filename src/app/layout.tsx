@@ -7,6 +7,9 @@ import { AppNav } from "@/components/AppNav";
 import { MobileShell } from "@/components/MobileShell";
 import { GlobalAlertBanner } from "@/components/GlobalAlertBanner";
 import { DegradedModeBanner } from "@/components/DegradedModeBanner";
+import { CommandPaletteProvider } from "@/features/command-palette/CommandPaletteProvider";
+import { NotificationProvider } from "@/features/notifications/notificationStore";
+import { ToastContainer } from "@/features/notifications/ToastContainer";
 import { readTheme } from "@/lib/theme/server";
 import { isMobileLayout } from "@/lib/device";
 import { ThemeColors } from "@/lib/theme";
@@ -91,21 +94,25 @@ ${colorsToCSSVars(theme.colors.dark)}
         className={`${display.variable} ${sans.variable} ${mono.variable} antialiased`}
       >
         <NextIntlClientProvider messages={messages} locale={locale}>
-          {mobile ? (
-            <MobileShell>
-              <DegradedModeBanner />
-              {children}
-            </MobileShell>
-          ) : (
-            <div className="flex h-screen w-full overflow-hidden">
-              <AppNav />
-              <div className="min-w-0 flex-1 overflow-hidden flex flex-col">
-                <GlobalAlertBanner />
+          <NotificationProvider>
+            {mobile ? (
+              <MobileShell>
                 <DegradedModeBanner />
-                <div className="flex-1 overflow-hidden">{children}</div>
+                {children}
+              </MobileShell>
+            ) : (
+              <div className="flex h-screen w-full overflow-hidden">
+                <AppNav />
+                <div className="min-w-0 flex-1 overflow-hidden flex flex-col">
+                  <GlobalAlertBanner />
+                  <DegradedModeBanner />
+                  <div className="flex-1 overflow-hidden">{children}</div>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+            <CommandPaletteProvider />
+            <ToastContainer />
+          </NotificationProvider>
         </NextIntlClientProvider>
         <Toaster />
       </body>

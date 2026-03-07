@@ -1,19 +1,21 @@
 "use client";
 
-import { Search, Trash2, Download, FileJson, FileSpreadsheet, Database } from "lucide-react";
+import { Search, Trash2, Download } from "lucide-react";
 import { useTranslations } from "next-intl";
-import type { LogLevel } from "../types";
+import type { LogLevel, LogSource } from "../types";
+import { LOG_SOURCES } from "../types";
 
 type LogFilterBarProps = {
   level: LogLevel | "";
+  source: LogSource | "";
   agentId: string;
   search: string;
-  agentIds: string[];
   onLevelChange: (level: LogLevel | "") => void;
+  onSourceChange: (source: LogSource | "") => void;
   onAgentIdChange: (agentId: string) => void;
   onSearchChange: (search: string) => void;
   onClear: () => void;
-  onExport: (format: "txt" | "json" | "csv") => void;
+  onExport: () => void;
   logCount: number;
 };
 
@@ -27,10 +29,11 @@ const LEVELS: { value: LogLevel | ""; labelKey: string }[] = [
 
 export const LogFilterBar = ({
   level,
+  source,
   agentId,
   search,
-  agentIds,
   onLevelChange,
+  onSourceChange,
   onAgentIdChange,
   onSearchChange,
   onClear,
@@ -51,18 +54,28 @@ export const LogFilterBar = ({
           className="ui-input w-full pl-7 text-xs"
         />
       </div>
-      {/* Agent filter */}
-      {agentIds.length > 0 && (
-        <select
+      <select
+        value={source}
+        onChange={(e) => onSourceChange(e.target.value as LogSource | "")}
+        className="ui-input h-7 rounded-md px-2 text-[11px]"
+        aria-label={t("sourceFilter")}
+      >
+        <option value="">{t("sourceAll")}</option>
+        {LOG_SOURCES.map((s) => (
+          <option key={s} value={s}>
+            {s}
+          </option>
+        ))}
+      </select>
+      {source === "agent" && (
+        <input
+          type="text"
           value={agentId}
           onChange={(e) => onAgentIdChange(e.target.value)}
-          className="rounded-md border border-border bg-surface-2 px-2 py-1 text-[10px] font-medium text-foreground"
-        >
-          <option value="">All agents</option>
-          {agentIds.map((id) => (
-            <option key={id} value={id}>{id}</option>
-          ))}
-        </select>
+          placeholder={t("agentIdPlaceholder")}
+          className="ui-input h-7 w-28 rounded-md px-2 text-[11px]"
+          aria-label={t("agentIdFilter")}
+        />
       )}
       <div className="flex gap-1">
         {LEVELS.map((l) => (
@@ -83,31 +96,9 @@ export const LogFilterBar = ({
       <span className="text-[10px] text-muted-foreground">
         {logCount} {t("entries")}
       </span>
-      {/* Export dropdown */}
-      <div className="flex gap-0.5">
-        <button type="button" onClick={() => onExport("txt")} className="ui-btn-icon xs" aria-label={t("export")} title="Export TXT">
-          <Download className="h-3 w-3" />
-        </button>
-        <button type="button" onClick={() => onExport("json")} className="ui-btn-icon xs" aria-label="Export JSON" title="Export JSON">
-          <FileJson className="h-3 w-3" />
-        </button>
-        <button type="button" onClick={() => onExport("csv")} className="ui-btn-icon xs" aria-label="Export CSV" title="Export CSV">
-          <FileSpreadsheet className="h-3 w-3" />
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            const params = new URLSearchParams({ format: "csv", limit: "1000" });
-            if (level) params.set("level", level);
-            window.open(`/api/studio/logs?${params.toString()}`);
-          }}
-          className="ui-btn-icon xs"
-          aria-label="Export CSV from DB"
-          title="Export CSV (server DB)"
-        >
-          <Database className="h-3 w-3" />
-        </button>
-      </div>
+      <button type="button" onClick={onExport} className="ui-btn-icon xs" aria-label={t("export")}>
+        <Download className="h-3 w-3" />
+      </button>
       <button type="button" onClick={onClear} className="ui-btn-icon xs text-destructive" aria-label={t("clear")}>
         <Trash2 className="h-3 w-3" />
       </button>

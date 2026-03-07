@@ -1,19 +1,25 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { useVirtualizer } from "@tanstack/react-virtual";
 import { useTranslations } from "next-intl";
-import { ScrollText } from "lucide-react";
-import type { LogLevel, LogEntry } from "../types";
+import {
+  ScrollText,
+  Radio,
+  Bot,
+  Eye,
+  Settings,
+  Palette,
+  Monitor,
+  Globe,
+  LayoutDashboard,
+} from "lucide-react";
+import type { LogLevel, LogEntry, LogSource } from "../types";
 import {
   initLogStore,
   getLogs,
   clearLogs,
   exportLogs,
-  exportLogsJson,
-  exportLogsCsv,
   getLogCount,
-  getUniqueAgentIds,
 } from "../logStore";
 import { LogFilterBar } from "./LogFilterBar";
 
@@ -24,8 +30,36 @@ const LEVEL_COLORS: Record<LogLevel, string> = {
   error: "text-destructive",
 };
 
+const SOURCE_COLORS: Record<LogSource, string> = {
+  gateway: "text-blue-500",
+  agent: "text-green-500",
+  watcher: "text-purple-500",
+  settings: "text-gray-500",
+  theme: "text-pink-500",
+  ui: "text-red-500",
+  api: "text-orange-500",
+  system: "text-yellow-500",
+};
+
+const SOURCE_ICONS: Record<LogSource, React.ComponentType<{ className?: string }>> = {
+  gateway: Radio,
+  agent: Bot,
+  watcher: Eye,
+  settings: Settings,
+  theme: Palette,
+  ui: LayoutDashboard,
+  api: Globe,
+  system: Monitor,
+};
+
+const SourceIcon = ({ source }: { source: LogSource }) => {
+  const Icon = SOURCE_ICONS[source];
+  const color = SOURCE_COLORS[source];
+  return <Icon className={`h-3 w-3 shrink-0 ${color}`} aria-hidden="true" />;
+};
+
 const LogRow = ({ entry }: { entry: LogEntry }) => (
-  <div className="flex gap-2 border-b border-border/50 px-5 py-1 font-mono text-[11px] hover:bg-surface-2">
+  <div className="flex items-center gap-2 border-b border-border/50 px-5 py-1 font-mono text-[11px] hover:bg-surface-2">
     <span className="shrink-0 text-muted-foreground">
       {new Date(entry.timestamp).toLocaleTimeString()}
     </span>
@@ -34,26 +68,23 @@ const LogRow = ({ entry }: { entry: LogEntry }) => (
     >
       {entry.level}
     </span>
-    <span className="shrink-0 text-primary">[{entry.agentId}]</span>
+    <SourceIcon source={entry.source} />
+    <span className={`shrink-0 text-[10px] font-medium ${SOURCE_COLORS[entry.source]}`}>
+      {entry.source}
+    </span>
+    {entry.agentId && (
+      <span className="shrink-0 text-primary">[{entry.agentId}]</span>
+    )}
     <span className="min-w-0 flex-1 break-all text-foreground">
       {entry.message}
     </span>
   </div>
 );
 
-function downloadBlob(content: string, filename: string, mimeType: string) {
-  const blob = new Blob([content], { type: mimeType });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
 export const LogViewer = () => {
   const t = useTranslations("logs");
   const [level, setLevel] = useState<LogLevel | "">("");
+  const [source, setSource] = useState<LogSource | "">("");
   const [agentId, setAgentId] = useState("");
   const [search, setSearch] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
@@ -68,25 +99,13 @@ export const LogViewer = () => {
     () =>
       getLogs({
         level: level || undefined,
+        source: source || undefined,
         agentId: agentId || undefined,
         search: search || undefined,
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [level, agentId, search, refreshKey],
+    [level, source, agentId, search, refreshKey],
   );
-
-  const agentIds = useMemo(
-    () => getUniqueAgentIds(),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [refreshKey],
-  );
-
-  const virtualizer = useVirtualizer({
-    count: entries.length,
-    getScrollElement: () => scrollRef.current,
-    estimateSize: () => 32,
-    overscan: 10,
-  });
 
   const logCount = getLogCount();
 
@@ -107,31 +126,21 @@ export const LogViewer = () => {
     setRefreshKey((k) => k + 1);
   }, []);
 
-  const handleExport = useCallback((format: "txt" | "json" | "csv") => {
-    const filter = {
+  const handleExport = useCallback(() => {
+    const text = exportLogs({
       level: level || undefined,
+      source: source || undefined,
       agentId: agentId || undefined,
       search: search || undefined,
-    };
-    const dateSuffix = new Date().toISOString().slice(0, 10);
-    switch (format) {
-      case "json": {
-        const json = exportLogsJson(filter);
-        downloadBlob(json, `openclaw-logs-${dateSuffix}.json`, "application/json");
-        break;
-      }
-      case "csv": {
-        const csv = exportLogsCsv(filter);
-        downloadBlob(csv, `openclaw-logs-${dateSuffix}.csv`, "text/csv");
-        break;
-      }
-      default: {
-        const text = exportLogs(filter);
-        downloadBlob(text, `openclaw-logs-${dateSuffix}.txt`, "text/plain");
-        break;
-      }
-    }
-  }, [level, agentId, search]);
+    });
+    const blob = new Blob([text], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `openclaw-logs-${new Date().toISOString().slice(0, 10)}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [level, source, agentId, search]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-testid="log-viewer">
@@ -145,10 +154,11 @@ export const LogViewer = () => {
 
       <LogFilterBar
         level={level}
+        source={source}
         agentId={agentId}
         search={search}
-        agentIds={agentIds}
         onLevelChange={setLevel}
+        onSourceChange={setSource}
         onAgentIdChange={setAgentId}
         onSearchChange={setSearch}
         onClear={handleClear}
@@ -166,23 +176,7 @@ export const LogViewer = () => {
             {t("noLogs")}
           </p>
         ) : (
-          <div
-            className="relative w-full"
-            style={{ height: `${virtualizer.getTotalSize()}px` }}
-          >
-            {virtualizer.getVirtualItems().map((virtualRow) => (
-              <div
-                key={virtualRow.key}
-                className="absolute left-0 top-0 w-full"
-                style={{
-                  height: `${virtualRow.size}px`,
-                  transform: `translateY(${virtualRow.start}px)`,
-                }}
-              >
-                <LogRow entry={entries[virtualRow.index]} />
-              </div>
-            ))}
-          </div>
+          entries.map((entry) => <LogRow key={entry.id} entry={entry} />)
         )}
       </div>
 

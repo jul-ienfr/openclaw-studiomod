@@ -1,5 +1,7 @@
+import { cn } from "@/lib/utils";
+
 export function Table({
-  className = "",
+  className,
   children,
 }: {
   className?: string;
@@ -7,13 +9,13 @@ export function Table({
 }) {
   return (
     <div className="overflow-x-auto rounded-lg border border-border">
-      <table className={`w-full text-sm ${className}`}>{children}</table>
+      <table className={cn("w-full text-sm", className)}>{children}</table>
     </div>
   );
 }
 
 export function Th({
-  className = "",
+  className,
   children,
 }: {
   className?: string;
@@ -21,7 +23,11 @@ export function Th({
 }) {
   return (
     <th
-      className={`bg-surface-1 px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground ${className}`}
+      scope="col"
+      className={cn(
+        "sticky top-0 z-10 bg-surface-1 px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground",
+        className,
+      )}
     >
       {children}
     </th>
@@ -29,15 +35,36 @@ export function Th({
 }
 
 export function Td({
-  className = "",
+  className,
   children,
 }: {
   className?: string;
   children: React.ReactNode;
 }) {
   return (
-    <td className={`border-t border-border px-3 py-2 ${className}`}>
+    <td className={cn("border-t border-border px-3 py-2", className)}>
       {children}
     </td>
   );
 }
+
+export function Tr({
+  className,
+  children,
+}: {
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <tr
+      className={cn(
+        "transition-colors duration-[var(--transition-fast)] hover:bg-surface-2/50",
+        className,
+      )}
+    >
+      {children}
+    </tr>
+  );
+}
+
+export default Table;

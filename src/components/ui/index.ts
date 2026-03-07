@@ -10,6 +10,6 @@ export { EmptyState } from "./EmptyState";
 export { Tooltip } from "./Tooltip";
 export { ProgressBar } from "./ProgressBar";
 export { TabList } from "./Tabs";
-export { Table, Th, Td } from "./Table";
+export { Table, Th, Td, Tr } from "./Table";
 export { Modal } from "./Modal";
 export { VirtualList } from "./VirtualList";

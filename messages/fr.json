@@ -910,5 +910,10 @@
     "nodeAgentIdPlaceholder": "agent-id",
     "removeNode": "Supprimer le nœud",
     "emptyPreview": "Ajoutez des nœuds pour voir l'aperçu du pipeline."
+  },
+  "notifications": {
+    "title": "Notifications",
+    "mark_all_read": "Tout marquer comme lu",
+    "no_notifications": "Aucune notification"
   }
 }

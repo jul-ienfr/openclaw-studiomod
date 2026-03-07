@@ -14,6 +14,9 @@ import type { StudioSettingsResponse } from "@/lib/studio/coordinator";
 import { resolveStudioProxyGatewayUrl } from "@/lib/gateway/proxy-url";
 import { ensureGatewayReloadModeHotForLocalStudio } from "@/lib/gateway/gatewayReloadMode";
 import { GatewayResponseError } from "@/lib/gateway/errors";
+import { createClientLogger } from "@/lib/client-logger";
+
+const log = createClientLogger("gateway");
 
 export type ReqFrame = {
   type: "req";
@@ -141,7 +144,6 @@ export class GatewayClient {
   private rejectConnect: ((error: Error) => void) | null = null;
   private manualDisconnect = false;
   private lastHello: GatewayHelloOk | null = null;
-  private degradedMode = false;
 
   onStatus(handler: StatusHandler) {
     this.statusHandlers.add(handler);
@@ -192,6 +194,7 @@ export class GatewayClient {
         if (this.client !== nextClient) return;
         this.lastHello = hello;
         this.updateStatus("connected");
+        log.info("Connected to gateway", { url: options.gatewayUrl });
         this.resolveConnect?.();
         this.clearConnectPromise();
       },
@@ -211,6 +214,11 @@ export class GatewayClient {
               message: connectFailed.message,
             })
           : new Error(`Gateway closed (${code}): ${reason}`);
+        if (connectFailed) {
+          log.error("Gateway connection failed", { code: connectFailed.code, message: connectFailed.message });
+        } else {
+          log.warn("Disconnected from gateway", { code, reason });
+        }
         if (this.rejectConnect) {
           this.rejectConnect(err);
           this.clearConnectPromise();
@@ -277,17 +285,8 @@ export class GatewayClient {
     return this.lastHello;
   }
 
-  isDegradedMode(): boolean {
-    return this.degradedMode;
-  }
-
   private updateStatus(status: GatewayStatus) {
     this.status = status;
-    if (status === "connected") {
-      this.degradedMode = false;
-    } else if (status === "disconnected" && !this.manualDisconnect) {
-      this.degradedMode = true;
-    }
     this.statusHandlers.forEach((handler) => handler(status));
   }
 
@@ -440,7 +439,6 @@ const formatGatewayError = (error: unknown) => {
 export type GatewayConnectionState = {
   client: GatewayClient;
   status: GatewayStatus;
-  degradedMode: boolean;
   gatewayUrl: string;
   token: string;
   localGatewayDefaults: StudioGatewaySettings | null;
@@ -533,7 +531,6 @@ export const useGatewayConnection = (
   const [localGatewayDefaults, setLocalGatewayDefaults] =
     useState<StudioGatewaySettings | null>(null);
   const [status, setStatus] = useState<GatewayStatus>("disconnected");
-  const [degradedMode, setDegradedMode] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [connectErrorCode, setConnectErrorCode] = useState<string | null>(null);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
@@ -595,7 +592,6 @@ export const useGatewayConnection = (
   useEffect(() => {
     return client.onStatus((nextStatus) => {
       setStatus(nextStatus);
-      setDegradedMode(client.isDegradedMode());
       if (nextStatus !== "connecting") {
         setError(null);
         if (nextStatus === "connected") {
@@ -616,14 +612,13 @@ export const useGatewayConnection = (
   }, [client]);
 
   const connect = useCallback(async () => {
-    const proxyUrl = resolveStudioProxyGatewayUrl();
     setError(null);
     setConnectErrorCode(null);
     wasManualDisconnectRef.current = false;
     try {
       await settingsCoordinator.flushPending();
       await client.connect({
-        gatewayUrl: proxyUrl,
+        gatewayUrl: resolveStudioProxyGatewayUrl(),
         token,
         authScopeKey: gatewayUrl,
         clientName: "openclaw-control-ui",
@@ -635,10 +630,12 @@ export const useGatewayConnection = (
       });
       retryAttemptRef.current = 0;
     } catch (err) {
+      const errorMessage = formatGatewayError(err);
+      log.error("Gateway error", { error: errorMessage, url: gatewayUrl });
       setConnectErrorCode(
         err instanceof GatewayResponseError ? err.code : null,
       );
-      setError(formatGatewayError(err));
+      setError(errorMessage);
     }
   }, [client, gatewayUrl, settingsCoordinator, token]);
 
@@ -663,6 +660,7 @@ export const useGatewayConnection = (
       attempt,
     });
     if (delay === null) return;
+    log.info("Reconnecting to gateway", { attempt: attempt + 1, delayMs: delay });
     retryTimerRef.current = setTimeout(() => {
       retryAttemptRef.current = attempt + 1;
       void connect();
@@ -727,7 +725,6 @@ export const useGatewayConnection = (
   return {
     client,
     status,
-    degradedMode,
     gatewayUrl,
     token,
     localGatewayDefaults,

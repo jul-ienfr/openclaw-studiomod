@@ -1,6 +1,7 @@
-import type { LogEntry, LogLevel, LogFilter } from "./types";
+import type { LogEntry, LogLevel, LogSource, LogFilter } from "./types";
 
-const MAX_ENTRIES = 2000;
+const MAX_PER_SOURCE = 500;
+const MAX_TOTAL = 4000;
 const STORAGE_KEY = "openclaw-studio:logs";
 
 let buffer: LogEntry[] = [];
@@ -16,25 +17,68 @@ const loadBuffer = (): LogEntry[] => {
 };
 
 const persistBuffer = () => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(buffer.slice(-MAX_ENTRIES)));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(buffer));
 };
 
 export const initLogStore = () => {
   buffer = loadBuffer();
 };
 
-export const pushLog = (level: LogLevel, agentId: string, message: string, metadata?: Record<string, unknown>) => {
-  buffer.push({
+const rotateBySource = (source: LogSource) => {
+  const sourceEntries = buffer.filter((e) => e.source === source);
+  if (sourceEntries.length <= MAX_PER_SOURCE) return;
+  const excess = sourceEntries.length - MAX_PER_SOURCE;
+  let removed = 0;
+  buffer = buffer.filter((e) => {
+    if (e.source === source && removed < excess) {
+      removed++;
+      return false;
+    }
+    return true;
+  });
+};
+
+const smartPurge = () => {
+  if (buffer.length <= MAX_TOTAL) return;
+  // Delete oldest debug entries first
+  const debugEntries = buffer
+    .map((e, i) => ({ entry: e, index: i }))
+    .filter((item) => item.entry.level === "debug");
+  const toRemove = buffer.length - MAX_TOTAL;
+  const removeIndices = new Set(
+    debugEntries.slice(0, toRemove).map((item) => item.index),
+  );
+  if (removeIndices.size >= toRemove) {
+    buffer = buffer.filter((_, i) => !removeIndices.has(i));
+    return;
+  }
+  // If not enough debug entries, remove oldest entries regardless of level
+  buffer = buffer.slice(-MAX_TOTAL);
+};
+
+type PushLogOptions = {
+  source: LogSource;
+  agentId?: string;
+  metadata?: Record<string, unknown>;
+};
+
+export const pushLog = (
+  level: LogLevel,
+  message: string,
+  options: PushLogOptions,
+) => {
+  const entry: LogEntry = {
     id: crypto.randomUUID(),
     timestamp: Date.now(),
     level,
-    agentId,
+    source: options.source,
     message,
-    metadata,
-  });
-  if (buffer.length > MAX_ENTRIES) {
-    buffer = buffer.slice(-MAX_ENTRIES);
-  }
+    ...(options.agentId ? { agentId: options.agentId } : {}),
+    ...(options.metadata ? { metadata: options.metadata } : {}),
+  };
+  buffer.push(entry);
+  rotateBySource(options.source);
+  smartPurge();
   persistBuffer();
 };
 
@@ -43,12 +87,20 @@ export const getLogs = (filter?: LogFilter): LogEntry[] => {
   if (filter?.level) {
     entries = entries.filter((e) => e.level === filter.level);
   }
+  if (filter?.source) {
+    entries = entries.filter((e) => e.source === filter.source);
+  }
   if (filter?.agentId) {
     entries = entries.filter((e) => e.agentId === filter.agentId);
   }
   if (filter?.search) {
     const q = filter.search.toLowerCase();
-    entries = entries.filter((e) => e.message.toLowerCase().includes(q) || e.agentId.toLowerCase().includes(q));
+    entries = entries.filter(
+      (e) =>
+        e.message.toLowerCase().includes(q) ||
+        (e.agentId && e.agentId.toLowerCase().includes(q)) ||
+        e.source.toLowerCase().includes(q),
+    );
   }
   return entries;
 };
@@ -63,30 +115,10 @@ export const getLogCount = (): number => buffer.length;
 export const exportLogs = (filter?: LogFilter): string => {
   const entries = getLogs(filter);
   return entries
-    .map((e) => `[${new Date(e.timestamp).toISOString()}] [${e.level.toUpperCase()}] [${e.agentId}] ${e.message}`)
+    .map((e) => {
+      const sourceTag = `[${e.source}]`;
+      const agentTag = e.agentId ? ` [${e.agentId}]` : "";
+      return `[${new Date(e.timestamp).toISOString()}] [${e.level.toUpperCase()}] ${sourceTag}${agentTag} ${e.message}`;
+    })
     .join("\n");
-};
-
-export const exportLogsJson = (filter?: LogFilter): string => {
-  const entries = getLogs(filter);
-  return JSON.stringify(entries, null, 2);
-};
-
-export const exportLogsCsv = (filter?: LogFilter): string => {
-  const entries = getLogs(filter);
-  const header = "timestamp,level,agentId,message";
-  const rows = entries.map((e) => {
-    const ts = new Date(e.timestamp).toISOString();
-    const msg = e.message.replace(/"/g, '""');
-    return `"${ts}","${e.level}","${e.agentId}","${msg}"`;
-  });
-  return [header, ...rows].join("\n");
-};
-
-export const getUniqueAgentIds = (): string[] => {
-  const ids = new Set<string>();
-  for (const entry of buffer) {
-    if (entry.agentId) ids.add(entry.agentId);
-  }
-  return Array.from(ids).sort();
 };

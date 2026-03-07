@@ -910,5 +910,10 @@
     "nodeAgentIdPlaceholder": "agent-id",
     "removeNode": "Remove node",
     "emptyPreview": "Add nodes to see the pipeline preview."
+  },
+  "notifications": {
+    "title": "Notifications",
+    "mark_all_read": "Mark all read",
+    "no_notifications": "No notifications"
   }
 }
