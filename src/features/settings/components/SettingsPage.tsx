@@ -55,6 +55,27 @@ const VoiceControls = dynamic(
     ),
   { ssr: false },
 );
+const BrandingPanel = dynamic(
+  () =>
+    import("@/features/settings/components/BrandingPanel").then(
+      (m) => m.BrandingPanel,
+    ),
+  { ssr: false },
+);
+const AdvancedPanel = dynamic(
+  () =>
+    import("@/features/settings/components/AdvancedPanel").then(
+      (m) => m.AdvancedPanel,
+    ),
+  { ssr: false },
+);
+const MobilePanel = dynamic(
+  () =>
+    import("@/features/settings/components/MobilePanel").then(
+      (m) => m.MobilePanel,
+    ),
+  { ssr: false },
+);
 
 type Section = {
   key: string;
@@ -64,7 +85,10 @@ type Section = {
 const SECTIONS: Section[] = [
   { key: "appearance", subs: ["theme", "branding"] },
   { key: "organisation", subs: ["pillars", "workflows"] },
-  { key: "integrations", subs: ["providers", "credentials", "channels", "skills"] },
+  {
+    key: "integrations",
+    subs: ["providers", "credentials", "channels", "skills"],
+  },
   { key: "automation", subs: ["routing", "webhooks", "voice"] },
   { key: "system", subs: ["mobile", "advanced"] },
 ];
@@ -78,13 +102,19 @@ function LoadingFallback() {
 }
 
 function ContentPanel({ section, sub }: { section: string; sub: string }) {
-  if (section === "integrations" && sub === "providers") return <ProvidersPanel />;
-  if (section === "integrations" && sub === "channels") return <ChannelsPanel />;
+  if (section === "integrations" && sub === "providers")
+    return <ProvidersPanel />;
+  if (section === "integrations" && sub === "channels")
+    return <ChannelsPanel />;
   if (section === "integrations" && sub === "skills") return <SkillsBrowser />;
   if (section === "automation" && sub === "routing") return <RoutingPanel />;
   if (section === "automation" && sub === "webhooks") return <WebhooksPanel />;
   if (section === "automation" && sub === "voice") return <VoiceControls />;
-  if (section === "organisation" && sub === "workflows") return <WorkflowEditor />;
+  if (section === "organisation" && sub === "workflows")
+    return <WorkflowEditor />;
+  if (section === "appearance" && sub === "branding") return <BrandingPanel />;
+  if (section === "system" && sub === "advanced") return <AdvancedPanel />;
+  if (section === "system" && sub === "mobile") return <MobilePanel />;
   return null;
 }
 
@@ -93,8 +123,12 @@ function SettingsPageInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const activeSection = searchParams.get("section") ?? SECTIONS[0]?.key ?? "appearance";
-  const activeSub = searchParams.get("sub") ?? (SECTIONS.find((s) => s.key === activeSection)?.subs[0] ?? "");
+  const activeSection =
+    searchParams.get("section") ?? SECTIONS[0]?.key ?? "appearance";
+  const activeSub =
+    searchParams.get("sub") ??
+    SECTIONS.find((s) => s.key === activeSection)?.subs[0] ??
+    "";
 
   const navigate = (section: string, sub: string) => {
     const params = new URLSearchParams();

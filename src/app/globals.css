@@ -636,11 +636,24 @@ textarea:focus::-webkit-scrollbar {
 }
 
 .glass-panel {
-  border: 0;
-  background: var(--panel);
-  backdrop-filter: none;
+  background: color-mix(in oklch, var(--panel) 70%, transparent);
+  backdrop-filter: blur(12px);
+  border: 1px solid color-mix(in oklch, var(--border) 30%, transparent);
   border-radius: var(--radius-container);
   box-shadow: var(--shadow-xs);
+}
+
+.glass-card {
+  background: color-mix(in oklch, var(--card) 60%, transparent);
+  backdrop-filter: blur(8px);
+  border: 1px solid color-mix(in oklch, var(--border) 20%, transparent);
+  border-radius: var(--radius-card, var(--radius));
+}
+
+.glass-sidebar {
+  background: color-mix(in oklch, var(--sidebar) 80%, transparent);
+  backdrop-filter: blur(16px);
+  border-right: 1px solid color-mix(in oklch, var(--border) 30%, transparent);
 }
 
 .fade-up {
@@ -873,9 +886,26 @@ body[data-card-style="glass"]:not([data-animation-level="none"]) .glass-panel {
   backdrop-filter: blur(16px);
 }
 
-body[data-card-style="glass"]:not([data-animation-level="none"]) .glass-sidebar {
+body[data-card-style="glass"]:not([data-animation-level="none"])
+  .glass-sidebar {
   background: oklch(from var(--surface-2) l c h / 0.65);
   backdrop-filter: blur(20px);
+}
+
+/* ── Reduced-motion: disable backdrop-filter for accessibility ── */
+@media (prefers-reduced-motion: reduce) {
+  .glass-panel,
+  .glass-card,
+  .glass-sidebar {
+    backdrop-filter: none;
+  }
+
+  body[data-card-style="glass"]:not([data-animation-level="none"]) .glass-card,
+  body[data-card-style="glass"]:not([data-animation-level="none"]) .glass-panel,
+  body[data-card-style="glass"]:not([data-animation-level="none"])
+    .glass-sidebar {
+    backdrop-filter: none;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -905,33 +935,64 @@ body[data-card-style="glass"]:not([data-animation-level="none"]) .glass-sidebar 
 
 @media (prefers-reduced-motion: no-preference) {
   @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
 
   @keyframes slideUp {
-    from { opacity: 0; transform: translateY(8px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 
   @keyframes slideRight {
-    from { opacity: 0; transform: translateX(-8px); }
-    to { opacity: 1; transform: translateX(0); }
+    from {
+      opacity: 0;
+      transform: translateX(-8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
   }
 
   @keyframes scaleIn {
-    from { opacity: 0; transform: scale(0.95); }
-    to { opacity: 1; transform: scale(1); }
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
   }
 
   @keyframes shimmer {
-    0% { background-position: -200% 0; }
-    100% { background-position: 200% 0; }
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
   }
 
   @keyframes pulse-glow {
-    0%, 100% { box-shadow: 0 0 0 0 oklch(from var(--primary) l c h / 0.4); }
-    50% { box-shadow: 0 0 12px 4px oklch(from var(--primary) l c h / 0.2); }
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 oklch(from var(--primary) l c h / 0.4);
+    }
+    50% {
+      box-shadow: 0 0 12px 4px oklch(from var(--primary) l c h / 0.2);
+    }
   }
 
   .animate-fade-in {
@@ -964,7 +1025,9 @@ body[data-card-style="glass"]:not([data-animation-level="none"]) .glass-sidebar 
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .hover-lift {
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+  transition:
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
 }
 
 .hover-lift:hover {

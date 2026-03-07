@@ -1,5 +1,5 @@
-"use client";
-import { WebhooksPanel } from "@/features/webhooks/components/WebhooksPanel";
-export default function WebhooksPage() {
-  return <WebhooksPanel />;
+import { redirect } from "next/navigation";
+
+export default function Page() {
+  redirect("/settings?section=automation&sub=webhooks");
 }

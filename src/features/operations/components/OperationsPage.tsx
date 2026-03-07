@@ -6,14 +6,24 @@ import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
 
 const LogViewer = dynamic(
-  () =>
-    import("@/features/logs/components/LogViewer").then((m) => m.LogViewer),
+  () => import("@/features/logs/components/LogViewer").then((m) => m.LogViewer),
   { ssr: false },
 );
 const AnalyticsDashboard = dynamic(
   () =>
     import("@/features/analytics/components/AnalyticsDashboard").then(
       (m) => m.AnalyticsDashboard,
+    ),
+  { ssr: false },
+);
+const CronPanel = dynamic(
+  () => import("@/features/cron/components/CronPanel").then((m) => m.CronPanel),
+  { ssr: false },
+);
+const ReportsPanel = dynamic(
+  () =>
+    import("@/features/reports/components/ReportsPanel").then(
+      (m) => m.ReportsPanel,
     ),
   { ssr: false },
 );
@@ -25,8 +35,8 @@ const InterAgentFeed = dynamic(
   { ssr: false },
 );
 
-type Tab = "logs" | "analytics" | "intercom";
-const TABS: Tab[] = ["logs", "analytics", "intercom"];
+type Tab = "logs" | "analytics" | "cron" | "reports" | "intercom";
+const TABS: Tab[] = ["logs", "analytics", "cron", "reports", "intercom"];
 
 function LoadingFallback() {
   return (
@@ -75,6 +85,8 @@ function OperationsPageInner() {
         <Suspense fallback={<LoadingFallback />}>
           {activeTab === "logs" && <LogViewer />}
           {activeTab === "analytics" && <AnalyticsDashboard />}
+          {activeTab === "cron" && <CronPanel />}
+          {activeTab === "reports" && <ReportsPanel />}
           {activeTab === "intercom" && <InterAgentFeed />}
         </Suspense>
       </div>

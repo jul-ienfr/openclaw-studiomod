@@ -876,6 +876,8 @@
   "operations": {
     "tab_logs": "Logs",
     "tab_analytics": "Analytics",
+    "tab_cron": "Cron",
+    "tab_reports": "Reports",
     "tab_intercom": "Intercom"
   },
   "settings": {

@@ -1,7 +1,5 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { ProvidersPanel } from "@/features/providers/components/ProvidersPanel";
-
-export default function ProvidersPage() {
-  return <ProvidersPanel />;
+export default function Page() {
+  redirect("/settings?section=integrations&sub=providers");
 }

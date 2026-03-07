@@ -5,12 +5,15 @@ import { getLocale, getMessages } from "next-intl/server";
 import { Toaster } from "@/components/Toaster";
 import { AppNav } from "@/components/AppNav";
 import { SectionErrorBoundary } from "@/components/SectionErrorBoundary";
+import { NotificationProvider } from "@/features/notifications/notificationStore";
+import { CommandPaletteProvider } from "@/features/command-palette/CommandPaletteProvider";
+import { ThemeProvider } from "@/components/ThemeProvider";
 import "./globals.css";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "OpenClaw Studio",
+  title: "OpenClaw Studio V2",
   description: "Focused operator studio for the OpenClaw gateway.",
   manifest: "/manifest.json",
   other: {
@@ -60,16 +63,21 @@ export default async function RootLayout({
       <body
         className={`${display.variable} ${sans.variable} ${mono.variable} antialiased`}
       >
-        <NextIntlClientProvider messages={messages} locale={locale}>
-          <div className="flex h-screen w-full overflow-hidden">
-            <AppNav />
-            <div className="min-w-0 flex-1 overflow-hidden">
-              <SectionErrorBoundary sectionName="main">
-                {children}
-              </SectionErrorBoundary>
-            </div>
-          </div>
-        </NextIntlClientProvider>
+        <ThemeProvider>
+          <NextIntlClientProvider messages={messages} locale={locale}>
+            <NotificationProvider>
+              <div className="flex h-screen w-full overflow-hidden">
+                <AppNav />
+                <main className="min-w-0 flex-1 overflow-auto bg-background">
+                  <SectionErrorBoundary sectionName="main">
+                    {children}
+                  </SectionErrorBoundary>
+                </main>
+              </div>
+              <CommandPaletteProvider />
+            </NotificationProvider>
+          </NextIntlClientProvider>
+        </ThemeProvider>
         <Toaster />
       </body>
     </html>

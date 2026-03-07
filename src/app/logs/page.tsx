@@ -1,5 +1,5 @@
-"use client";
-import { LogViewer } from "@/features/logs/components/LogViewer";
-export default function LogsPage() {
-  return <LogViewer />;
+import { redirect } from "next/navigation";
+
+export default function Page() {
+  redirect("/operations?tab=logs");
 }

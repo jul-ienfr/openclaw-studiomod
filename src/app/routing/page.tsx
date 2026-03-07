@@ -1,5 +1,5 @@
-"use client";
-import { RoutingPanel } from "@/features/routing/components/RoutingPanel";
-export default function RoutingPage() {
-  return <RoutingPanel />;
+import { redirect } from "next/navigation";
+
+export default function Page() {
+  redirect("/settings?section=automation&sub=routing");
 }
