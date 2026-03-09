@@ -10,11 +10,11 @@ import {
 } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { HeaderBar } from "@/features/agents/components/HeaderBar";
-import { GatewayConnectScreen } from "@/features/agents/components/GatewayConnectScreen";
+import { BrowserViewPanel } from "@/features/browser/components/BrowserViewPanel";
 import { getChannelsByAgent } from "@/features/routing/agentChannelResolver";
 import { useTranslations } from "next-intl";
 import { isHeartbeatPrompt } from "@/lib/text/message-extract";
-import { useGatewayConnection } from "@/lib/gateway/GatewayClient";
+import { useSharedGatewayConnection } from "@/lib/gateway/GatewayConnectionProvider";
 import {
   type GatewayModelChoice,
   type GatewayModelPolicySnapshot,
@@ -41,7 +41,6 @@ import {
   resolveLatestCronJobForAgent,
 } from "@/lib/cron/types";
 import { buildAvatarDataUrl } from "@/lib/avatars/multiavatar";
-import { createStudioSettingsCoordinator } from "@/lib/studio/coordinator";
 import { loadAgentUiPrefs } from "@/features/agents/state/agentUiPrefs";
 import type { ConfigMutationKind } from "@/features/agents/operations/useConfigMutationQueue";
 import { useConfigMutationQueue } from "@/features/agents/operations/useConfigMutationQueue";
@@ -77,6 +76,7 @@ import {
 import {
   resolveControlUiUrl,
   usePanelVisibility,
+  useClaudeCodeAgents,
   useExecApprovals,
   useAgentSettingsContext,
   useSessionControls,
@@ -104,9 +104,6 @@ const AgentStudioInner = () => {
     [pathname, searchParams],
   );
   const settingsRouteActive = settingsRouteAgentId !== null;
-  const [settingsCoordinator] = useState(() =>
-    createStudioSettingsCoordinator(),
-  );
   const {
     client,
     status,
@@ -119,17 +116,22 @@ const AgentStudioInner = () => {
     useLocalGatewayDefaults,
     setGatewayUrl,
     setToken,
-  } = useGatewayConnection(settingsCoordinator);
+    settingsCoordinator,
+  } = useSharedGatewayConnection();
 
   const { state, dispatch, hydrateAgents, setError, setLoading } =
     useAgentStore();
   const { panels, panelActions } = usePanelVisibility();
+  const claudeCodeAgents = useClaudeCodeAgents();
   const [focusFilter, setFocusFilter] = useState<FocusFilter>("all");
   const [focusedPreferencesLoaded, setFocusedPreferencesLoaded] =
     useState(false);
-  const [agentsLoadedOnce, setAgentsLoadedOnce] = useState(false);
-  const [didAttemptGatewayConnect, setDidAttemptGatewayConnect] =
-    useState(false);
+  const [agentsLoadedOnce, setAgentsLoadedOnce] = useState(
+    () => state.agents.length > 0,
+  );
+  const [didAttemptGatewayConnect, setDidAttemptGatewayConnect] = useState(
+    () => status !== "disconnected",
+  );
   const [heartbeatTick, setHeartbeatTick] = useState(0);
   const stateRef = useRef(state);
   const focusFilterTouchedRef = useRef(false);
@@ -195,6 +197,8 @@ const AgentStudioInner = () => {
     return selectedInFilter ?? filteredAgents[0] ?? null;
   }, [filteredAgents, selectedAgent]);
   const focusedAgentId = focusedAgent?.agentId ?? null;
+  const showClaudeCodeSidebar =
+    focusedAgentId !== null && claudeCodeAgents.includes(focusedAgentId);
   const focusedAgentRunning = focusedAgent?.status === "running";
   const focusedAgentStopDisabledReason = useMemo(() => {
     if (!focusedAgent) return null;
@@ -497,12 +501,6 @@ const AgentStudioInner = () => {
       cancelled = true;
     };
   }, [gatewayUrl, settingsCoordinator]);
-
-  useEffect(() => {
-    return () => {
-      void settingsCoordinator.flushPending();
-    };
-  }, [settingsCoordinator]);
 
   useEffect(() => {
     const commands = runStudioFocusFilterPersistenceOperation({
@@ -821,46 +819,16 @@ const AgentStudioInner = () => {
   ) {
     return (
       <div className="relative min-h-screen w-full overflow-hidden bg-background">
-        <div className="relative z-10 flex h-screen flex-col">
-          <HeaderBar
-            status={status}
-            onConnectionSettings={() => panelActions.show("connection")}
-            onProviders={() => panelActions.show("providers")}
-            onChannels={() => panelActions.show("channels")}
-            onRouting={() => panelActions.show("routing")}
-            onWebhooks={() => panelActions.show("webhooks")}
-            onSkills={() => panelActions.show("skills")}
-            onAnalytics={() => panelActions.show("analytics")}
-            onLogs={() => panelActions.show("logViewer")}
-            onCanvas={() => panelActions.show("canvas")}
-            onIntercom={() => panelActions.show("intercom")}
-            onVoice={() => panelActions.show("voice")}
-            configuredProviderCount={configuredProviderIds.length}
-            totalProviderCount={PROVIDER_REGISTRY.length}
-          />
-          <div className="flex min-h-0 flex-1 flex-col gap-4 px-3 pb-3 pt-3 sm:px-4 sm:pb-4 sm:pt-4 md:px-6 md:pb-6 md:pt-4">
-            {settingsRouteActive ? (
-              <div className="w-full">
-                <button
-                  type="button"
-                  className="ui-btn-secondary px-3 py-1.5 font-mono text-[10px] font-semibold tracking-[0.06em]"
-                  onClick={handleBackToChat}
-                >
-                  {tp("backToChat")}
-                </button>
-              </div>
-            ) : null}
-            <GatewayConnectScreen
-              gatewayUrl={gatewayUrl}
-              token={token}
-              localGatewayDefaults={localGatewayDefaults}
-              status={status}
-              error={gatewayError}
-              onGatewayUrlChange={setGatewayUrl}
-              onTokenChange={setToken}
-              onUseLocalDefaults={useLocalGatewayDefaults}
-              onConnect={() => void connect()}
-            />
+        <div className="flex min-h-screen items-center justify-center px-6">
+          <div className="glass-panel ui-panel w-full max-w-md px-6 py-6 text-center">
+            <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+              OpenClaw Studio
+            </div>
+            <div className="mt-3 text-sm text-muted-foreground">
+              {gatewayError
+                ? `${tp("connectingGateway")}… (${gatewayError})`
+                : `${tp("connectingGateway")}…`}
+            </div>
           </div>
         </div>
       </div>
@@ -908,6 +876,8 @@ const AgentStudioInner = () => {
           onCanvas={() => panelActions.toggle("canvas")}
           onIntercom={() => panelActions.toggle("intercom")}
           onVoice={() => panelActions.toggle("voice")}
+          onClaudeCode={() => panelActions.toggle("claudeCode")}
+          onBrowserView={() => panelActions.toggle("browserView")}
           configuredProviderCount={configuredProviderIds.length}
           totalProviderCount={PROVIDER_REGISTRY.length}
         />
@@ -941,7 +911,11 @@ const AgentStudioInner = () => {
             </div>
           ) : null}
 
-          {settingsRouteActive ? (
+          {panels.browserView ? (
+            <BrowserViewPanel
+              onClose={() => panelActions.hide("browserView")}
+            />
+          ) : settingsRouteActive ? (
             <SettingsRouteView
               client={client}
               agents={agents}
@@ -1021,6 +995,8 @@ const AgentStudioInner = () => {
               onResolveExecApproval={(id, decision) => {
                 void handleResolveExecApproval(id, decision);
               }}
+              showClaudeCodePanel={showClaudeCodeSidebar || panels.claudeCode}
+              onCloseClaudeCode={() => panelActions.hide("claudeCode")}
             />
           )}
         </div>

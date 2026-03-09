@@ -5,6 +5,8 @@ export type {
   PanelVisibilityActions,
 } from "./usePanelVisibility";
 
+export { useClaudeCodeAgents } from "./useClaudeCodeAgents";
+
 export { useExecApprovals } from "./useExecApprovals";
 export type { UseExecApprovalsParams } from "./useExecApprovals";
 

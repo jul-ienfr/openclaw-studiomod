@@ -1,3 +1,5 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AgentChatPanel } from "@/features/agents/components/AgentChatPanel";
@@ -12,6 +14,77 @@ import type {
 } from "@/features/agents/approvals/types";
 import type { AgentChannelLink } from "@/features/routing/agentChannelResolver";
 import type { GatewayAttachment } from "@/features/agents/hooks/useAttachments";
+
+const ClaudeCodePanel = dynamic(
+  () =>
+    import("@/features/agents/components/ClaudeCodePanel").then(
+      (m) => m.ClaudeCodePanel,
+    ),
+  { ssr: false },
+);
+
+const CC_STORAGE_KEY = "openclaw-cc-panel-width";
+const CC_MIN_WIDTH = 300;
+const CC_MAX_WIDTH = 800;
+const CC_DEFAULT_WIDTH = 380;
+
+function useResizablePanel(enabled: boolean) {
+  const [width, setWidth] = useState(() => {
+    if (typeof window === "undefined") return CC_DEFAULT_WIDTH;
+    const saved = localStorage.getItem(CC_STORAGE_KEY);
+    return saved
+      ? Math.min(CC_MAX_WIDTH, Math.max(CC_MIN_WIDTH, Number(saved)))
+      : CC_DEFAULT_WIDTH;
+  });
+  const dragging = useRef(false);
+  const startX = useRef(0);
+  const startW = useRef(0);
+
+  const onMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      dragging.current = true;
+      startX.current = e.clientX;
+      startW.current = width;
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+    },
+    [width],
+  );
+
+  useEffect(() => {
+    if (!enabled) return;
+    const onMouseMove = (e: MouseEvent) => {
+      if (!dragging.current) return;
+      const delta = startX.current - e.clientX;
+      const newW = Math.min(
+        CC_MAX_WIDTH,
+        Math.max(CC_MIN_WIDTH, startW.current + delta),
+      );
+      setWidth(newW);
+    };
+    const onMouseUp = () => {
+      if (!dragging.current) return;
+      dragging.current = false;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      localStorage.setItem(CC_STORAGE_KEY, String(width));
+    };
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, [enabled, width]);
+
+  // Persist on width change (debounced by mouseup above)
+  useEffect(() => {
+    if (enabled) localStorage.setItem(CC_STORAGE_KEY, String(width));
+  }, [enabled, width]);
+
+  return { width, onMouseDown };
+}
 
 type MobilePane = "fleet" | "chat";
 
@@ -70,6 +143,8 @@ export interface ChatWorkspaceViewProps {
   onAvatarShuffle: (agentId: string) => void;
   onForwardToAgent: (targetAgentId: string, message: string) => void;
   onResolveExecApproval: (id: string, decision: ExecApprovalDecision) => void;
+  showClaudeCodePanel?: boolean;
+  onCloseClaudeCode?: () => void;
 }
 
 export function ChatWorkspaceView({
@@ -108,9 +183,13 @@ export function ChatWorkspaceView({
   onAvatarShuffle,
   onForwardToAgent,
   onResolveExecApproval,
+  showClaudeCodePanel,
+  onCloseClaudeCode,
 }: ChatWorkspaceViewProps) {
   const tp = useTranslations("page");
   const hasAnyAgents = agents.length > 0;
+  const { width: ccWidth, onMouseDown: onResizeStart } =
+    useResizablePanel(!!showClaudeCodePanel);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 xl:flex-row">
@@ -253,6 +332,22 @@ export function ChatWorkspaceView({
           />
         )}
       </div>
+      {showClaudeCodePanel ? (
+        <div
+          className="relative hidden min-h-0 shrink-0 flex-col overflow-hidden rounded-xl border border-border/60 bg-card xl:flex"
+          style={{ width: ccWidth }}
+          data-testid="claude-code-sidebar"
+        >
+          {/* Drag handle */}
+          <div
+            className="absolute inset-y-0 left-0 z-10 w-1.5 cursor-col-resize transition-colors hover:bg-primary/30 active:bg-primary/50"
+            onMouseDown={onResizeStart}
+          />
+          <ErrorBoundary fallbackLabel="Claude Code panel error">
+            <ClaudeCodePanel onClose={onCloseClaudeCode ?? (() => {})} />
+          </ErrorBoundary>
+        </div>
+      ) : null}
     </div>
   );
 }
