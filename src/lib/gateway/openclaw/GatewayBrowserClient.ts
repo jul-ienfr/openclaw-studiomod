@@ -371,6 +371,8 @@ export type GatewayHelloOk = {
 type Pending = {
   resolve: (value: unknown) => void;
   reject: (err: unknown) => void;
+  timeoutId: number | null;
+  method: string;
 };
 
 export type GatewayBrowserClientOptions = {
@@ -392,6 +394,11 @@ export type GatewayBrowserClientOptions = {
 
 const CONNECT_FAILED_CLOSE_CODE = 4008;
 const WS_CLOSE_REASON_MAX_BYTES = 123;
+const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
+const SEND_RETRY_BASE_DELAY_MS = 300;
+const MAX_SEND_RETRY_ATTEMPTS = 4;
+const MAX_SEND_RETRY_DELAY_MS = 5_000;
+const RETRYABLE_SEND_STATUS = new Set([429, 502, 503, 504]);
 
 function truncateWsCloseReason(
   reason: string,
@@ -409,6 +416,25 @@ function truncateWsCloseReason(
     out = next;
   }
   return out.trimEnd() || "connect failed";
+}
+
+function buildHttpStatusError(status: number): Error & { httpStatus: number } {
+  const err = new Error(`send failed: HTTP ${status}`) as Error & {
+    httpStatus: number;
+  };
+  err.httpStatus = status;
+  return err;
+}
+
+function parseRetryAfterHeader(value: string | null): number | null {
+  if (!value) return null;
+  const retryAfterSeconds = Number(value);
+  if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds >= 0) {
+    return retryAfterSeconds * 1000;
+  }
+  const retryAtMs = Date.parse(value);
+  if (!Number.isFinite(retryAtMs)) return null;
+  return Math.max(0, retryAtMs - Date.now());
 }
 
 // Module-level flag: defer WebSocket until initial page load completes.
@@ -433,14 +459,14 @@ if (!_pageBootComplete && typeof window !== "undefined") {
 }
 
 export class GatewayBrowserClient {
-  private ws: WebSocket | null = null;
+  private eventSource: EventSource | null = null;
   private pending = new Map<string, Pending>();
   private closed = false;
   private lastSeq: number | null = null;
   private connectNonce: string | null = null;
   private connectSent = false;
   private connectTimer: number | null = null;
-  private wsOpenTimer: number | null = null;
+  private keepaliveTimer: number | null = null;
   private backoffMs = 800;
 
   constructor(private opts: GatewayBrowserClientOptions) {}
@@ -452,79 +478,136 @@ export class GatewayBrowserClient {
 
   stop() {
     this.closed = true;
-    this.clearWsOpenTimer();
-    this.ws?.close();
-    this.ws = null;
+    this.clearKeepaliveTimer();
+    this.eventSource?.close();
+    this.eventSource = null;
     this.flushPending(new Error("gateway client stopped"));
   }
 
   get connected() {
-    return this.ws?.readyState === WebSocket.OPEN;
+    return this.eventSource?.readyState === EventSource.OPEN;
   }
 
-  private clearWsOpenTimer() {
-    if (this.wsOpenTimer !== null) {
-      window.clearTimeout(this.wsOpenTimer);
-      this.wsOpenTimer = null;
+  private clearKeepaliveTimer() {
+    if (this.keepaliveTimer !== null) {
+      window.clearInterval(this.keepaliveTimer);
+      this.keepaliveTimer = null;
     }
+  }
+
+  private clearPendingTimeout(pending: Pending | undefined) {
+    if (!pending || pending.timeoutId === null) return;
+    window.clearTimeout(pending.timeoutId);
+    pending.timeoutId = null;
+  }
+
+  private settlePending(id: string, settle: (pending: Pending) => void) {
+    const pending = this.pending.get(id);
+    if (!pending) return false;
+    this.pending.delete(id);
+    this.clearPendingTimeout(pending);
+    settle(pending);
+    return true;
+  }
+
+  private rejectPending(id: string, err: Error) {
+    this.settlePending(id, (pending) => pending.reject(err));
+  }
+
+  private schedulePendingTimeout(id: string, method: string) {
+    const pending = this.pending.get(id);
+    if (!pending) return;
+    this.clearPendingTimeout(pending);
+    pending.timeoutId = window.setTimeout(() => {
+      this.rejectPending(id, new Error(`gateway request timed out: ${method}`));
+    }, DEFAULT_REQUEST_TIMEOUT_MS);
+  }
+
+  private resolveSendRetryDelayMs(
+    status: number | null,
+    retryAfterMs: number | null,
+    attempt: number,
+  ) {
+    if (status !== null && !RETRYABLE_SEND_STATUS.has(status)) return null;
+    if (attempt >= MAX_SEND_RETRY_ATTEMPTS) return null;
+    if (retryAfterMs !== null) {
+      return Math.min(Math.max(0, retryAfterMs), MAX_SEND_RETRY_DELAY_MS);
+    }
+    return Math.min(
+      SEND_RETRY_BASE_DELAY_MS * Math.pow(2, attempt),
+      MAX_SEND_RETRY_DELAY_MS,
+    );
+  }
+
+  private sendRequestFrame(
+    id: string,
+    frame: { type: "req"; id: string; method: string; params?: unknown },
+    attempt = 0,
+  ) {
+    if (!this.pending.has(id) || this.closed) return;
+    fetch("/api/runtime/message", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(frame),
+    })
+      .then((res) => {
+        if (res.ok) return;
+        const retryDelayMs = this.resolveSendRetryDelayMs(
+          res.status,
+          parseRetryAfterHeader(res.headers.get("Retry-After")),
+          attempt,
+        );
+        if (retryDelayMs !== null) {
+          window.setTimeout(() => {
+            this.sendRequestFrame(id, frame, attempt + 1);
+          }, retryDelayMs);
+          return;
+        }
+        this.rejectPending(id, buildHttpStatusError(res.status));
+      })
+      .catch((err: Error) => {
+        const retryDelayMs = this.resolveSendRetryDelayMs(null, null, attempt);
+        if (retryDelayMs !== null) {
+          window.setTimeout(() => {
+            this.sendRequestFrame(id, frame, attempt + 1);
+          }, retryDelayMs);
+          return;
+        }
+        this.rejectPending(id, new Error(`send failed: ${err.message}`));
+      });
   }
 
   private connect() {
     if (this.closed) return;
 
-    // Wait for initial page load so the WebSocket doesn't compete with
-    // dev-mode bundle fetches for the browser's 6-connection TCP pool.
-    if (!_pageBootComplete) {
-      const onLoad = () => {
-        _pageBootComplete = true;
-        if (!this.closed) this.connect();
-      };
-      window.addEventListener("load", onLoad, { once: true });
-      return;
-    }
+    console.log("[gw-client] opening EventSource to /api/runtime/stream");
+    this.eventSource = new EventSource("/api/runtime/stream");
 
-    console.log("[gw-client] opening WebSocket to", this.opts.url);
-    this.ws = new WebSocket(this.opts.url);
-
-    // Safety net: if the WebSocket stays stuck in CONNECTING for more than
-    // 4 seconds (TCP pool full, dev-mode compilation holding slots, etc.),
-    // force-close it.  The onclose handler will trigger scheduleReconnect()
-    // and the next attempt will likely succeed once TCP slots free up.
-    this.clearWsOpenTimer();
-    this.wsOpenTimer = window.setTimeout(() => {
-      this.wsOpenTimer = null;
-      if (this.ws && this.ws.readyState === WebSocket.CONNECTING) {
-        console.log(
-          "[gw-client] connection stuck in CONNECTING for 4s, forcing close & retry",
-        );
-        this.ws.close();
-      }
-    }, 4000);
-
-    this.ws.onopen = () => {
-      this.clearWsOpenTimer();
-      console.log("[gw-client] WebSocket OPEN");
+    this.eventSource.onopen = () => {
+      console.log("[gw-client] EventSource OPEN");
       this.backoffMs = 800;
-      this.queueConnect();
+      this.startKeepalive();
+      // Reset connect state — hello-ok will arrive from server broadcast
+      this.connectNonce = null;
+      this.connectSent = false;
+      if (this.connectTimer !== null) {
+        window.clearTimeout(this.connectTimer);
+        this.connectTimer = null;
+      }
     };
-    this.ws.onmessage = (ev) => this.handleMessage(String(ev.data ?? ""));
-    this.ws.onclose = (ev) => {
-      this.clearWsOpenTimer();
-      console.log(
-        "[gw-client] WebSocket CLOSE code=",
-        ev.code,
-        "reason=",
-        ev.reason,
-      );
-      const reason = String(ev.reason ?? "");
-      this.ws = null;
-      this.flushPending(new Error(`gateway closed (${ev.code}): ${reason}`));
-      this.opts.onClose?.({ code: ev.code, reason });
+
+    this.eventSource.onmessage = (ev) =>
+      this.handleMessage(String(ev.data ?? ""));
+
+    this.eventSource.onerror = () => {
+      this.clearKeepaliveTimer();
+      console.log("[gw-client] EventSource error — reconnecting");
+      this.eventSource?.close();
+      this.eventSource = null;
+      this.connectSent = false; // allow re-receiving hello-ok on next connection
+      this.flushPending(new Error("gateway connection lost"));
+      this.opts.onClose?.({ code: 0, reason: "connection lost" });
       this.scheduleReconnect();
-    };
-    this.ws.onerror = () => {
-      this.clearWsOpenTimer();
-      console.log("[gw-client] WebSocket ERROR");
     };
   }
 
@@ -536,8 +619,24 @@ export class GatewayBrowserClient {
   }
 
   private flushPending(err: Error) {
-    for (const [, p] of this.pending) p.reject(err);
+    for (const [, p] of this.pending) {
+      this.clearPendingTimeout(p);
+      p.reject(err);
+    }
     this.pending.clear();
+  }
+
+  private startKeepalive() {
+    this.clearKeepaliveTimer();
+    this.keepaliveTimer = window.setInterval(() => {
+      if (this.eventSource?.readyState === EventSource.OPEN) {
+        fetch("/api/runtime/message", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "ping" }),
+        }).catch(() => {});
+      }
+    }, 25_000);
   }
 
   private async sendConnect() {
@@ -658,6 +757,17 @@ export class GatewayBrowserClient {
         this.opts.onHello?.(hello);
       })
       .catch((err) => {
+        // Server gateway not ready (503) — retry connect without closing EventSource
+        if ((err as { httpStatus?: number }).httpStatus === 503) {
+          console.log(
+            "[gw-client] server gateway not ready, retrying connect in 2s...",
+          );
+          this.connectSent = false;
+          window.setTimeout(() => {
+            void this.sendConnect();
+          }, 2000);
+          return;
+        }
         if (canFallbackToShared && deviceIdentity) {
           clearDeviceAuthToken({
             deviceId: deviceIdentity.deviceId,
@@ -675,7 +785,9 @@ export class GatewayBrowserClient {
             "[gateway] connect close reason truncated to 123 UTF-8 bytes",
           );
         }
-        this.ws?.close(CONNECT_FAILED_CLOSE_CODE, reason);
+        this.eventSource?.close();
+        this.eventSource = null;
+        this.scheduleReconnect();
       });
   }
 
@@ -723,28 +835,33 @@ export class GatewayBrowserClient {
       const res = parsed as GatewayResponseFrame;
       const pending = this.pending.get(res.id);
       if (!pending) {
-        console.log(
-          "[gw-client] res with unknown id:",
-          res.id,
-          "pending size:",
-          this.pending.size,
-        );
+        // Could be the server's own hello-ok broadcast to all SSE clients.
+        // Treat it as our hello if we haven't received one yet.
+        const payload = res.payload as { type?: string } | undefined;
+        if (res.ok && payload?.type === "hello-ok" && !this.connectSent) {
+          console.log(
+            "[gw-client] received server hello-ok broadcast → connected",
+          );
+          this.connectSent = true;
+          this.backoffMs = 800;
+          this.opts.onHello?.(res.payload as GatewayHelloOk);
+        }
         return;
       }
       console.log("[gw-client] resolving res:", res.id, "ok:", res.ok);
       this.pending.delete(res.id);
-      if (res.ok) pending.resolve(res.payload);
-      else {
-        if (res.error && typeof res.error.code === "string") {
-          pending.reject(
-            new GatewayResponseError({
-              code: res.error.code,
-              message: res.error.message ?? "request failed",
-              details: res.error.details,
-            }),
-          );
-          return;
-        }
+      this.clearPendingTimeout(pending);
+      if (res.ok) {
+        pending.resolve(res.payload);
+      } else if (res.error && typeof res.error.code === "string") {
+        pending.reject(
+          new GatewayResponseError({
+            code: res.error.code,
+            message: res.error.message ?? "request failed",
+            details: res.error.details,
+          }),
+        );
+      } else {
         pending.reject(new Error(res.error?.message ?? "request failed"));
       }
       return;
@@ -752,15 +869,27 @@ export class GatewayBrowserClient {
   }
 
   request<T = unknown>(method: string, params?: unknown): Promise<T> {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+    if (!this.eventSource || this.eventSource.readyState !== EventSource.OPEN) {
       return Promise.reject(new Error("gateway not connected"));
     }
     const id = generateUUID();
-    const frame = { type: "req", id, method, params };
+    const frame: { type: "req"; id: string; method: string; params?: unknown } =
+      {
+        type: "req",
+        id,
+        method,
+        params,
+      };
     const p = new Promise<T>((resolve, reject) => {
-      this.pending.set(id, { resolve: (v) => resolve(v as T), reject });
+      this.pending.set(id, {
+        resolve: (v) => resolve(v as T),
+        reject,
+        timeoutId: null,
+        method,
+      });
     });
-    this.ws.send(JSON.stringify(frame));
+    this.schedulePendingTimeout(id, method);
+    this.sendRequestFrame(id, frame);
     return p;
   }
 

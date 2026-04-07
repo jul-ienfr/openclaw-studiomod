@@ -67,7 +67,7 @@ type RuntimeSyncControllerValue = ReturnType<typeof useRuntimeSyncController>;
 type RenderControllerContext = {
   getValue: () => RuntimeSyncControllerValue;
   rerenderWith: (
-    overrides: Partial<Parameters<typeof useRuntimeSyncController>[0]>
+    overrides: Partial<Parameters<typeof useRuntimeSyncController>[0]>,
   ) => void;
   unmount: () => void;
   dispatch: ReturnType<typeof vi.fn>;
@@ -79,7 +79,7 @@ type RenderControllerContext = {
 };
 
 const renderController = (
-  overrides?: Partial<Parameters<typeof useRuntimeSyncController>[0]>
+  overrides?: Partial<Parameters<typeof useRuntimeSyncController>[0]>,
 ): RenderControllerContext => {
   const dispatch = vi.fn();
   const clearRunTracking = vi.fn();
@@ -105,7 +105,9 @@ const renderController = (
       onGap,
     } as never,
     status: "connected",
-    agents: [createAgent({ status: "running", historyLoadedAt: 1000, runId: "run-1" })],
+    agents: [
+      createAgent({ status: "running", historyLoadedAt: 1000, runId: "run-1" }),
+    ],
     focusedAgentId: null,
     focusedAgentRunning: false,
     dispatch,
@@ -116,7 +118,9 @@ const renderController = (
     ...(overrides ?? {}),
   };
 
-  const valueRef: { current: RuntimeSyncControllerValue | null } = { current: null };
+  const valueRef: { current: RuntimeSyncControllerValue | null } = {
+    current: null,
+  };
 
   const Probe = ({
     params,
@@ -138,7 +142,7 @@ const renderController = (
       onValue: (value) => {
         valueRef.current = value;
       },
-    })
+    }),
   );
 
   return {
@@ -159,7 +163,7 @@ const renderController = (
           onValue: (value) => {
             valueRef.current = value;
           },
-        })
+        }),
       );
     },
     unmount: () => {
@@ -176,9 +180,15 @@ const renderController = (
 
 describe("useRuntimeSyncController", () => {
   const mockedRunHistorySyncOperation = vi.mocked(runHistorySyncOperation);
-  const mockedExecuteHistorySyncCommands = vi.mocked(executeHistorySyncCommands);
-  const mockedRunAgentReconcileOperation = vi.mocked(runAgentReconcileOperation);
-  const mockedExecuteAgentReconcileCommands = vi.mocked(executeAgentReconcileCommands);
+  const mockedExecuteHistorySyncCommands = vi.mocked(
+    executeHistorySyncCommands,
+  );
+  const mockedRunAgentReconcileOperation = vi.mocked(
+    runAgentReconcileOperation,
+  );
+  const mockedExecuteAgentReconcileCommands = vi.mocked(
+    executeAgentReconcileCommands,
+  );
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -251,9 +261,21 @@ describe("useRuntimeSyncController", () => {
       focusedAgentId: null,
       focusedAgentRunning: false,
       agents: [
-        createAgent({ agentId: "agent-1", sessionCreated: true, historyLoadedAt: null }),
-        createAgent({ agentId: "agent-2", sessionCreated: true, historyLoadedAt: 1234 }),
-        createAgent({ agentId: "agent-3", sessionCreated: false, historyLoadedAt: null }),
+        createAgent({
+          agentId: "agent-1",
+          sessionCreated: true,
+          historyLoadedAt: null,
+        }),
+        createAgent({
+          agentId: "agent-2",
+          sessionCreated: true,
+          historyLoadedAt: 1234,
+        }),
+        createAgent({
+          agentId: "agent-3",
+          sessionCreated: false,
+          historyLoadedAt: null,
+        }),
       ],
     });
 
@@ -263,7 +285,12 @@ describe("useRuntimeSyncController", () => {
 
     const bootstrappedAgentIds = mockedRunHistorySyncOperation.mock.calls
       .map(([arg]) => (arg as { agentId: string }).agentId)
-      .filter((agentId) => agentId === "agent-1" || agentId === "agent-2" || agentId === "agent-3");
+      .filter(
+        (agentId) =>
+          agentId === "agent-1" ||
+          agentId === "agent-2" ||
+          agentId === "agent-3",
+      );
 
     expect(bootstrappedAgentIds).toContain("agent-1");
     expect(bootstrappedAgentIds).not.toContain("agent-2");
@@ -296,7 +323,13 @@ describe("useRuntimeSyncController", () => {
   it("handles gap recovery by triggering summary refresh and reconcile", async () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const ctx = renderController({
-      agents: [createAgent({ status: "running", historyLoadedAt: 1234, runId: "run-1" })],
+      agents: [
+        createAgent({
+          status: "running",
+          historyLoadedAt: 1234,
+          runId: "run-1",
+        }),
+      ],
     });
 
     await act(async () => {
@@ -322,7 +355,9 @@ describe("useRuntimeSyncController", () => {
       maxChars: 240,
     });
     expect(mockedRunAgentReconcileOperation).toHaveBeenCalledTimes(1);
-    expect(warnSpy).toHaveBeenCalledWith("Gateway event gap expected 10, received 11.");
+    expect(warnSpy).toHaveBeenCalledWith(
+      "Gateway event gap expected 10, received 11.",
+    );
   });
 
   it("unsubscribes gap listener on unmount", () => {
@@ -331,22 +366,16 @@ describe("useRuntimeSyncController", () => {
     expect(ctx.unsubscribeGap).toHaveBeenCalledTimes(1);
   });
 
-  it("clears history in-flight tracking when requested", async () => {
-    const inFlightSeen: boolean[] = [];
-    mockedRunHistorySyncOperation.mockImplementation(
-      async ({ agentId, getAgent, inFlightSessionKeys }) => {
-        const agent = getAgent(agentId);
-        if (!agent) return [];
-        const sessionKey = agent.sessionKey;
-        inFlightSeen.push(inFlightSessionKeys.has(sessionKey));
-        inFlightSessionKeys.add(sessionKey);
-        return [];
-      }
-    );
-
+  it("clears history debounce state when requested", async () => {
     const ctx = renderController({
       status: "disconnected",
-      agents: [createAgent({ sessionKey: "agent:agent-1:main", historyLoadedAt: null })],
+      agents: [
+        createAgent({
+          sessionKey: "agent:agent-1:main",
+          historyLoadedAt: null,
+          status: "running",
+        }),
+      ],
       focusedAgentId: null,
       focusedAgentRunning: false,
     });
@@ -357,6 +386,8 @@ describe("useRuntimeSyncController", () => {
     await act(async () => {
       await ctx.getValue().loadAgentHistory("agent-1");
     });
+    expect(mockedRunHistorySyncOperation).toHaveBeenCalledTimes(1);
+
     act(() => {
       ctx.getValue().clearHistoryInFlight("agent:agent-1:main");
     });
@@ -364,6 +395,6 @@ describe("useRuntimeSyncController", () => {
       await ctx.getValue().loadAgentHistory("agent-1");
     });
 
-    expect(inFlightSeen).toEqual([false, true, false]);
+    expect(mockedRunHistorySyncOperation).toHaveBeenCalledTimes(2);
   });
 });

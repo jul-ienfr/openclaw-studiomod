@@ -2,46 +2,48 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GatewayBrowserClient } from "@/lib/gateway/openclaw/GatewayBrowserClient";
 
-const UUID_V4_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-class MockWebSocket {
+class MockEventSource {
+  static CONNECTING = 0;
   static OPEN = 1;
-  static CLOSED = 3;
-  static instances: MockWebSocket[] = [];
-  static sent: string[] = [];
-  static closes: Array<{ code: number; reason: string }> = [];
+  static CLOSED = 2;
+  static instances: MockEventSource[] = [];
 
-  readyState = MockWebSocket.OPEN;
+  readyState = MockEventSource.CONNECTING;
   onopen: (() => void) | null = null;
   onmessage: ((event: MessageEvent) => void) | null = null;
-  onclose: ((event: CloseEvent) => void) | null = null;
   onerror: (() => void) | null = null;
 
   constructor(public url: string) {
-    MockWebSocket.instances.push(this);
+    MockEventSource.instances.push(this);
   }
 
-  send(data: string) {
-    MockWebSocket.sent.push(String(data));
+  open() {
+    this.readyState = MockEventSource.OPEN;
+    this.onopen?.();
   }
 
-  close(code?: number, reason?: string) {
-    MockWebSocket.closes.push({ code: code ?? 1000, reason: reason ?? "" });
-    this.readyState = MockWebSocket.CLOSED;
-    this.onclose?.({ code: code ?? 1000, reason: reason ?? "" } as CloseEvent);
+  emitMessage(payload: unknown) {
+    this.onmessage?.({
+      data: typeof payload === "string" ? payload : JSON.stringify(payload),
+    } as MessageEvent);
+  }
+
+  close() {
+    this.readyState = MockEventSource.CLOSED;
   }
 }
 
 describe("GatewayBrowserClient", () => {
-  const originalWebSocket = globalThis.WebSocket;
+  const originalEventSource = globalThis.EventSource;
+  const originalFetch = globalThis.fetch;
   const originalSubtle = globalThis.crypto?.subtle;
+  const fetchMock = vi.fn();
 
   beforeEach(() => {
-    MockWebSocket.instances = [];
-    MockWebSocket.sent = [];
-    MockWebSocket.closes = [];
-    globalThis.WebSocket = MockWebSocket as unknown as typeof WebSocket;
+    MockEventSource.instances = [];
+    globalThis.EventSource = MockEventSource as unknown as typeof EventSource;
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    fetchMock.mockReset();
     if (globalThis.crypto) {
       Object.defineProperty(globalThis.crypto, "subtle", {
         value: undefined,
@@ -53,7 +55,8 @@ describe("GatewayBrowserClient", () => {
 
   afterEach(() => {
     vi.useRealTimers();
-    globalThis.WebSocket = originalWebSocket;
+    globalThis.EventSource = originalEventSource;
+    globalThis.fetch = originalFetch;
     if (globalThis.crypto) {
       Object.defineProperty(globalThis.crypto, "subtle", {
         value: originalSubtle,
@@ -62,75 +65,101 @@ describe("GatewayBrowserClient", () => {
     }
   });
 
-  it("sends connect when connect.challenge arrives", async () => {
-    const client = new GatewayBrowserClient({ url: "ws://example.com" });
+  it("sends connect via the runtime message route when connect.challenge arrives", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers(),
+    } as Response);
+    const onHello = vi.fn();
+    const client = new GatewayBrowserClient({
+      url: "ws://example.com",
+      onHello,
+    });
     client.start();
 
-    const ws = MockWebSocket.instances[0];
-    if (!ws) {
-      throw new Error("WebSocket not created");
+    const eventSource = MockEventSource.instances[0];
+    if (!eventSource) {
+      throw new Error("EventSource not created");
     }
 
-    ws.onopen?.();
+    eventSource.open();
+    eventSource.emitMessage({
+      type: "event",
+      event: "connect.challenge",
+      payload: { nonce: "abc" },
+    });
 
-    expect(MockWebSocket.sent).toHaveLength(0);
+    await Promise.resolve();
+    await Promise.resolve();
 
-    ws.onmessage?.({
-      data: JSON.stringify({
-        type: "event",
-        event: "connect.challenge",
-        payload: { nonce: "abc" },
-      }),
-    } as MessageEvent);
-
-    await vi.runAllTimersAsync();
-
-    expect(MockWebSocket.sent).toHaveLength(1);
-    const frame = JSON.parse(MockWebSocket.sent[0] ?? "{}");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [, init] = fetchMock.mock.calls[0] ?? [];
+    const frame = JSON.parse(String(init?.body ?? "{}"));
     expect(frame.type).toBe("req");
     expect(frame.method).toBe("connect");
     expect(typeof frame.id).toBe("string");
-    expect(frame.id).toMatch(UUID_V4_RE);
     expect(frame.params?.client?.id).toBe("openclaw-control-ui");
-  });
 
-  it("truncates connect-failed close reason to websocket limit", async () => {
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const client = new GatewayBrowserClient({ url: "ws://example.com", token: "secret" });
-    client.start();
-
-    const ws = MockWebSocket.instances[0];
-    if (!ws) {
-      throw new Error("WebSocket not created");
-    }
-
-    ws.onopen?.();
-    vi.runAllTimers();
-
-    const connectFrame = JSON.parse(MockWebSocket.sent[0] ?? "{}");
-    const connectId = String(connectFrame.id ?? "");
-    expect(connectId).toMatch(UUID_V4_RE);
-
-    ws.onmessage?.({
-      data: JSON.stringify({
-        type: "res",
-        id: connectId,
-        ok: false,
-        error: {
-          code: "INVALID_REQUEST",
-          message: `invalid config ${"x".repeat(260)}`,
-        },
-      }),
-    } as MessageEvent);
-
-    await vi.runAllTimersAsync();
-    await vi.runAllTimersAsync();
+    eventSource.emitMessage({
+      type: "res",
+      id: frame.id,
+      ok: true,
+      payload: { type: "hello-ok", protocol: 3 },
+    });
     await Promise.resolve();
 
-    const lastClose = MockWebSocket.closes.at(-1);
-    expect(lastClose?.code).toBe(4008);
-    expect(lastClose?.reason.startsWith("connect failed: INVALID_REQUEST")).toBe(true);
-    expect(new TextEncoder().encode(lastClose?.reason ?? "").byteLength).toBeLessThanOrEqual(123);
-    warnSpy.mockRestore();
+    expect(onHello).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "hello-ok", protocol: 3 }),
+    );
+  });
+
+  it("retries transient send failures before rejecting the pending request", async () => {
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+        headers: new Headers({ "Retry-After": "1" }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: new Headers(),
+      } as Response);
+    const client = new GatewayBrowserClient({ url: "ws://example.com" });
+    client.start();
+
+    const eventSource = MockEventSource.instances[0];
+    if (!eventSource) {
+      throw new Error("EventSource not created");
+    }
+
+    eventSource.open();
+    const requestPromise = client.request("agents.list", {});
+    await Promise.resolve();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const firstFrame = JSON.parse(
+      String(fetchMock.mock.calls[0]?.[1]?.body ?? "{}"),
+    );
+
+    await vi.advanceTimersByTimeAsync(1000);
+    await Promise.resolve();
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const secondFrame = JSON.parse(
+      String(fetchMock.mock.calls[1]?.[1]?.body ?? "{}"),
+    );
+    expect(secondFrame.id).toBe(firstFrame.id);
+    expect(secondFrame.method).toBe("agents.list");
+
+    eventSource.emitMessage({
+      type: "res",
+      id: secondFrame.id,
+      ok: true,
+      payload: { agents: [] },
+    });
+
+    await expect(requestPromise).resolves.toEqual({ agents: [] });
   });
 });

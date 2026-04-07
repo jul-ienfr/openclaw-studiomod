@@ -4,6 +4,7 @@ export type RuntimeSyncStatus = "disconnected" | "connecting" | "connected";
 
 export const RUNTIME_SYNC_RECONCILE_INTERVAL_MS = 3000;
 export const RUNTIME_SYNC_FOCUSED_HISTORY_INTERVAL_MS = 4500;
+export const RUNTIME_SYNC_HISTORY_REFRESH_DEBOUNCE_MS = 1500;
 export const RUNTIME_SYNC_DEFAULT_HISTORY_LIMIT = 200;
 export const RUNTIME_SYNC_MAX_HISTORY_LIMIT = 5000;
 
@@ -96,10 +97,14 @@ export const resolveRuntimeSyncLoadMoreHistoryLimit = (params: {
   maxLimit: number;
 }): number => {
   const currentLimit =
-    typeof params.currentLimit === "number" && Number.isFinite(params.currentLimit)
+    typeof params.currentLimit === "number" &&
+    Number.isFinite(params.currentLimit)
       ? params.currentLimit
       : params.defaultLimit;
-  const nextLimit = Math.max(RUNTIME_SYNC_MIN_LOAD_MORE_HISTORY_LIMIT, currentLimit * 2);
+  const nextLimit = Math.max(
+    RUNTIME_SYNC_MIN_LOAD_MORE_HISTORY_LIMIT,
+    currentLimit * 2,
+  );
   return Math.min(params.maxLimit, nextLimit);
 };
 

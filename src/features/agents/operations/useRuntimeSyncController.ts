@@ -12,6 +12,7 @@ import {
 import {
   RUNTIME_SYNC_DEFAULT_HISTORY_LIMIT,
   RUNTIME_SYNC_MAX_HISTORY_LIMIT,
+  RUNTIME_SYNC_HISTORY_REFRESH_DEBOUNCE_MS,
   resolveRuntimeSyncBootstrapHistoryAgentIds,
   resolveRuntimeSyncFocusedHistoryPollingIntent,
   resolveRuntimeSyncGapRecoveryIntent,
@@ -73,6 +74,8 @@ export function useRuntimeSyncController(
 ): RuntimeSyncController {
   const agentsRef = useRef(params.agents);
   const historyInFlightRef = useRef<Set<string>>(new Set());
+  const historyRequestedAtRef = useRef<Map<string, number>>(new Map());
+  const historyLoadedAgentsRef = useRef<Set<string>>(new Set());
   const reconcileRunInFlightRef = useRef<Set<string>>(new Set());
 
   const defaultHistoryLimit =
@@ -88,6 +91,7 @@ export function useRuntimeSyncController(
     const key = sessionKey.trim();
     if (!key) return;
     historyInFlightRef.current.delete(key);
+    historyRequestedAtRef.current.delete(key);
   }, []);
 
   const loadSummarySnapshot = useCallback(async () => {
@@ -128,6 +132,32 @@ export function useRuntimeSyncController(
 
   const loadAgentHistory = useCallback(
     async (agentId: string, options?: { limit?: number }) => {
+      // Skip reload if already loaded and agent is idle
+      if (historyLoadedAgentsRef.current.has(agentId) && !options?.limit) {
+        const agent = agentsRef.current.find(
+          (entry) => entry.agentId === agentId,
+        );
+        if (agent?.status === "idle") return;
+      }
+      const agent =
+        agentsRef.current.find((entry) => entry.agentId === agentId) ?? null;
+      const sessionKey = agent?.sessionKey.trim() ?? "";
+      if (sessionKey && historyInFlightRef.current.has(sessionKey)) {
+        return;
+      }
+      if (!options?.limit && sessionKey) {
+        const lastRequestedAt =
+          historyRequestedAtRef.current.get(sessionKey) ?? null;
+        const now = Date.now();
+        if (
+          typeof lastRequestedAt === "number" &&
+          now - lastRequestedAt < RUNTIME_SYNC_HISTORY_REFRESH_DEBOUNCE_MS
+        ) {
+          return;
+        }
+        historyRequestedAtRef.current.set(sessionKey, now);
+      }
+      historyLoadedAgentsRef.current.add(agentId);
       const commands = await runHistorySyncOperation({
         client: params.client,
         agentId,
