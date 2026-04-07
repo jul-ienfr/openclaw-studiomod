@@ -159,13 +159,20 @@ export const classifyGatewayEventKind = (event: string): GatewayEventKind => {
 export const isReasoningRuntimeAgentStream = (stream: string): boolean => {
   const normalized = stream.trim().toLowerCase();
   if (!normalized) return false;
-  if (normalized === "assistant" || normalized === "tool" || normalized === "lifecycle") {
+  if (
+    normalized === "assistant" ||
+    normalized === "tool" ||
+    normalized === "lifecycle"
+  ) {
     return false;
   }
   return REASONING_STREAM_NAME_HINTS.some((hint) => normalized.includes(hint));
 };
 
-export const mergeRuntimeStream = (current: string, incoming: string): string => {
+export const mergeRuntimeStream = (
+  current: string,
+  incoming: string,
+): string => {
   if (!incoming) return current;
   if (!current) return incoming;
   if (incoming.startsWith(current)) return incoming;
@@ -175,7 +182,10 @@ export const mergeRuntimeStream = (current: string, incoming: string): string =>
   return `${current}${incoming}`;
 };
 
-export const dedupeRunLines = (seen: Set<string>, lines: string[]): DedupeRunLinesResult => {
+export const dedupeRunLines = (
+  seen: Set<string>,
+  lines: string[],
+): DedupeRunLinesResult => {
   const nextSeen = new Set(seen);
   const appended: string[] = [];
   for (const line of lines) {
@@ -203,8 +213,25 @@ const extractMessageTimestamp = (message: unknown): number | null => {
   if (!message || typeof message !== "object") return null;
   const record = message as Record<string, unknown>;
   return (
-    toTimestampMs(record.timestamp) ?? toTimestampMs(record.createdAt) ?? toTimestampMs(record.at)
+    toTimestampMs(record.timestamp) ??
+    toTimestampMs(record.createdAt) ??
+    toTimestampMs(record.at)
   );
+};
+
+const extractInterAgentName = (message: unknown): string | null => {
+  if (!message || typeof message !== "object") return null;
+  const record = message as Record<string, unknown>;
+  const provenance = record.provenance;
+  if (!provenance || typeof provenance !== "object") return null;
+  const prov = provenance as Record<string, unknown>;
+  if (prov.kind !== "inter_session") return null;
+  const sourceKey =
+    typeof prov.sourceSessionKey === "string" ? prov.sourceSessionKey : null;
+  if (!sourceKey) return null;
+  // Format: "agent:<name>:<channel>" — extract the agent name
+  const match = sourceKey.match(/^agent:([^:]+)/);
+  return match?.[1] ?? sourceKey;
 };
 
 export const resolveAssistantCompletionTimestamp = ({
@@ -217,24 +244,34 @@ export const resolveAssistantCompletionTimestamp = ({
   return extractMessageTimestamp(message) ?? now;
 };
 
-export const buildHistoryLines = (messages: ChatHistoryMessage[]): HistoryLinesResult => {
+export const buildHistoryLines = (
+  messages: ChatHistoryMessage[],
+): HistoryLinesResult => {
   const lines: string[] = [];
   let lastAssistant: string | null = null;
   let lastAssistantAt: number | null = null;
   let lastRole: string | null = null;
   let lastUser: string | null = null;
   let lastUserAt: number | null = null;
-  const resolveAssistantTerminalLine = (message: ChatHistoryMessage): string | null => {
+  const resolveAssistantTerminalLine = (
+    message: ChatHistoryMessage,
+  ): string | null => {
     const stopReason =
-      typeof message.stopReason === "string" ? message.stopReason.trim().toLowerCase() : "";
+      typeof message.stopReason === "string"
+        ? message.stopReason.trim().toLowerCase()
+        : "";
     if (stopReason === "aborted") return "Run aborted.";
     if (stopReason === "error") {
       const errorMessage =
-        typeof message.errorMessage === "string" ? message.errorMessage.trim() : "";
+        typeof message.errorMessage === "string"
+          ? message.errorMessage.trim()
+          : "";
       return errorMessage ? `Error: ${errorMessage}` : "Run error.";
     }
     const fallbackError =
-      typeof message.errorMessage === "string" ? message.errorMessage.trim() : "";
+      typeof message.errorMessage === "string"
+        ? message.errorMessage.trim()
+        : "";
     return fallbackError ? `Error: ${fallbackError}` : null;
   };
   const isRestartSentinelMessage = (text: string) => {
@@ -246,9 +283,12 @@ export const buildHistoryLines = (messages: ChatHistoryMessage[]): HistoryLinesR
     const role = typeof message.role === "string" ? message.role : "other";
     const extracted = extractText(message);
     const baseText = stripUiMetadata(extracted?.trim() ?? "");
-    const text = role === "assistant" ? normalizeAssistantDisplayText(baseText) : baseText;
+    const text =
+      role === "assistant" ? normalizeAssistantDisplayText(baseText) : baseText;
     const thinking =
-      role === "assistant" ? formatThinkingMarkdown(extractThinking(message) ?? "") : "";
+      role === "assistant"
+        ? formatThinkingMarkdown(extractThinking(message) ?? "")
+        : "";
     const toolLines = extractToolLines(message);
     if (role === "system") {
       if (toolLines.length > 0) {
@@ -261,13 +301,17 @@ export const buildHistoryLines = (messages: ChatHistoryMessage[]): HistoryLinesR
       if (text && isRestartSentinelMessage(text)) continue;
       if (text) {
         const at = extractMessageTimestamp(message);
+        const interAgentName = extractInterAgentName(message);
         if (typeof at === "number") {
-          lines.push(formatMetaMarkdown({ role: "user", timestamp: at }));
+          lines.push(
+            formatMetaMarkdown({ role: "user", timestamp: at, interAgentName }),
+          );
         }
         const imageLines = extractImageMarkdown(message);
-        const userLine = imageLines.length > 0
-          ? `> ${text}\n${imageLines.join("\n")}`
-          : `> ${text}`;
+        const userLine =
+          imageLines.length > 0
+            ? `> ${text}\n${imageLines.join("\n")}`
+            : `> ${text}`;
         lines.push(userLine);
         lastUser = text;
         if (typeof at === "number") {
@@ -277,7 +321,9 @@ export const buildHistoryLines = (messages: ChatHistoryMessage[]): HistoryLinesR
       lastRole = "user";
     } else if (role === "assistant") {
       const terminalLine =
-        !text && !thinking && toolLines.length === 0 ? resolveAssistantTerminalLine(message) : null;
+        !text && !thinking && toolLines.length === 0
+          ? resolveAssistantTerminalLine(message)
+          : null;
       if (!text && !thinking && toolLines.length === 0 && !terminalLine) {
         continue;
       }
@@ -309,7 +355,14 @@ export const buildHistoryLines = (messages: ChatHistoryMessage[]): HistoryLinesR
       lines.push(text);
     }
   }
-  return { lines, lastAssistant, lastAssistantAt, lastRole, lastUser, lastUserAt };
+  return {
+    lines,
+    lastAssistant,
+    lastAssistantAt,
+    lastRole,
+    lastUser,
+    lastUserAt,
+  };
 };
 
 const HISTORY_RUNNING_RECOVERY_WINDOW_MS = 2 * 60 * 60 * 1000;
@@ -361,7 +414,7 @@ export const resolveHistoryRunStatePatch = (params: {
 
 export const mergeHistoryWithPending = (
   historyLines: string[],
-  currentLines: string[]
+  currentLines: string[],
 ): string[] => {
   const normalizeUserLine = (line: string): string | null => {
     const trimmed = line.trim();
@@ -451,8 +504,14 @@ export const buildHistorySyncPatch = ({
   status,
   runId,
 }: HistorySyncPatchInput): Partial<AgentState> => {
-  const { lines, lastAssistant, lastAssistantAt, lastRole, lastUser, lastUserAt } =
-    buildHistoryLines(messages);
+  const {
+    lines,
+    lastAssistant,
+    lastAssistantAt,
+    lastRole,
+    lastUser,
+    lastUserAt,
+  } = buildHistoryLines(messages);
   const runStatePatch = resolveHistoryRunStatePatch({
     status,
     runId,
@@ -479,7 +538,9 @@ export const buildHistorySyncPatch = ({
     outputLines: mergedLines,
     lastResult: lastAssistant ?? null,
     ...(lastAssistant ? { latestPreview: lastAssistant } : {}),
-    ...(typeof lastAssistantAt === "number" ? { lastAssistantMessageAt: lastAssistantAt } : {}),
+    ...(typeof lastAssistantAt === "number"
+      ? { lastAssistantMessageAt: lastAssistantAt }
+      : {}),
     ...(lastUser ? { lastUserMessage: lastUser } : {}),
     historyLoadedAt: loadedAt,
     ...(runStatePatch ?? {}),
@@ -533,7 +594,9 @@ export const buildSummarySnapshotPatches = ({
       const lastAssistant = [...preview.items]
         .reverse()
         .find((item) => item.role === "assistant");
-      const lastUser = [...preview.items].reverse().find((item) => item.role === "user");
+      const lastUser = [...preview.items]
+        .reverse()
+        .find((item) => item.role === "user");
       if (lastAssistant?.text) {
         patch.latestPreview = stripUiMetadata(lastAssistant.text);
       }
@@ -548,7 +611,9 @@ export const buildSummarySnapshotPatches = ({
   return patches;
 };
 
-export const resolveLifecyclePatch = (input: LifecyclePatchInput): LifecycleTransition => {
+export const resolveLifecyclePatch = (
+  input: LifecyclePatchInput,
+): LifecycleTransition => {
   const { phase, incomingRunId, currentRunId, lastActivityAt } = input;
   if (phase === "start") {
     return {
@@ -612,7 +677,7 @@ export const shouldPublishAssistantStream = ({
 
 export const getChatSummaryPatch = (
   payload: ChatEventPayload,
-  now: number = Date.now()
+  now: number = Date.now(),
 ): Partial<AgentState> | null => {
   const message = payload.message;
   const role =
@@ -645,10 +710,11 @@ export const getChatSummaryPatch = (
 
 export const getAgentSummaryPatch = (
   payload: AgentEventPayload,
-  now: number = Date.now()
+  now: number = Date.now(),
 ): Partial<AgentState> | null => {
   if (payload.stream !== "lifecycle") return null;
-  const phase = typeof payload.data?.phase === "string" ? payload.data.phase : "";
+  const phase =
+    typeof payload.data?.phase === "string" ? payload.data.phase : "";
   if (!phase) return null;
   const patch: Partial<AgentState> = { lastActivityAt: now };
   if (phase === "start") {

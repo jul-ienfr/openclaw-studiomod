@@ -203,7 +203,8 @@
     "cliDetected": "{count} identifiant(s) détecté(s)",
     "cliNoneDetected": "Aucun identifiant CLI détecté sur ce système.",
     "cliImportFrom": "depuis {source}",
-    "cliImportButton": "Importer"
+    "cliImportButton": "Importer",
+    "globalHint": "Les identifiants sont gérés par agent. Ouvrez les paramètres d'un agent pour ajouter ou modifier ses identifiants."
   },
   "channels": {
     "title": "Canaux",
@@ -918,7 +919,8 @@
     "sub_webhooks": "Webhooks",
     "sub_voice": "Voix",
     "sub_mobile": "Mobile",
-    "sub_advanced": "Avancé"
+    "sub_advanced": "Avancé",
+    "sub_models": "Modèles"
   },
   "workflowEditor": {
     "title": "Éditeur de workflow",

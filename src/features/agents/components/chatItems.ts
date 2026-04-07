@@ -16,10 +16,16 @@ type ItemMeta = {
   role: "user" | "assistant";
   timestampMs: number;
   thinkingDurationMs?: number;
+  interAgentName?: string;
 };
 
 export type AgentChatItem =
-  | { kind: "user"; text: string; timestampMs?: number }
+  | {
+      kind: "user";
+      text: string;
+      timestampMs?: number;
+      interAgentName?: string;
+    }
   | {
       kind: "assistant";
       text: string;
@@ -41,7 +47,12 @@ export type AssistantTraceEvent =
   | { kind: "tool"; text: string };
 
 export type AgentChatRenderBlock =
-  | { kind: "user"; text: string; timestampMs?: number }
+  | {
+      kind: "user";
+      text: string;
+      timestampMs?: number;
+      interAgentName?: string;
+    }
   | {
       kind: "assistant";
       text: string | null;
@@ -60,6 +71,14 @@ export type BuildAgentChatItemsInput = {
 
 const normalizeUserDisplayText = (value: string): string => {
   return value.replace(/\s+/g, " ").trim();
+};
+
+const stripAttachmentMarkdown = (text: string): string => {
+  return text
+    .replace(/!\[([^\]]*)\]\([^)]+\)/g, "")
+    .replace(/📎\s+[^\n]+/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 };
 
 const normalizeThinkingDisplayText = (value: string): string => {
@@ -134,6 +153,9 @@ export const buildFinalAgentChatItems = ({
           ...(typeof parsed.thinkingDurationMs === "number"
             ? { thinkingDurationMs: parsed.thinkingDurationMs }
             : {}),
+          ...(parsed.interAgentName
+            ? { interAgentName: parsed.interAgentName }
+            : {}),
         };
       }
       continue;
@@ -167,21 +189,35 @@ export const buildFinalAgentChatItems = ({
         const normalized = normalizeUserDisplayText(text);
         const currentTimestamp =
           currentMeta?.role === "user" ? currentMeta.timestampMs : undefined;
+        const currentInterAgentName =
+          currentMeta?.role === "user" ? currentMeta.interAgentName : undefined;
         const previous = items[items.length - 1];
         if (previous?.kind === "user") {
-          const previousNormalized = normalizeUserDisplayText(previous.text);
+          const previousNormalized = normalizeUserDisplayText(
+            stripAttachmentMarkdown(previous.text),
+          );
+          const currentNormalized = normalizeUserDisplayText(
+            stripAttachmentMarkdown(normalized),
+          );
           const previousTimestamp = previous.timestampMs;
+          const timestampsClose =
+            typeof previousTimestamp === "number" &&
+            typeof currentTimestamp === "number" &&
+            Math.abs(previousTimestamp - currentTimestamp) <= 5_000;
           const shouldCollapse =
-            previousNormalized === normalized &&
-            ((typeof previousTimestamp === "number" &&
-              typeof currentTimestamp === "number" &&
-              previousTimestamp === currentTimestamp) ||
+            previousNormalized === currentNormalized &&
+            (timestampsClose ||
               (previousTimestamp === undefined &&
                 typeof currentTimestamp === "number"));
           if (shouldCollapse) {
-            previous.text = normalized;
+            if (normalized.length > previous.text.length) {
+              previous.text = normalized;
+            }
             if (typeof currentTimestamp === "number") {
               previous.timestampMs = currentTimestamp;
+            }
+            if (currentInterAgentName) {
+              previous.interAgentName = currentInterAgentName;
             }
             if (currentMeta?.role === "user") {
               currentMeta = null;
@@ -194,6 +230,9 @@ export const buildFinalAgentChatItems = ({
           text: normalized,
           ...(typeof currentTimestamp === "number"
             ? { timestampMs: currentTimestamp }
+            : {}),
+          ...(currentInterAgentName
+            ? { interAgentName: currentInterAgentName }
             : {}),
         });
         if (currentMeta?.role === "user") {
@@ -279,6 +318,9 @@ export const buildAgentChatItems = ({
           ...(typeof parsed.thinkingDurationMs === "number"
             ? { thinkingDurationMs: parsed.thinkingDurationMs }
             : {}),
+          ...(parsed.interAgentName
+            ? { interAgentName: parsed.interAgentName }
+            : {}),
         };
       }
       continue;
@@ -305,11 +347,16 @@ export const buildAgentChatItems = ({
       if (text) {
         const currentTimestamp =
           currentMeta?.role === "user" ? currentMeta.timestampMs : undefined;
+        const currentInterAgentName =
+          currentMeta?.role === "user" ? currentMeta.interAgentName : undefined;
         items.push({
           kind: "user",
           text: normalizeUserDisplayText(text),
           ...(typeof currentTimestamp === "number"
             ? { timestampMs: currentTimestamp }
+            : {}),
+          ...(currentInterAgentName
+            ? { interAgentName: currentInterAgentName }
             : {}),
         });
         if (currentMeta?.role === "user") {
@@ -450,6 +497,7 @@ export const buildAgentChatRenderBlocks = (
         kind: "user",
         text: item.text,
         timestampMs: item.timestampMs,
+        ...(item.interAgentName ? { interAgentName: item.interAgentName } : {}),
       });
       continue;
     }

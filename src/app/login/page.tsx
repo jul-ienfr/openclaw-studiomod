@@ -12,12 +12,24 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
 
-  // If already authenticated, redirect to dashboard
+  // If already authenticated, redirect to dashboard.
+  // On first boot (no users), redirect to /setup.
   useEffect(() => {
     fetch("/api/auth/me", { credentials: "include" })
       .then((r) => {
-        if (r.ok) router.replace("/dashboard");
-        else setChecking(false);
+        if (r.ok) {
+          router.replace("/dashboard");
+        } else {
+          return fetch("/api/auth/setup", { credentials: "include" })
+            .then((sr) => sr.json())
+            .then((data: { setup_required?: boolean }) => {
+              if (data.setup_required) {
+                router.replace("/setup");
+              } else {
+                setChecking(false);
+              }
+            });
+        }
       })
       .catch(() => setChecking(false));
   }, [router]);
@@ -33,7 +45,7 @@ export default function LoginPage() {
         credentials: "include",
         body: JSON.stringify({ username, password, rememberMe }),
       });
-      const data = await res.json().catch(() => ({})) as { error?: string };
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
         setError(data.error ?? "Login failed");
         return;

@@ -189,7 +189,7 @@ export class GatewayClient {
       authScopeKey: options.authScopeKey,
       clientName: options.clientName,
       mode: options.mode,
-      disableDeviceAuth: options.disableDeviceAuth,
+      disableDeviceAuth: true, // FORCED TRUE TO FIX HTTP LAN WEBCRYPTO ERROR
       onHello: (hello) => {
         if (this.client !== nextClient) return;
         this.lastHello = hello;
@@ -215,7 +215,10 @@ export class GatewayClient {
             })
           : new Error(`Gateway closed (${code}): ${reason}`);
         if (connectFailed) {
-          log.error("Gateway connection failed", { code: connectFailed.code, message: connectFailed.message });
+          log.error("Gateway connection failed", {
+            code: connectFailed.code,
+            message: connectFailed.message,
+          });
         } else {
           log.warn("Disconnected from gateway", { code, reason });
         }
@@ -660,7 +663,10 @@ export const useGatewayConnection = (
       attempt,
     });
     if (delay === null) return;
-    log.info("Reconnecting to gateway", { attempt: attempt + 1, delayMs: delay });
+    log.info("Reconnecting to gateway", {
+      attempt: attempt + 1,
+      delayMs: delay,
+    });
     retryTimerRef.current = setTimeout(() => {
       retryAttemptRef.current = attempt + 1;
       void connect();

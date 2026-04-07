@@ -2,11 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createGatewayRuntimeEventHandler } from "@/features/agents/state/gatewayRuntimeEventHandler";
 import {
-  agentStoreReducer,
-  initialAgentStoreState,
   type AgentState,
   type AgentStoreSeed,
 } from "@/features/agents/state/store";
+import { useAgentZustandStore } from "@/features/agents/state/zustandStore";
 import * as transcriptState from "@/features/agents/state/transcript";
 import type { EventFrame } from "@/lib/gateway/GatewayClient";
 
@@ -56,9 +55,52 @@ const createAgent = (overrides?: Partial<AgentState>): AgentState => {
   };
 };
 
+const replayDispatchedToZustand = (
+  dispatched: Array<Record<string, unknown>>,
+) => {
+  const store = useAgentZustandStore.getState();
+  for (const action of dispatched) {
+    if (!action || typeof action !== "object") continue;
+    const type = (action as { type?: unknown }).type;
+    if (typeof type !== "string") continue;
+    switch (type) {
+      case "hydrateAgents":
+        store.hydrateAgents(
+          action.agents as AgentStoreSeed[],
+          action.selectedAgentId as string | undefined,
+        );
+        break;
+      case "updateAgent":
+        store.updateAgent(
+          action.agentId as string,
+          action.patch as Partial<AgentState>,
+        );
+        break;
+      case "appendOutput":
+        store.appendOutput(
+          action.agentId as string,
+          action.line as string,
+          action.transcript as Parameters<typeof store.appendOutput>[2],
+        );
+        break;
+      case "selectAgent":
+        store.selectAgent(action.agentId as string | null);
+        break;
+      case "markActivity":
+        store.markActivity(
+          action.agentId as string,
+          action.at as number | undefined,
+        );
+        break;
+    }
+  }
+};
+
 describe("gateway runtime event handler (chat)", () => {
   it("applies delta assistant chat stream via queueLivePatch", () => {
-    const agents = [createAgent({ status: "running", runId: "run-1", runStartedAt: 900 })];
+    const agents = [
+      createAgent({ status: "running", runId: "run-1", runStartedAt: 900 }),
+    ];
     const dispatch = vi.fn();
     const queueLivePatch = vi.fn();
 
@@ -99,12 +141,14 @@ describe("gateway runtime event handler (chat)", () => {
       expect.objectContaining({
         streamText: "Hello",
         status: "running",
-      })
+      }),
     );
   });
 
   it("ignores user/system roles for streaming output", () => {
-    const agents = [createAgent({ status: "running", runId: "run-1", runStartedAt: 900 })];
+    const agents = [
+      createAgent({ status: "running", runId: "run-1", runStartedAt: 900 }),
+    ];
     const queueLivePatch = vi.fn();
     const dispatch = vi.fn();
 
@@ -191,7 +235,12 @@ describe("gateway runtime event handler (chat)", () => {
         runStartedAt: 900,
       }),
     ];
-    const dispatched: Array<{ type: string; agentId: string; line?: string; patch?: unknown }> = [];
+    const dispatched: Array<{
+      type: string;
+      agentId: string;
+      line?: string;
+      patch?: unknown;
+    }> = [];
     const dispatch = vi.fn((action) => {
       dispatched.push(action as never);
     });
@@ -224,37 +273,48 @@ describe("gateway runtime event handler (chat)", () => {
         runId: "run-1",
         sessionKey: agents[0]!.sessionKey,
         state: "final",
-        message: { role: "assistant", content: "Done", timestamp: ts, thinking: "t" },
+        message: {
+          role: "assistant",
+          content: "Done",
+          timestamp: ts,
+          thinking: "t",
+        },
       },
     });
 
-    expect(dispatched.some((entry) => entry.type === "appendOutput" && entry.line === "Done")).toBe(
-      true
-    );
+    expect(
+      dispatched.some(
+        (entry) => entry.type === "appendOutput" && entry.line === "Done",
+      ),
+    ).toBe(true);
     expect(
       dispatched.some((entry) => {
         if (entry.type !== "updateAgent") return false;
         const patch = entry.patch as Record<string, unknown>;
         return patch.streamText === null && patch.thinkingTrace === null;
-      })
+      }),
     ).toBe(true);
     expect(
       dispatched.some((entry) => {
         if (entry.type !== "updateAgent") return false;
         const patch = entry.patch as Record<string, unknown>;
         return patch.status === "idle" && patch.runId === null;
-      })
+      }),
     ).toBe(true);
     expect(
       dispatched.some((entry) => {
         if (entry.type !== "updateAgent") return false;
         const patch = entry.patch as Record<string, unknown>;
         return patch.lastAssistantMessageAt === Date.parse(ts);
-      })
+      }),
     ).toBe(true);
 
     expect(updateSpecialLatestUpdate).toHaveBeenCalledTimes(1);
-    expect(updateSpecialLatestUpdate).toHaveBeenCalledWith("agent-1", agents[0], "hello");
+    expect(updateSpecialLatestUpdate).toHaveBeenCalledWith(
+      "agent-1",
+      agents[0],
+      "hello",
+    );
     expect(clearPendingLivePatch).toHaveBeenCalledWith("agent-1");
   });
 
@@ -300,20 +360,36 @@ describe("gateway runtime event handler (chat)", () => {
         runId: "run-1",
         sessionKey: agents[0]!.sessionKey,
         state: "final",
-        message: { role: "assistant", content: "Done", timestamp: "2024-01-01T00:00:00.000Z" },
+        message: {
+          role: "assistant",
+          content: "Done",
+          timestamp: "2024-01-01T00:00:00.000Z",
+        },
       },
     });
 
     expect(updateSpecialLatestUpdate).toHaveBeenCalledTimes(1);
-    expect(updateSpecialLatestUpdate).toHaveBeenCalledWith("agent-1", agents[0], "hello");
+    expect(updateSpecialLatestUpdate).toHaveBeenCalledWith(
+      "agent-1",
+      agents[0],
+      "hello",
+    );
   });
 
   it("normalizes markdown-rich final assistant chat text before append and lastResult update", () => {
-    const agents = [createAgent({ status: "running", runId: "run-1", runStartedAt: 900 })];
-    const dispatched: Array<{ type: string; line?: string; patch?: unknown }> = [];
-    const normalizedAssistantText = ["- item one", "- item two", "", "```ts", "const n = 1;", "```"].join(
-      "\n"
-    );
+    const agents = [
+      createAgent({ status: "running", runId: "run-1", runStartedAt: 900 }),
+    ];
+    const dispatched: Array<{ type: string; line?: string; patch?: unknown }> =
+      [];
+    const normalizedAssistantText = [
+      "- item one",
+      "- item two",
+      "",
+      "```ts",
+      "const n = 1;",
+      "```",
+    ].join("\n");
     const handler = createGatewayRuntimeEventHandler({
       getStatus: () => "connected",
       getAgents: () => agents,
@@ -343,22 +419,25 @@ describe("gateway runtime event handler (chat)", () => {
         state: "final",
         message: {
           role: "assistant",
-          content: "\n- item one  \r\n- item two\t \r\n\r\n\r\n```ts  \r\nconst n = 1;\t\r\n```\r\n\r\n",
+          content:
+            "\n- item one  \r\n- item two\t \r\n\r\n\r\n```ts  \r\nconst n = 1;\t\r\n```\r\n\r\n",
         },
       },
     });
 
     expect(
       dispatched.some(
-        (entry) => entry.type === "appendOutput" && entry.line === normalizedAssistantText
-      )
+        (entry) =>
+          entry.type === "appendOutput" &&
+          entry.line === normalizedAssistantText,
+      ),
     ).toBe(true);
     expect(
       dispatched.some((entry) => {
         if (entry.type !== "updateAgent") return false;
         const patch = entry.patch as Record<string, unknown>;
         return patch.lastResult === normalizedAssistantText;
-      })
+      }),
     ).toBe(true);
   });
 
@@ -461,8 +540,8 @@ describe("gateway runtime event handler (chat)", () => {
           (entry) =>
             entry.type === "appendOutput" &&
             entry.line === "fallback final" &&
-            typeof entry.transcript === "object"
-        )
+            typeof entry.transcript === "object",
+        ),
       ).toBe(true);
 
       const event: EventFrame = {
@@ -482,30 +561,29 @@ describe("gateway runtime event handler (chat)", () => {
         name: "Agent One",
         sessionKey: agents[0]!.sessionKey,
       };
-      let state = agentStoreReducer(initialAgentStoreState, {
-        type: "hydrateAgents",
-        agents: [seed],
+      useAgentZustandStore.setState({
+        agents: [],
+        selectedAgentId: null,
+        loading: false,
+        error: null,
       });
-      state = agentStoreReducer(state, {
-        type: "updateAgent",
-        agentId: "agent-1",
-        patch: {
-          status: "running",
-          runId: "run-1",
-          runStartedAt: 900,
-          streamText: "fallback final",
-        },
+      useAgentZustandStore.getState().hydrateAgents([seed]);
+      useAgentZustandStore.getState().updateAgent("agent-1", {
+        status: "running",
+        runId: "run-1",
+        runStartedAt: 900,
+        streamText: "fallback final",
       });
-      for (const action of dispatched) {
-        if (!action || typeof action !== "object") continue;
-        if (typeof (action as { type?: unknown }).type !== "string") continue;
-        state = agentStoreReducer(state, action as never);
-      }
-      const agentState = state.agents.find((entry) => entry.agentId === "agent-1");
+      replayDispatchedToZustand(dispatched);
+      const agentState = useAgentZustandStore
+        .getState()
+        .agents.find((entry) => entry.agentId === "agent-1");
       const transcriptEntries = agentState?.transcriptEntries ?? [];
-      const assistantEntries = transcriptEntries.filter((entry) => entry.kind === "assistant");
+      const assistantEntries = transcriptEntries.filter(
+        (entry) => entry.kind === "assistant",
+      );
       const assistantMetaEntries = transcriptEntries.filter(
-        (entry) => entry.kind === "meta" && entry.role === "assistant"
+        (entry) => entry.kind === "meta" && entry.role === "assistant",
       );
 
       expect(assistantEntries).toHaveLength(1);
@@ -513,7 +591,7 @@ describe("gateway runtime event handler (chat)", () => {
       expect(assistantMetaEntries).toHaveLength(1);
       expect(metricSpy).toHaveBeenCalledWith(
         "lifecycle_fallback_replaced_by_chat_final",
-        expect.objectContaining({ runId: "run-1" })
+        expect.objectContaining({ runId: "run-1" }),
       );
     } finally {
       metricSpy.mockRestore();
@@ -526,7 +604,9 @@ describe("gateway runtime event handler (chat)", () => {
       .spyOn(transcriptState, "logTranscriptDebugMetric")
       .mockImplementation(() => {});
     try {
-      const agents = [createAgent({ status: "running", runId: "run-1", runStartedAt: 900 })];
+      const agents = [
+        createAgent({ status: "running", runId: "run-1", runStartedAt: 900 }),
+      ];
       const dispatched: Array<Record<string, unknown>> = [];
       const dispatch = vi.fn((action) => {
         dispatched.push(action as never);
@@ -588,33 +668,30 @@ describe("gateway runtime event handler (chat)", () => {
         name: "Agent One",
         sessionKey: agents[0]!.sessionKey,
       };
-      let state = agentStoreReducer(initialAgentStoreState, {
-        type: "hydrateAgents",
-        agents: [seed],
+      useAgentZustandStore.setState({
+        agents: [],
+        selectedAgentId: null,
+        loading: false,
+        error: null,
       });
-      state = agentStoreReducer(state, {
-        type: "updateAgent",
-        agentId: "agent-1",
-        patch: {
-          status: "running",
-          runId: "run-1",
-          runStartedAt: 900,
-        },
+      useAgentZustandStore.getState().hydrateAgents([seed]);
+      useAgentZustandStore.getState().updateAgent("agent-1", {
+        status: "running",
+        runId: "run-1",
+        runStartedAt: 900,
       });
-      for (const action of dispatched) {
-        if (!action || typeof action !== "object") continue;
-        if (typeof (action as { type?: unknown }).type !== "string") continue;
-        state = agentStoreReducer(state, action as never);
-      }
-      const agentState = state.agents.find((entry) => entry.agentId === "agent-1");
+      replayDispatchedToZustand(dispatched);
+      const agentState = useAgentZustandStore
+        .getState()
+        .agents.find((entry) => entry.agentId === "agent-1");
       const assistantEntries = (agentState?.transcriptEntries ?? []).filter(
-        (entry) => entry.kind === "assistant"
+        (entry) => entry.kind === "assistant",
       );
 
       expect(assistantEntries).toHaveLength(1);
       expect(assistantEntries[0]?.text).toBe("final seq 4");
       const staleCalls = metricSpy.mock.calls.filter(
-        (call) => call[0] === "stale_terminal_chat_event_ignored"
+        (call) => call[0] === "stale_terminal_chat_event_ignored",
       );
       expect(staleCalls).toHaveLength(2);
       expect(staleCalls[0]?.[1]).toEqual(
@@ -623,7 +700,7 @@ describe("gateway runtime event handler (chat)", () => {
           seq: 4,
           lastTerminalSeq: 4,
           commitSource: "chat-final",
-        })
+        }),
       );
       expect(staleCalls[1]?.[1]).toEqual(
         expect.objectContaining({
@@ -631,7 +708,7 @@ describe("gateway runtime event handler (chat)", () => {
           seq: 3,
           lastTerminalSeq: 4,
           commitSource: "chat-final",
-        })
+        }),
       );
     } finally {
       metricSpy.mockRestore();
@@ -639,7 +716,9 @@ describe("gateway runtime event handler (chat)", () => {
   });
 
   it("accepts higher-sequence terminal chat events and keeps newest final text", () => {
-    const agents = [createAgent({ status: "running", runId: "run-1", runStartedAt: 900 })];
+    const agents = [
+      createAgent({ status: "running", runId: "run-1", runStartedAt: 900 }),
+    ];
     const dispatched: Array<Record<string, unknown>> = [];
     const dispatch = vi.fn((action) => {
       dispatched.push(action as never);
@@ -690,27 +769,24 @@ describe("gateway runtime event handler (chat)", () => {
       name: "Agent One",
       sessionKey: agents[0]!.sessionKey,
     };
-    let state = agentStoreReducer(initialAgentStoreState, {
-      type: "hydrateAgents",
-      agents: [seed],
+    useAgentZustandStore.setState({
+      agents: [],
+      selectedAgentId: null,
+      loading: false,
+      error: null,
     });
-    state = agentStoreReducer(state, {
-      type: "updateAgent",
-      agentId: "agent-1",
-      patch: {
-        status: "running",
-        runId: "run-1",
-        runStartedAt: 900,
-      },
+    useAgentZustandStore.getState().hydrateAgents([seed]);
+    useAgentZustandStore.getState().updateAgent("agent-1", {
+      status: "running",
+      runId: "run-1",
+      runStartedAt: 900,
     });
-    for (const action of dispatched) {
-      if (!action || typeof action !== "object") continue;
-      if (typeof (action as { type?: unknown }).type !== "string") continue;
-      state = agentStoreReducer(state, action as never);
-    }
-    const agentState = state.agents.find((entry) => entry.agentId === "agent-1");
+    replayDispatchedToZustand(dispatched);
+    const agentState = useAgentZustandStore
+      .getState()
+      .agents.find((entry) => entry.agentId === "agent-1");
     const assistantEntries = (agentState?.transcriptEntries ?? []).filter(
-      (entry) => entry.kind === "assistant"
+      (entry) => entry.kind === "assistant",
     );
 
     expect(assistantEntries).toHaveLength(1);
@@ -727,7 +803,11 @@ describe("gateway runtime event handler (chat)", () => {
         thinkingTrace: "t",
       }),
     ];
-    const dispatched: Array<{ type: string; agentId: string; patch?: unknown }> = [];
+    const dispatched: Array<{
+      type: string;
+      agentId: string;
+      patch?: unknown;
+    }> = [];
     const dispatch = vi.fn((action) => {
       if (action && typeof action === "object") {
         dispatched.push(action as never);
@@ -766,14 +846,20 @@ describe("gateway runtime event handler (chat)", () => {
     const terminalClears = dispatched.filter((entry) => {
       if (entry.type !== "updateAgent") return false;
       const patch = entry.patch as Record<string, unknown>;
-      return patch.streamText === null || patch.thinkingTrace === null || patch.runStartedAt === null;
+      return (
+        patch.streamText === null ||
+        patch.thinkingTrace === null ||
+        patch.runStartedAt === null
+      );
     });
     expect(terminalClears.length).toBe(0);
     expect(requestHistoryRefresh).not.toHaveBeenCalled();
   });
 
   it("handles aborted/error by appending output and clearing stream fields", () => {
-    const agents = [createAgent({ status: "running", runId: "run-1", runStartedAt: 900 })];
+    const agents = [
+      createAgent({ status: "running", runId: "run-1", runStartedAt: 900 }),
+    ];
     const dispatch = vi.fn();
     const handler = createGatewayRuntimeEventHandler({
       getStatus: () => "connected",
@@ -805,14 +891,18 @@ describe("gateway runtime event handler (chat)", () => {
     });
 
     expect(dispatch).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "appendOutput", agentId: "agent-1", line: "Run aborted." })
+      expect.objectContaining({
+        type: "appendOutput",
+        agentId: "agent-1",
+        line: "Run aborted.",
+      }),
     );
     expect(dispatch).toHaveBeenCalledWith(
       expect.objectContaining({
         type: "updateAgent",
         agentId: "agent-1",
         patch: expect.objectContaining({ status: "idle" }),
-      })
+      }),
     );
 
     const errorDispatch = vi.fn();
@@ -847,19 +937,25 @@ describe("gateway runtime event handler (chat)", () => {
     });
 
     expect(errorDispatch).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "appendOutput", agentId: "agent-1", line: "Error: bad" })
+      expect.objectContaining({
+        type: "appendOutput",
+        agentId: "agent-1",
+        line: "Error: bad",
+      }),
     );
     expect(errorDispatch).toHaveBeenCalledWith(
       expect.objectContaining({
         type: "updateAgent",
         agentId: "agent-1",
         patch: expect.objectContaining({ status: "error" }),
-      })
+      }),
     );
   });
 
   it("suppresses aborted status line when abort is an approval pause", () => {
-    const agents = [createAgent({ status: "running", runId: "run-1", runStartedAt: 900 })];
+    const agents = [
+      createAgent({ status: "running", runId: "run-1", runStartedAt: 900 }),
+    ];
     const dispatch = vi.fn();
     const shouldSuppressRunAbortedLine = vi.fn(({ runId, stopReason }) => {
       return runId === "run-1" && stopReason === "rpc";
@@ -900,22 +996,28 @@ describe("gateway runtime event handler (chat)", () => {
         agentId: "agent-1",
         runId: "run-1",
         stopReason: "rpc",
-      })
+      }),
     );
     expect(dispatch).not.toHaveBeenCalledWith(
-      expect.objectContaining({ type: "appendOutput", agentId: "agent-1", line: "Run aborted." })
+      expect.objectContaining({
+        type: "appendOutput",
+        agentId: "agent-1",
+        line: "Run aborted.",
+      }),
     );
     expect(dispatch).toHaveBeenCalledWith(
       expect.objectContaining({
         type: "updateAgent",
         agentId: "agent-1",
         patch: expect.objectContaining({ status: "idle" }),
-      })
+      }),
     );
   });
 
   it("ignores late delta chat events after a run has already finalized", () => {
-    const agents = [createAgent({ status: "running", runId: "run-1", runStartedAt: 900 })];
+    const agents = [
+      createAgent({ status: "running", runId: "run-1", runStartedAt: 900 }),
+    ];
     const queueLivePatch = vi.fn();
     const handler = createGatewayRuntimeEventHandler({
       getStatus: () => "connected",

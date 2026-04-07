@@ -21,6 +21,7 @@ type ModelSelectorProps = {
   value: string;
   onChange: (value: string | null) => void;
   onConfigureProviders?: () => void;
+  onConfigureModel?: () => void;
 };
 
 const CATEGORY_ICONS: Record<string, typeof Zap> = {
@@ -50,6 +51,7 @@ export const ModelSelector = ({
   value,
   onChange,
   onConfigureProviders,
+  onConfigureModel,
 }: ModelSelectorProps) => {
   const t = useTranslations("modelSelector");
   const [open, setOpen] = useState(false);
@@ -266,6 +268,23 @@ export const ModelSelector = ({
               </div>
             ) : null}
           </div>
+
+          {onConfigureModel && models.length > 0 ? (
+            <div className="border-t border-border bg-card/95 px-2 py-1.5 rounded-b-xl">
+              <button
+                type="button"
+                className="flex w-full items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[10px] font-medium text-muted-foreground hover:bg-surface-2 hover:text-foreground transition-colors"
+                onClick={() => {
+                  onConfigureModel();
+                  setOpen(false);
+                  setSearch("");
+                }}
+              >
+                <Settings className="h-3 w-3" aria-hidden="true" />
+                Configuration des modèles...
+              </button>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>

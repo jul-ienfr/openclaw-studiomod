@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import fs from "node:fs";
+
 import path from "node:path";
 import { resolveStateDir } from "@/lib/clawdbot/paths";
 import { withErrorHandler } from "@/lib/api/error-handler";
@@ -20,17 +21,23 @@ function readJson(filePath: string): unknown {
 
 function rangeMs(range: TimeRange): number {
   switch (range) {
-    case "24h": return 24 * 60 * 60 * 1000;
-    case "7d": return 7 * 24 * 60 * 60 * 1000;
-    case "30d": return 30 * 24 * 60 * 60 * 1000;
+    case "24h":
+      return 24 * 60 * 60 * 1000;
+    case "7d":
+      return 7 * 24 * 60 * 60 * 1000;
+    case "30d":
+      return 30 * 24 * 60 * 60 * 1000;
   }
 }
 
 function rangeSqlite(range: TimeRange): string {
   switch (range) {
-    case "24h": return "-1 day";
-    case "7d": return "-7 days";
-    case "30d": return "-30 days";
+    case "24h":
+      return "-1 day";
+    case "7d":
+      return "-7 days";
+    case "30d":
+      return "-30 days";
   }
 }
 
@@ -40,10 +47,6 @@ function groupByFormat(range: TimeRange): string {
 
 function tryQueryMetrics(range: TimeRange) {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { runMigrations } = require("@/lib/db/migrations");
-    runMigrations();
-
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { getDb } = require("@/lib/db/studio-db");
     const db = getDb();
@@ -72,7 +75,11 @@ function tryQueryMetrics(range: TimeRange) {
          GROUP BY period, metric_type
          ORDER BY period ASC`,
       )
-      .all(fmt, since) as { period: string; metric_type: string; cnt: number }[];
+      .all(fmt, since) as {
+      period: string;
+      metric_type: string;
+      cnt: number;
+    }[];
 
     // Agent breakdown
     const agentBreakdown = db
@@ -87,7 +94,11 @@ function tryQueryMetrics(range: TimeRange) {
          ORDER BY message_count DESC
          LIMIT 20`,
       )
-      .all(since) as { agent_id: string; message_count: number; last_active: string }[];
+      .all(since) as {
+      agent_id: string;
+      message_count: number;
+      last_active: string;
+    }[];
 
     // Response time averages per agent
     const responseTimes = db
@@ -113,7 +124,13 @@ function tryQueryMetrics(range: TimeRange) {
       .all(since) as { total_tokens: number }[];
 
     db.close();
-    return { typeCounts, timeSeries, agentBreakdown, responseTimes, tokenUsage };
+    return {
+      typeCounts,
+      timeSeries,
+      agentBreakdown,
+      responseTimes,
+      tokenUsage,
+    };
   } catch {
     return null;
   }
@@ -142,9 +159,13 @@ async function get_handler(request: Request) {
     }
 
     // Read openclaw.json for agent config
-    const config = readJson(path.join(stateDir, "openclaw.json")) as Record<string, unknown> | null;
+    const config = readJson(path.join(stateDir, "openclaw.json")) as Record<
+      string,
+      unknown
+    > | null;
     const agentsConfig = (config?.agents as Record<string, unknown>) ?? {};
-    const configAgents = (agentsConfig.agents as Record<string, Record<string, unknown>>) ?? {};
+    const configAgents =
+      (agentsConfig.agents as Record<string, Record<string, unknown>>) ?? {};
 
     // Read sessions and compute message counts per agent
     const cutoff = Date.now() - rangeMs(range);
@@ -154,11 +175,13 @@ async function get_handler(request: Request) {
       messageCount: number;
       lastActive: number;
       enabled: boolean;
+      tokensUsed: number;
     }> = [];
 
     let totalSent = 0;
     let totalReceived = 0;
     let totalConversations = 0;
+    let sessionTokensTotal = 0;
 
     // Messages per day/hour buckets
     const bucketCount = range === "24h" ? 24 : range === "7d" ? 7 : 30;
@@ -169,46 +192,92 @@ async function get_handler(request: Request) {
 
     for (const agentId of agentIds) {
       const agentConf = configAgents[agentId] ?? {};
-      const sessionsPath = path.join(stateDir, "agents", agentId, "sessions", "sessions.json");
-      const sessionsData = readJson(sessionsPath) as Record<string, unknown> | null;
+      const sessionsPath = path.join(
+        stateDir,
+        "agents",
+        agentId,
+        "sessions",
+        "sessions.json",
+      );
+      const sessionsData = readJson(sessionsPath) as Record<
+        string,
+        unknown
+      > | null;
       let agentMessages = 0;
+      let agentTokens = 0;
       let lastActive = 0;
 
       if (sessionsData) {
-        const entries = sessionsData.sessions as Record<string, unknown> | undefined;
-        if (entries) {
-          totalConversations += Object.keys(entries).length;
-          for (const sessionVal of Object.values(entries)) {
-            const session = sessionVal as Record<string, unknown>;
-            const history = (session.history ?? session.messages ?? []) as Array<Record<string, unknown>>;
-            for (const msg of history) {
-              const ts = typeof msg.createdAt === "number" ? msg.createdAt :
-                         typeof msg.timestamp === "number" ? msg.timestamp : 0;
-              if (ts > 0 && ts >= cutoff) {
-                agentMessages++;
-                if (ts > lastActive) lastActive = ts;
-                const role = String(msg.role ?? "");
-                if (role === "user") totalSent++;
-                if (role === "assistant") totalReceived++;
+        // Sessions are stored directly at root level (not under a "sessions" key)
+        const sessionsDir = path.join(stateDir, "agents", agentId, "sessions");
+        for (const [, sessionVal] of Object.entries(sessionsData)) {
+          const session = sessionVal as Record<string, unknown>;
+          const updatedAt =
+            typeof session.updatedAt === "number" ? session.updatedAt : 0;
+          if (updatedAt > lastActive) lastActive = updatedAt;
 
-                // Bucket assignment
-                const bucketIndex = Math.floor((ts - (now - rangeMs(range))) / bucketSize);
-                if (bucketIndex >= 0 && bucketIndex < bucketCount) {
-                  if (role === "user") sentBuckets[bucketIndex]++;
-                  if (role === "assistant") receivedBuckets[bucketIndex]++;
+          // Count tokens from session metadata
+          const sessionTokens =
+            typeof session.totalTokens === "number" ? session.totalTokens : 0;
+          agentTokens += sessionTokens;
+
+          // Only parse JSONL for sessions active within the time range
+          if (updatedAt >= cutoff) {
+            totalConversations++;
+            const sessionFile =
+              typeof session.sessionFile === "string"
+                ? session.sessionFile
+                : typeof session.sessionId === "string"
+                  ? path.join(sessionsDir, `${session.sessionId}.jsonl`)
+                  : null;
+            if (sessionFile && fs.existsSync(sessionFile)) {
+              try {
+                const content = fs.readFileSync(sessionFile, "utf8");
+                for (const line of content.split("\n")) {
+                  if (!line.trim()) continue;
+                  try {
+                    const entry = JSON.parse(line);
+                    if (entry.type !== "message") continue;
+                    const ts = entry.timestamp
+                      ? new Date(entry.timestamp).getTime()
+                      : 0;
+                    if (ts < cutoff) continue;
+                    const role = entry.message?.role;
+                    if (role === "user") {
+                      totalSent++;
+                      agentMessages++;
+                    }
+                    if (role === "assistant") {
+                      totalReceived++;
+                      agentMessages++;
+                    }
+                    const bucketIndex = Math.floor(
+                      (ts - (now - rangeMs(range))) / bucketSize,
+                    );
+                    if (bucketIndex >= 0 && bucketIndex < bucketCount) {
+                      if (role === "user") sentBuckets[bucketIndex]++;
+                      if (role === "assistant") receivedBuckets[bucketIndex]++;
+                    }
+                  } catch {
+                    /* skip malformed lines */
+                  }
                 }
+              } catch {
+                /* skip unreadable files */
               }
             }
           }
         }
       }
 
+      sessionTokensTotal += agentTokens;
       agentStats.push({
         agentId,
         agentName: (agentConf.displayName as string) ?? agentId,
         messageCount: agentMessages,
         lastActive,
         enabled: agentConf.enabled !== false,
+        tokensUsed: agentTokens,
       });
     }
 
@@ -224,13 +293,17 @@ async function get_handler(request: Request) {
         const existing = agentStats.find((a) => a.agentId === row.agent_id);
         if (existing) {
           // SQLite data supplements session data
-          existing.messageCount = Math.max(existing.messageCount, row.message_count);
+          existing.messageCount = Math.max(
+            existing.messageCount,
+            row.message_count,
+          );
         }
       }
     }
 
     // Token count from SQLite if available
-    const totalTokens = sqliteData?.tokenUsage?.[0]?.total_tokens ?? 0;
+    const totalTokens =
+      sqliteData?.tokenUsage?.[0]?.total_tokens || sessionTokensTotal;
 
     // Build time series points
     const makeTimeSeries = (buckets: number[]) =>
@@ -255,16 +328,34 @@ async function get_handler(request: Request) {
 
     // Metrics summary
     const metrics = [
-      { id: "total-conversations", label: "Conversations", value: totalConversations, unit: "" },
+      {
+        id: "total-conversations",
+        label: "Conversations",
+        value: totalConversations,
+        unit: "",
+      },
       { id: "messages-sent", label: "Sent", value: totalSent, unit: "msg" },
-      { id: "messages-received", label: "Received", value: totalReceived, unit: "msg" },
-      { id: "active-agents", label: "Active Agents", value: activeAgents, unit: "" },
+      {
+        id: "messages-received",
+        label: "Received",
+        value: totalReceived,
+        unit: "msg",
+      },
+      {
+        id: "active-agents",
+        label: "Active Agents",
+        value: activeAgents,
+        unit: "",
+      },
       { id: "tokens-consumed", label: "Tokens", value: totalTokens, unit: "" },
     ];
 
     const timeSeries = [
       { metricId: "messages-sent", points: makeTimeSeries(sentBuckets) },
-      { metricId: "messages-received", points: makeTimeSeries(receivedBuckets) },
+      {
+        metricId: "messages-received",
+        points: makeTimeSeries(receivedBuckets),
+      },
     ];
 
     // Agent leaderboard
@@ -278,7 +369,7 @@ async function get_handler(request: Request) {
         lastActive: a.lastActive,
         avgResponseTime: 0,
         errorRate: 0,
-        tokensUsed: 0,
+        tokensUsed: a.tokensUsed,
       }));
 
     // Overlay response times from SQLite
@@ -301,8 +392,18 @@ async function get_handler(request: Request) {
       })),
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to load analytics";
-    return NextResponse.json({ error: message, metrics: [], timeSeries: [], leaderboard: [], agents: [] }, { status: 500 });
+    const message =
+      err instanceof Error ? err.message : "Failed to load analytics";
+    return NextResponse.json(
+      {
+        error: message,
+        metrics: [],
+        timeSeries: [],
+        leaderboard: [],
+        agents: [],
+      },
+      { status: 500 },
+    );
   }
 }
 

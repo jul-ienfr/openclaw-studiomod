@@ -11,7 +11,10 @@ export type PanelKey =
   | "logViewer"
   | "canvas"
   | "intercom"
-  | "voice";
+  | "voice"
+  | "claudeCode"
+  | "browserView"
+  | "acpBridge";
 
 export type PanelVisibility = Record<PanelKey, boolean>;
 
@@ -33,6 +36,9 @@ export function usePanelVisibility() {
   const [showCanvas, setShowCanvas] = useState(false);
   const [showIntercom, setShowIntercom] = useState(false);
   const [showVoice, setShowVoice] = useState(false);
+  const [showClaudeCode, setShowClaudeCode] = useState(false);
+  const [showBrowserView, setShowBrowserView] = useState(false);
+  const [showAcpBridge, setShowAcpBridge] = useState(false);
 
   const panels: PanelVisibility = {
     connection: showConnectionPanel,
@@ -46,6 +52,9 @@ export function usePanelVisibility() {
     canvas: showCanvas,
     intercom: showIntercom,
     voice: showVoice,
+    claudeCode: showClaudeCode,
+    browserView: showBrowserView,
+    acpBridge: showAcpBridge,
   };
 
   const setterMap: Record<
@@ -63,6 +72,9 @@ export function usePanelVisibility() {
     canvas: setShowCanvas,
     intercom: setShowIntercom,
     voice: setShowVoice,
+    claudeCode: setShowClaudeCode,
+    browserView: setShowBrowserView,
+    acpBridge: setShowAcpBridge,
   };
 
   const show = useCallback(

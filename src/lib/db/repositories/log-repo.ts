@@ -26,13 +26,9 @@ export function insertLog(
   metadata?: unknown,
 ): void {
   const db = getDbWrite();
-  try {
-    db.prepare(
-      "INSERT INTO logs (level, source, message, metadata) VALUES (?, ?, ?, ?)",
-    ).run(level, source, message, metadata ? JSON.stringify(metadata) : null);
-  } finally {
-    db.close();
-  }
+  db.prepare(
+    "INSERT INTO logs (level, source, message, metadata) VALUES (?, ?, ?, ?)",
+  ).run(level, source, message, metadata ? JSON.stringify(metadata) : null);
 }
 
 /** Query logs with optional filters */
@@ -43,53 +39,43 @@ export function queryLogs(opts: {
   limit?: number;
 }): LogEntry[] {
   const db = getDb();
-  try {
-    const conditions: string[] = [];
-    const params: (string | number | null)[] = [];
+  const conditions: string[] = [];
+  const params: (string | number | null)[] = [];
 
-    if (opts.level) {
-      conditions.push("level = ?");
-      params.push(opts.level);
-    }
-    if (opts.source) {
-      conditions.push("source = ?");
-      params.push(opts.source);
-    }
-    if (opts.since) {
-      conditions.push("timestamp >= ?");
-      params.push(opts.since);
-    }
-
-    const where =
-      conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-    const limit = opts.limit ?? 100;
-
-    const rows = db
-      .prepare(
-        `SELECT id, timestamp, level, source, message, metadata FROM logs ${where} ORDER BY timestamp DESC LIMIT ?`,
-      )
-      .all(...params, limit) as LogRow[];
-
-    return rows.map((row) => ({
-      ...row,
-      metadata: row.metadata ? JSON.parse(row.metadata) : null,
-    }));
-  } finally {
-    db.close();
+  if (opts.level) {
+    conditions.push("level = ?");
+    params.push(opts.level);
   }
+  if (opts.source) {
+    conditions.push("source = ?");
+    params.push(opts.source);
+  }
+  if (opts.since) {
+    conditions.push("timestamp >= ?");
+    params.push(opts.since);
+  }
+
+  const where =
+    conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  const limit = opts.limit ?? 100;
+
+  const rows = db
+    .prepare(
+      `SELECT id, timestamp, level, source, message, metadata FROM logs ${where} ORDER BY timestamp DESC LIMIT ?`,
+    )
+    .all(...params, limit) as LogRow[];
+
+  return rows.map((row) => ({
+    ...row,
+    metadata: row.metadata ? JSON.parse(row.metadata) : null,
+  }));
 }
 
 /** Delete logs older than the specified number of days */
 export function pruneLogs(olderThanDays: number): number {
   const db = getDbWrite();
-  try {
-    const result = db
-      .prepare(
-        "DELETE FROM logs WHERE timestamp < datetime('now', ?)",
-      )
-      .run(`-${olderThanDays} days`);
-    return result.changes;
-  } finally {
-    db.close();
-  }
+  const result = db
+    .prepare("DELETE FROM logs WHERE timestamp < datetime('now', ?)")
+    .run(`-${olderThanDays} days`);
+  return result.changes;
 }

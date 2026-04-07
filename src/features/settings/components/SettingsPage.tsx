@@ -76,6 +76,32 @@ const MobilePanel = dynamic(
     ),
   { ssr: false },
 );
+const ThemeEditorTab = dynamic(
+  () =>
+    import("@/features/config/components/ThemeEditorTab").then(
+      (m) => m.ThemeEditorTab,
+    ),
+  { ssr: false },
+);
+const PillarsTab = dynamic(
+  () =>
+    import("@/features/config/components/PillarsTab").then((m) => m.PillarsTab),
+  { ssr: false },
+);
+const CredentialsPanel = dynamic(
+  () =>
+    import("@/features/settings/components/CredentialsPanel").then(
+      (m) => m.CredentialsPanel,
+    ),
+  { ssr: false },
+);
+const ModelsPanel = dynamic(
+  () =>
+    import("@/features/models/components/ModelsPanel").then(
+      (m) => m.ModelsPanel,
+    ),
+  { ssr: false },
+);
 
 type Section = {
   key: string;
@@ -87,7 +113,7 @@ const SECTIONS: Section[] = [
   { key: "organisation", subs: ["pillars", "workflows"] },
   {
     key: "integrations",
-    subs: ["providers", "credentials", "channels", "skills"],
+    subs: ["providers", "credentials", "channels", "skills", "models"],
   },
   { key: "automation", subs: ["routing", "webhooks", "voice"] },
   { key: "system", subs: ["mobile", "advanced"] },
@@ -112,7 +138,12 @@ function ContentPanel({ section, sub }: { section: string; sub: string }) {
   if (section === "automation" && sub === "voice") return <VoiceControls />;
   if (section === "organisation" && sub === "workflows")
     return <WorkflowEditor />;
+  if (section === "appearance" && sub === "theme") return <ThemeEditorTab />;
   if (section === "appearance" && sub === "branding") return <BrandingPanel />;
+  if (section === "organisation" && sub === "pillars") return <PillarsTab />;
+  if (section === "integrations" && sub === "credentials")
+    return <CredentialsPanel />;
+  if (section === "integrations" && sub === "models") return <ModelsPanel />;
   if (section === "system" && sub === "advanced") return <AdvancedPanel />;
   if (section === "system" && sub === "mobile") return <MobilePanel />;
   return null;
@@ -169,7 +200,7 @@ function SettingsPageInner() {
       </aside>
 
       {/* Content */}
-      <main className="min-w-0 flex-1 overflow-hidden">
+      <main className="min-w-0 flex-1 overflow-y-auto p-6">
         <Suspense fallback={<LoadingFallback />}>
           <ContentPanel section={activeSection} sub={activeSub} />
         </Suspense>

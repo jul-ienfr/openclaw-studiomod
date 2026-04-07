@@ -1,7 +1,12 @@
 import { createContext, useContext } from "react";
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
-import type { ProviderId, ProviderConfig, ProviderWithStatus, ProviderKeyEntry } from "./types";
+import type {
+  ProviderId,
+  ProviderConfig,
+  ProviderWithStatus,
+  ProviderKeyEntry,
+} from "./types";
 import { PROVIDER_REGISTRY, getProviderById } from "./providerRegistry";
 
 const STORAGE_KEY = "openclaw-studio-providers";
@@ -11,6 +16,7 @@ export type ProviderStoreState = {
 };
 
 export type ProviderStoreActions = {
+  loadConfigs: (newConfigs: Record<string, ProviderConfig>) => void;
   saveProvider: (config: ProviderConfig) => void;
   removeProvider: (storageKey: string) => void;
   getProvidersWithStatus: () => ProviderWithStatus[];
@@ -29,6 +35,10 @@ export const useProviderZustandStore = create<ProviderZustandStore>()(
   devtools(
     (set, get) => ({
       configs: {},
+
+      loadConfigs: (newConfigs: Record<string, ProviderConfig>) => {
+        set(() => ({ configs: newConfigs }), false, "loadConfigs");
+      },
 
       saveProvider: (config: ProviderConfig) => {
         set(
@@ -72,12 +82,13 @@ export const useProviderZustandStore = create<ProviderZustandStore>()(
 export const ProviderStoreContext = createContext<ProviderStore | null>(null);
 
 export const useProviderStore = (): ProviderStore => {
+  const store = useProviderZustandStore();
   // If a Context provider is present (e.g. ProviderStoreProvider), prefer it
   // so that components nested inside it receive the same reference.
   const ctx = useContext(ProviderStoreContext);
   if (ctx) return ctx;
   // Fallback: return the Zustand store directly (works outside any Provider).
-  return useProviderZustandStore();
+  return store;
 };
 
 const migrateProviderConfig = (
@@ -135,7 +146,9 @@ type GatewayProviderInfo = {
 };
 
 /** Fetch configured providers from openclaw.json via the API, merge with localStorage */
-export const fetchProviderConfigs = async (): Promise<Record<string, ProviderConfig>> => {
+export const fetchProviderConfigs = async (): Promise<
+  Record<string, ProviderConfig>
+> => {
   try {
     const res = await fetch("/api/providers");
     if (!res.ok) return loadProviderConfigs();
@@ -165,7 +178,9 @@ export const fetchProviderConfigs = async (): Promise<Record<string, ProviderCon
 };
 
 /** Persist a provider to openclaw.json (masked key awareness: only send if changed from "****") */
-export const patchGatewayProvider = async (config: ProviderConfig): Promise<void> => {
+export const patchGatewayProvider = async (
+  config: ProviderConfig,
+): Promise<void> => {
   const isMasked = (val?: string) => val?.includes("****") ?? false;
   const def = getProviderById(config.id);
   const storageKey = config.storageKey || config.id;
@@ -178,14 +193,20 @@ export const patchGatewayProvider = async (config: ProviderConfig): Promise<void
       api: def?.ocApi,
       label: config.label,
       apiKey: isMasked(config.apiKey) ? undefined : config.apiKey,
-      accessToken: isMasked(config.accessToken) ? undefined : config.accessToken,
+      accessToken: isMasked(config.accessToken)
+        ? undefined
+        : config.accessToken,
       baseUrl: effectiveBaseUrl,
     }),
   });
 };
 
-export const deleteGatewayProvider = async (storageKey: string): Promise<void> => {
-  await fetch(`/api/providers?id=${encodeURIComponent(storageKey)}`, { method: "DELETE" });
+export const deleteGatewayProvider = async (
+  storageKey: string,
+): Promise<void> => {
+  await fetch(`/api/providers?id=${encodeURIComponent(storageKey)}`, {
+    method: "DELETE",
+  });
 };
 
 const isProviderConfigured = (config?: ProviderConfig): boolean => {
@@ -209,13 +230,19 @@ const REGISTRY_IDS = new Set(PROVIDER_REGISTRY.map((d) => d.id));
  * Resolve which registry provider a storage key belongs to.
  * e.g. "anthropic-proxy" with api "anthropic-messages" → "anthropic"
  */
-export function resolveParentProviderId(storageKey: string, api?: string): string {
+export function resolveParentProviderId(
+  storageKey: string,
+  api?: string,
+): string {
   // Exact match to registry
   if (REGISTRY_IDS.has(storageKey as ProviderId)) return storageKey;
 
   // Check prefix match: "anthropic-proxy" starts with "anthropic"
   for (const regId of REGISTRY_IDS) {
-    if (storageKey.startsWith(regId + "-") || storageKey.startsWith(regId + "/")) {
+    if (
+      storageKey.startsWith(regId + "-") ||
+      storageKey.startsWith(regId + "/")
+    ) {
       return regId;
     }
   }
@@ -230,7 +257,11 @@ export function resolveParentProviderId(storageKey: string, api?: string): strin
 }
 
 /** Derive a display label from the storage key and parent */
-function deriveLabel(storageKey: string, parentId: string, storedLabel?: string): string {
+function deriveLabel(
+  storageKey: string,
+  parentId: string,
+  storedLabel?: string,
+): string {
   if (storedLabel) return storedLabel;
   if (storageKey === parentId) return "Default";
   // Strip parent prefix: "anthropic-proxy" → "proxy", "anthropic/work" → "work"
@@ -274,7 +305,9 @@ export const buildProvidersWithStatus = (
     results.push({
       id: parentId as ProviderId,
       name: parentId,
-      description: firstConfig.baseUrl ? `Custom endpoint: ${firstConfig.baseUrl}` : "Custom provider",
+      description: firstConfig.baseUrl
+        ? `Custom endpoint: ${firstConfig.baseUrl}`
+        : "Custom provider",
       docsUrl: "",
       iconColor: "#6B7280",
       models: [],
@@ -299,8 +332,15 @@ export const getConfiguredProviderIdsFromConfigs = (
 };
 
 /** Generate a storage key for a new key entry */
-export function generateStorageKey(parentId: string, label: string, existingKeys: string[]): string {
-  const slug = label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+export function generateStorageKey(
+  parentId: string,
+  label: string,
+  existingKeys: string[],
+): string {
+  const slug = label
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
   const candidate = slug ? `${parentId}-${slug}` : parentId;
   if (!existingKeys.includes(candidate)) return candidate;
   // Append number if collision

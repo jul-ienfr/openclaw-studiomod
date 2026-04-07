@@ -29,6 +29,10 @@ const injectAuthToken = (params, token) => {
   const next = isObject(params) ? { ...params } : {};
   const auth = isObject(next.auth) ? { ...next.auth } : {};
   auth.token = token;
+  // Remove stale device auth — token auth takes precedence when the
+  // server-side token is available.
+  delete auth.deviceToken;
+  delete next.device;
   next.auth = auth;
   return next;
 };
@@ -151,38 +155,21 @@ function createGatewayProxy(options) {
         return;
       }
 
-      // Log all browser requests for debugging.
-      if (parsed.type === "req") {
+      // Track connect requests for response tracking.
+      if (parsed.type === "req" && parsed.method === "connect") {
         const id = typeof parsed.id === "string" ? parsed.id : "";
-        const method = parsed.method || "?";
+        if (id) connectRequestId = id;
 
-        if (method === "connect") {
-          if (id) connectRequestId = id;
-
-          const browserHasAuth =
-            hasNonEmptyToken(parsed.params) ||
-            hasNonEmptyPassword(parsed.params) ||
-            hasNonEmptyDeviceToken(parsed.params) ||
-            hasCompleteDeviceAuth(parsed.params);
-
-          if (!browserHasAuth && upstreamToken) {
-            parsed.params = injectAuthToken(parsed.params, upstreamToken);
-          }
-
-          console.log(
-            `[gateway-proxy] browser → connect (id=${id}, browserAuth=${browserHasAuth}, tokenInjected=${!browserHasAuth && !!upstreamToken})`
-          );
-        } else {
-          console.log(`[gateway-proxy] browser → ${method} (id=${id})`);
-          if (method === "sessions.patch") {
-            debugRequestIds.add(id);
-            console.log(`[gateway-proxy] sessions.patch params: ${JSON.stringify(parsed.params)}`);
-          }
+        // Always inject server-side token when available.
+        // This ensures the correct (current) gateway token is used even
+        // when the browser has a stale token cached from a previous
+        // gateway session.
+        if (upstreamToken) {
+          parsed.params = injectAuthToken(parsed.params, upstreamToken);
         }
       }
 
       if (!upstreamWs) {
-        console.log("[gateway-proxy] browser message dropped — upstream not created yet");
         return;
       }
 
@@ -249,27 +236,6 @@ function createGatewayProxy(options) {
 
         upstreamWs.on("message", (upRaw) => {
           const upParsed = safeJsonParse(String(upRaw ?? ""));
-
-          // Log upstream messages for debugging.
-          if (upParsed && isObject(upParsed)) {
-            const kind = upParsed.type || "?";
-            const detail = upParsed.method || upParsed.event || "";
-            if (kind === "res" && upParsed.id) {
-              const ok = upParsed.ok !== false;
-              const isDebug = debugRequestIds.has(upParsed.id);
-              console.log(
-                `[gateway-proxy] gateway → res id=${upParsed.id} ok=${ok}${
-                  !ok ? " error=" + JSON.stringify(upParsed.error) : ""
-                }`
-              );
-              if (isDebug) {
-                console.log(`[gateway-proxy] sessions.patch FULL response: ${JSON.stringify(upParsed)}`);
-                debugRequestIds.delete(upParsed.id);
-              }
-            } else {
-              console.log(`[gateway-proxy] gateway → ${kind}/${detail}`);
-            }
-          }
 
           // Track connect response for error reporting.
           if (upParsed && isObject(upParsed) && upParsed.type === "res") {

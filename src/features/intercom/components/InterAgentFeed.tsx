@@ -1,16 +1,26 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
-import { MessageSquare, ArrowRight } from "lucide-react";
-import type { InterAgentMessage } from "../types";
-import { initIntercomStore, getIntercomMessages } from "../intercomStore";
+import {
+  MessageSquare,
+  ArrowRight,
+  RefreshCw,
+  Zap,
+  Bot,
+  ChevronLeft,
+} from "lucide-react";
 
-const MESSAGE_TYPE_COLORS: Record<InterAgentMessage["type"], string> = {
-  text: "text-foreground",
-  handoff: "text-amber-500",
-  data: "text-blue-500",
-  error: "text-destructive",
+type ApiMessage = {
+  id: string;
+  from: string;
+  to: string;
+  sessionKey: string;
+  label?: string;
+  role: string;
+  text: string;
+  ts: number;
+  sameAgent?: boolean;
 };
 
 type InterAgentFeedProps = {
@@ -19,69 +29,322 @@ type InterAgentFeedProps = {
 
 export const InterAgentFeed = ({ agentId }: InterAgentFeedProps) => {
   const t = useTranslations("intercom");
-  const [refreshKey, setRefreshKey] = useState(0);
+  const [messages, setMessages] = useState<ApiMessage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [lastRefresh, setLastRefresh] = useState<number>(0);
+
+  // Detail view state
+  const [selectedSession, setSelectedSession] = useState<{
+    sessionKey: string;
+    toAgent: string;
+    fromAgent: string;
+    label?: string;
+  } | null>(null);
+  const [detailMessages, setDetailMessages] = useState<ApiMessage[]>([]);
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  const fetchMessages = useCallback(async () => {
+    try {
+      const res = await fetch("/api/intercom", { cache: "no-store" });
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        throw new Error(`HTTP ${res.status}: ${body.slice(0, 100)}`);
+      }
+      const data = (await res.json()) as {
+        messages: ApiMessage[];
+        error?: string;
+      };
+      if (data.error) throw new Error(data.error);
+      let msgs = data.messages ?? [];
+      if (agentId) {
+        msgs = msgs.filter((m) => m.from === agentId || m.to === agentId);
+      }
+      setMessages(msgs);
+      setError(null);
+      setLastRefresh(Date.now());
+    } catch (err) {
+      console.error("[InterAgentFeed] fetch error:", err);
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+    }
+  }, [agentId]);
 
   useEffect(() => {
-    initIntercomStore();
-    const interval = setInterval(() => setRefreshKey((k) => k + 1), 5000);
+    fetchMessages();
+    const interval = setInterval(fetchMessages, 10_000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchMessages]);
 
-  const messages = useMemo(
-    () => getIntercomMessages(agentId),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [agentId, refreshKey],
+  const openSession = useCallback(
+    async (
+      sessionKey: string,
+      toAgent: string,
+      fromAgent: string,
+      label?: string,
+    ) => {
+      setSelectedSession({ sessionKey, toAgent, fromAgent, label });
+      setDetailLoading(true);
+      try {
+        const res = await fetch(
+          `/api/intercom?agentId=${encodeURIComponent(toAgent)}&sessionKey=${encodeURIComponent(sessionKey)}`,
+          { cache: "no-store" },
+        );
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = (await res.json()) as { messages: ApiMessage[] };
+        setDetailMessages(data.messages ?? []);
+      } catch {
+        // Fallback: use the preview messages we already have
+        setDetailMessages(messages.filter((m) => m.sessionKey === sessionKey));
+      } finally {
+        setDetailLoading(false);
+      }
+    },
+    [messages],
   );
 
+  const closeDetail = () => {
+    setSelectedSession(null);
+    setDetailMessages([]);
+  };
+
+  const roleColor = (role: string) => {
+    if (role === "spawn") return "text-amber-500";
+    if (role === "assistant") return "text-blue-400";
+    if (role === "user") return "text-foreground";
+    return "text-muted-foreground";
+  };
+
+  const roleBadgeClass = (role: string) => {
+    if (role === "spawn") return "bg-amber-500/15 text-amber-500";
+    if (role === "assistant") return "bg-blue-400/15 text-blue-400";
+    if (role === "user") return "bg-primary/15 text-primary";
+    return "bg-surface-2 text-muted-foreground";
+  };
+
+  // Group messages by sessionKey
+  const grouped = messages.reduce<Record<string, ApiMessage[]>>((acc, msg) => {
+    const key = msg.sessionKey;
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(msg);
+    return acc;
+  }, {});
+
+  const sessionEntries = Object.entries(grouped);
+
+  // ─── Detail view ─────────────────────────────────────────────────────
+  if (selectedSession) {
+    return (
+      <div
+        className="flex h-full min-h-0 flex-col"
+        data-testid="intercom-detail"
+      >
+        {/* Detail header */}
+        <div className="flex items-center gap-2 border-b border-border px-4 py-3">
+          <button
+            onClick={closeDetail}
+            className="rounded p-1 hover:bg-surface-2 transition-colors"
+            aria-label="Back to list"
+          >
+            <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+          </button>
+          <Zap className="h-3.5 w-3.5 text-primary" />
+          <span className="text-xs font-semibold text-primary">
+            {selectedSession.fromAgent}
+          </span>
+          <ArrowRight className="h-3 w-3 text-muted-foreground" />
+          <span className="text-xs font-semibold text-primary">
+            {selectedSession.toAgent}
+          </span>
+          {selectedSession.label && (
+            <span className="ml-1 truncate rounded bg-surface-2 px-1.5 py-0.5 text-[9px] text-muted-foreground">
+              {selectedSession.label}
+            </span>
+          )}
+          <span className="ml-auto text-[10px] text-muted-foreground">
+            {detailMessages.length} messages
+          </span>
+        </div>
+
+        {/* Detail messages */}
+        <div className="flex-1 overflow-y-auto px-5 py-4">
+          {detailLoading && (
+            <p className="py-8 text-center text-xs text-muted-foreground">
+              Loading…
+            </p>
+          )}
+
+          {!detailLoading && detailMessages.length === 0 && (
+            <p className="py-8 text-center text-xs text-muted-foreground">
+              No messages in this session.
+            </p>
+          )}
+
+          {!detailLoading && detailMessages.length > 0 && (
+            <div className="space-y-3">
+              {detailMessages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className="rounded-lg border border-border bg-card p-3"
+                >
+                  <div className="mb-1.5 flex items-center gap-2">
+                    <span
+                      className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-medium capitalize ${roleBadgeClass(msg.role)}`}
+                    >
+                      {msg.role}
+                    </span>
+                    <span className="text-[9px] text-muted-foreground">
+                      {new Date(msg.ts).toLocaleTimeString()}
+                    </span>
+                  </div>
+                  <p
+                    className={`whitespace-pre-wrap text-xs leading-relaxed ${roleColor(msg.role)}`}
+                  >
+                    {msg.text}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ─── List view ───────────────────────────────────────────────────────
   return (
-    <div className="flex min-h-0 flex-1 flex-col" data-testid="intercom-feed">
+    <div className="flex h-full min-h-0 flex-col" data-testid="intercom-feed">
       <div className="flex items-center gap-2 border-b border-border px-5 py-3">
         <MessageSquare className="h-4 w-4 text-primary" aria-hidden="true" />
         <h2 className="text-sm font-semibold text-foreground">{t("title")}</h2>
         <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
           {messages.length}
         </span>
+        <button
+          onClick={fetchMessages}
+          className="ml-auto rounded p-1 hover:bg-surface-2 transition-colors"
+          title="Refresh"
+          aria-label="Refresh intercom"
+        >
+          <RefreshCw
+            className={`h-3 w-3 text-muted-foreground ${loading ? "animate-spin" : ""}`}
+          />
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 py-4">
         <p className="mb-3 text-xs text-muted-foreground">{t("description")}</p>
 
-        {messages.length === 0 ? (
+        {loading && messages.length === 0 && (
+          <p className="py-8 text-center text-xs text-muted-foreground">
+            Loading…
+          </p>
+        )}
+
+        {error && (
+          <div className="mb-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2">
+            <p className="text-xs text-destructive">{error}</p>
+            <button
+              onClick={fetchMessages}
+              className="mt-1 text-[10px] text-destructive underline"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {!loading && !error && messages.length === 0 && (
           <p className="py-8 text-center text-xs text-muted-foreground">
             {t("noMessages")}
           </p>
-        ) : (
-          <div className="space-y-2">
-            {messages
-              .slice()
-              .reverse()
-              .map((msg) => (
-                <div key={msg.id} className="ui-card p-2">
-                  <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+        )}
+
+        {sessionEntries.length > 0 && (
+          <div className="space-y-3">
+            {sessionEntries.map(([sessionKey, msgs]) => {
+              const first = msgs[0];
+              const isCross = !first.sameAgent;
+              return (
+                <div
+                  key={sessionKey}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() =>
+                    openSession(sessionKey, first.to, first.from, first.label)
+                  }
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      openSession(
+                        sessionKey,
+                        first.to,
+                        first.from,
+                        first.label,
+                      );
+                    }
+                  }}
+                  className={`cursor-pointer rounded-lg border p-3 transition-colors ${
+                    isCross
+                      ? "border-primary/30 bg-primary/5 hover:bg-primary/10"
+                      : "border-border bg-card hover:bg-surface-1"
+                  }`}
+                >
+                  {/* Session header */}
+                  <div className="mb-2 flex items-center gap-1.5 text-[10px]">
+                    {isCross ? (
+                      <Zap className="h-3 w-3 text-primary" />
+                    ) : (
+                      <Bot className="h-3 w-3 text-muted-foreground" />
+                    )}
                     <span className="font-semibold text-primary">
-                      {msg.fromAgentId}
+                      {first.from}
                     </span>
-                    <ArrowRight className="h-2.5 w-2.5" />
+                    <ArrowRight className="h-2.5 w-2.5 text-muted-foreground" />
                     <span className="font-semibold text-primary">
-                      {msg.toAgentId}
+                      {first.to}
                     </span>
-                    <span className="ml-auto">
-                      {new Date(msg.timestamp).toLocaleTimeString()}
+                    {first.label && (
+                      <span className="ml-1 truncate rounded bg-surface-2 px-1.5 py-0.5 text-[9px] text-muted-foreground">
+                        {first.label}
+                      </span>
+                    )}
+                    <span className="ml-auto shrink-0 text-muted-foreground">
+                      {new Date(first.ts).toLocaleTimeString()}
                     </span>
                   </div>
-                  <p
-                    className={`mt-1 text-xs ${MESSAGE_TYPE_COLORS[msg.type]}`}
-                  >
-                    {msg.content}
-                  </p>
-                  <span className="mt-0.5 inline-block rounded-full bg-surface-2 px-1.5 py-0.5 text-[9px] capitalize text-muted-foreground">
-                    {msg.type}
-                  </span>
+
+                  {/* Messages preview */}
+                  <div className="space-y-1.5">
+                    {msgs.map((msg) => (
+                      <div key={msg.id} className="flex gap-2">
+                        <span
+                          className={`mt-0.5 shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-medium capitalize ${roleBadgeClass(msg.role)}`}
+                        >
+                          {msg.role}
+                        </span>
+                        <p
+                          className={`min-w-0 flex-1 text-xs leading-relaxed ${roleColor(msg.role)} line-clamp-4`}
+                        >
+                          {msg.text}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              ))}
+              );
+            })}
           </div>
         )}
       </div>
+
+      {lastRefresh > 0 && (
+        <div className="border-t border-border px-5 py-1.5">
+          <p className="text-[9px] text-muted-foreground">
+            {new Date(lastRefresh).toLocaleTimeString()}
+          </p>
+        </div>
+      )}
     </div>
   );
 };

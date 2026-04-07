@@ -1,8 +1,10 @@
 export type ProviderId =
   | "anthropic"
+  | "anthropic-proxy"
   | "openai"
   | "perplexity"
   | "google"
+  | "google-antigravity"
   | "mistral"
   | "groq"
   | "openrouter"
@@ -17,6 +19,9 @@ export type ProviderId =
   | "nvidia"
   | "huggingface"
   | "xai"
+  | "yuxor"
+  | "opencode-proxy"
+  | "cerebras"
   | "litellm"
   | "custom";
 
@@ -37,7 +42,13 @@ export type ProviderConfig = {
   enabled: boolean;
 };
 
-export type OcApiType = "anthropic-messages" | "openai" | "openai-responses" | "google" | "mistral" | "bedrock";
+export type OcApiType =
+  | "anthropic-messages"
+  | "openai"
+  | "openai-responses"
+  | "google"
+  | "mistral"
+  | "bedrock";
 
 export type ProviderDefinition = {
   id: ProviderId;

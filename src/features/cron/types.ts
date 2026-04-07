@@ -38,7 +38,10 @@ export type CronJob = {
   payload?: {
     kind: string;
     message?: string;
+    model?: string;
+    thinking?: string;
     timeoutSeconds?: number;
+    [key: string]: unknown;
   };
   delivery?: CronJobDelivery;
   state: CronJobState;

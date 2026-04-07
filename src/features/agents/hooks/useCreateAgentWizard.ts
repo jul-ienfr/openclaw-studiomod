@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import type { PersonalityTraits } from "@/lib/agents/personalityTraits";
 import { DEFAULT_TRAITS } from "@/lib/agents/personalityTraits";
+import { randomUUID } from "@/lib/uuid";
 import type { AgentTemplate } from "@/features/agents/templates/agentTemplates";
 import type { AgentCreateModalSubmitPayload } from "@/features/agents/creation/types";
 
@@ -35,11 +36,6 @@ type WizardState = {
   webAccess: boolean;
   fileTools: boolean;
 };
-
-const randomUUID = () =>
-  typeof crypto !== "undefined" && crypto.randomUUID
-    ? crypto.randomUUID()
-    : Math.random().toString(36).slice(2);
 
 const createInitialState = (suggestedName: string): WizardState => ({
   creationMode: null,

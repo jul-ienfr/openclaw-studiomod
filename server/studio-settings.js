@@ -61,6 +61,30 @@ const OPENCLAW_CONFIG_FILENAME = "openclaw.json";
 
 const isRecord = (value) => Boolean(value && typeof value === "object");
 
+const resolveEnvRef = (value, env = process.env) => {
+  const match = value.match(/^\$\{(.+)\}$/);
+  if (!match) return value;
+  const varName = match[1];
+  if (env[varName]) return env[varName];
+  try {
+    const envPath = path.join(resolveStateDir(env), ".env");
+    if (!fs.existsSync(envPath)) return value;
+    const envRaw = fs.readFileSync(envPath, "utf8");
+    for (const line of envRaw.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const eqIdx = trimmed.indexOf("=");
+      if (eqIdx === -1) continue;
+      if (trimmed.slice(0, eqIdx).trim() === varName) {
+        return trimmed.slice(eqIdx + 1).trim();
+      }
+    }
+  } catch {}
+  return value;
+};
+
+const DEFAULT_GATEWAY_WS_PORT = 18789;
+
 const readOpenclawGatewayDefaults = (env = process.env) => {
   try {
     const stateDir = resolveStateDir(env);
@@ -70,12 +94,12 @@ const readOpenclawGatewayDefaults = (env = process.env) => {
     const gateway = isRecord(parsed.gateway) ? parsed.gateway : null;
     if (!gateway) return null;
     const auth = isRecord(gateway.auth) ? gateway.auth : null;
-    const token = typeof auth?.token === "string" ? auth.token.trim() : "";
+    let token = typeof auth?.token === "string" ? auth.token.trim() : "";
+    if (token) token = resolveEnvRef(token, env);
     const port =
-      typeof gateway.port === "number" && Number.isFinite(gateway.port) ? gateway.port : null;
-    if (!token) return null;
-    const url = port ? `ws://localhost:${port}` : "";
-    if (!url) return null;
+      typeof gateway.port === "number" && Number.isFinite(gateway.port) ? gateway.port : DEFAULT_GATEWAY_WS_PORT;
+    if (!token || token.startsWith("${")) return null;
+    const url = `ws://127.0.0.1:${port}`;
     return { url, token };
   } catch {
     return null;
@@ -87,17 +111,18 @@ const loadUpstreamGatewaySettings = (env = process.env) => {
   const parsed = readJsonFile(settingsPath);
   const gateway = parsed && typeof parsed === "object" ? parsed.gateway : null;
   const url = typeof gateway?.url === "string" ? gateway.url.trim() : "";
-  const token = typeof gateway?.token === "string" ? gateway.token.trim() : "";
-  if (!token) {
-    const defaults = readOpenclawGatewayDefaults(env);
-    if (defaults) {
-      return {
-        url: url || defaults.url,
-        token: defaults.token,
-        settingsPath,
-      };
-    }
+
+  // Toujours préférer le token live de openclaw.json
+  const defaults = readOpenclawGatewayDefaults(env);
+  if (defaults) {
+    return {
+      url: url || defaults.url,
+      token: defaults.token,
+      settingsPath,
+    };
   }
+
+  const token = typeof gateway?.token === "string" ? gateway.token.trim() : "";
   return {
     url: url || DEFAULT_GATEWAY_URL,
     token,

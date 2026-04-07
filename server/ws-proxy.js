@@ -57,8 +57,23 @@ function proxyWebSocket({ req, socket, head, port, host = "127.0.0.1", targetPat
       upstream.write(head);
     }
 
-    socket.pipe(upstream);
-    upstream.pipe(socket);
+    // Use explicit data forwarding for Bun compatibility.
+    // Bun's upgrade socket may not support pipe() correctly, and
+    // socket.write() may silently fail. Use the underlying _handle or
+    // fall back to the raw socket if available.
+    const clientWrite = typeof socket.write === "function"
+      ? (chunk) => { try { socket.write(chunk); } catch {} }
+      : () => {};
+    const upstreamWrite = (chunk) => { try { upstream.write(chunk); } catch {} };
+
+    upstream.on("data", (chunk) => {
+      if (!socket.destroyed) clientWrite(chunk);
+    });
+    socket.on("data", (chunk) => {
+      if (!upstream.destroyed) upstreamWrite(chunk);
+    });
+    upstream.on("end", () => { if (!socket.destroyed) { try { socket.end(); } catch {} } });
+    socket.on("end", () => { if (!upstream.destroyed) upstream.end(); });
   });
 
   upstream.setTimeout(timeout, () => {

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withErrorHandler } from "@/lib/api/error-handler";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/rateLimit";
 
 /* eslint-disable @typescript-eslint/no-require-imports */
 const {
@@ -28,6 +29,9 @@ const isValidBody = (body: unknown): body is BatchBody =>
   );
 
 async function post_handler(request: Request) {
+  const limited = applyRateLimit(request, RATE_LIMITS.providersValidate);
+  if (limited) return limited;
+
   try {
     const body = (await request.json()) as unknown;
     if (!isValidBody(body)) {

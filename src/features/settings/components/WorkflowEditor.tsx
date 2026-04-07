@@ -3,7 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Plus, Trash2, ArrowRight, GripVertical } from "lucide-react";
-import type { PillarWorkflow, WorkflowNode, WorkflowEdge } from "@/lib/pillars/index";
+import { randomUUID } from "@/lib/uuid";
+import type {
+  PillarWorkflow,
+  WorkflowNode,
+  WorkflowEdge,
+} from "@/lib/pillars/index";
 
 type Props = {
   workflow?: PillarWorkflow;
@@ -12,7 +17,7 @@ type Props = {
 
 function buildDefaultWorkflow(): PillarWorkflow {
   return {
-    id: crypto.randomUUID(),
+    id: randomUUID(),
     name: "",
     nodes: [],
     edges: [],
@@ -58,7 +63,13 @@ function NodeRow({
   );
 }
 
-function PipelinePreview({ nodes, edges }: { nodes: WorkflowNode[]; edges: WorkflowEdge[] }) {
+function PipelinePreview({
+  nodes,
+  edges,
+}: {
+  nodes: WorkflowNode[];
+  edges: WorkflowEdge[];
+}) {
   const t = useTranslations("workflowEditor");
   if (nodes.length === 0) {
     return (
@@ -102,9 +113,13 @@ function PipelinePreview({ nodes, edges }: { nodes: WorkflowNode[]; edges: Workf
       {chain.map((node, i) => (
         <div key={node.id} className="flex items-center gap-1">
           <div className="rounded bg-surface-2 border border-border px-2 py-1 text-xs">
-            <div className="font-medium text-foreground truncate max-w-24">{node.label || node.agentId}</div>
+            <div className="font-medium text-foreground truncate max-w-24">
+              {node.label || node.agentId}
+            </div>
             {node.agentId && node.label && (
-              <div className="font-mono text-muted-foreground truncate max-w-24">{node.agentId}</div>
+              <div className="font-mono text-muted-foreground truncate max-w-24">
+                {node.agentId}
+              </div>
             )}
           </div>
           {i < chain.length - 1 && (
@@ -123,7 +138,13 @@ export function WorkflowEditor({ workflow, onChange }: Props) {
   );
 
   useEffect(() => {
-    if (workflow) setCurrent(workflow);
+    if (!workflow) return;
+    const timer = window.setTimeout(() => {
+      setCurrent(workflow);
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
+    };
   }, [workflow]);
 
   const update = useCallback(
@@ -139,7 +160,7 @@ export function WorkflowEditor({ workflow, onChange }: Props) {
 
   const addNode = () => {
     const newNode: WorkflowNode = {
-      id: crypto.randomUUID(),
+      id: randomUUID(),
       label: "",
       agentId: "",
     };
@@ -158,7 +179,9 @@ export function WorkflowEditor({ workflow, onChange }: Props) {
   };
 
   const updateNode = (updated: WorkflowNode) => {
-    update({ nodes: current.nodes.map((n) => (n.id === updated.id ? updated : n)) });
+    update({
+      nodes: current.nodes.map((n) => (n.id === updated.id ? updated : n)),
+    });
   };
 
   return (
@@ -186,14 +209,18 @@ export function WorkflowEditor({ workflow, onChange }: Props) {
 
         {/* Pipeline preview */}
         <div className="space-y-1.5">
-          <div className="text-sm font-medium text-foreground">{t("preview")}</div>
+          <div className="text-sm font-medium text-foreground">
+            {t("preview")}
+          </div>
           <PipelinePreview nodes={current.nodes} edges={current.edges} />
         </div>
 
         {/* Nodes */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <div className="text-sm font-medium text-foreground">{t("nodes")}</div>
+            <div className="text-sm font-medium text-foreground">
+              {t("nodes")}
+            </div>
             <button
               type="button"
               onClick={addNode}

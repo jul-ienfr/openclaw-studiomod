@@ -48,6 +48,11 @@ export type ThemeLayout = {
   sidebarStyle: "glass" | "solid" | "minimal";
   cardStyle: "glass" | "elevated" | "flat" | "bordered";
   headerStyle: "transparent" | "solid" | "glass";
+  borderRadius: "sharp" | "rounded" | "pill";
+  contentDensity: "compact" | "comfortable" | "spacious";
+  shadowIntensity: "none" | "subtle" | "heavy";
+  animationLevel: "none" | "subtle" | "full";
+  accentStyle: "flat" | "glow" | "neon" | "gradient";
 };
 
 export type ThemeBranding = {
@@ -60,6 +65,7 @@ export type ThemeConfig = {
   name: string;
   preset: string;
   category?: "classic" | "premium";
+  templateId?: string;
   colors: {
     light: ThemeColors;
     dark: ThemeColors;
@@ -132,6 +138,11 @@ export const DEFAULT_LAYOUT: ThemeLayout = {
   sidebarStyle: "glass",
   cardStyle: "elevated",
   headerStyle: "transparent",
+  borderRadius: "rounded",
+  contentDensity: "comfortable",
+  shadowIntensity: "subtle",
+  animationLevel: "full",
+  accentStyle: "flat",
 };
 
 export const DEFAULT_THEME: ThemeConfig = {
@@ -180,6 +191,13 @@ export const THEME_PRESETS: ThemeConfig[] = [
         ring: "#1e90ff",
       },
     },
+    layout: {
+      ...DEFAULT_LAYOUT,
+      cardStyle: "elevated",
+      borderRadius: "rounded",
+      shadowIntensity: "subtle",
+      accentStyle: "glow",
+    },
   },
   {
     ...DEFAULT_THEME,
@@ -197,8 +215,21 @@ export const THEME_PRESETS: ThemeConfig[] = [
         primary: "#7c5cbf",
         background: "#0e0e14",
         sidebar: "#12121c",
+        card: "#161622",
         ring: "#7c5cbf",
+        border: "rgba(124,92,191,0.12)",
       },
+    },
+    layout: {
+      ...DEFAULT_LAYOUT,
+      sidebarStyle: "solid",
+      cardStyle: "elevated",
+      headerStyle: "solid",
+      borderRadius: "sharp",
+      contentDensity: "comfortable",
+      shadowIntensity: "subtle",
+      animationLevel: "subtle",
+      accentStyle: "flat",
     },
   },
   {
@@ -211,10 +242,33 @@ export const THEME_PRESETS: ThemeConfig[] = [
       dark: {
         ...DEFAULT_DARK_COLORS,
         primary: "#00ff9f",
-        background: "#030712",
-        sidebar: "#050a10",
+        background: "#020408",
+        foreground: "rgba(200,255,230,0.95)",
+        card: "#060c14",
+        cardForeground: "rgba(200,255,230,0.95)",
+        sidebar: "#030608",
+        sidebarForeground: "rgba(0,255,159,0.70)",
+        border: "rgba(0,255,159,0.15)",
+        input: "rgba(0,255,159,0.15)",
         ring: "#00ff9f",
+        accent: "#00e5ff",
+        muted: "rgba(0,255,159,0.06)",
+        mutedForeground: "rgba(0,255,159,0.50)",
+        surface1: "rgba(0,255,159,0.03)",
+        surface2: "rgba(0,255,159,0.06)",
+        surface3: "rgba(0,255,159,0.10)",
       },
+    },
+    layout: {
+      ...DEFAULT_LAYOUT,
+      sidebarStyle: "solid",
+      cardStyle: "bordered",
+      headerStyle: "solid",
+      borderRadius: "sharp",
+      contentDensity: "compact",
+      shadowIntensity: "none",
+      animationLevel: "full",
+      accentStyle: "neon",
     },
   },
   {
@@ -233,213 +287,28 @@ export const THEME_PRESETS: ThemeConfig[] = [
         ...DEFAULT_DARK_COLORS,
         primary: "rgb(200 200 200)",
         background: "#111111",
-        sidebar: "#161616",
+        foreground: "rgba(255,255,255,0.85)",
+        card: "#171717",
+        sidebar: "#111111",
+        border: "rgba(255,255,255,0.06)",
         ring: "rgb(200 200 200)",
-      },
-    },
-  },
-
-  // ── Premium presets ──
-  {
-    ...DEFAULT_THEME,
-    name: "Glassmorphism",
-    preset: "glassmorphism",
-    category: "premium",
-    colors: {
-      light: {
-        ...DEFAULT_LIGHT_COLORS,
-        primary: "oklch(0.55 0.12 250)",
-        background: "#f0f4ff",
-        sidebar: "rgba(255,255,255,0.6)",
-      },
-      dark: {
-        ...DEFAULT_DARK_COLORS,
-        primary: "#60a5fa",
-        background: "#050a15",
-        sidebar: "rgba(15,25,40,0.8)",
-        ring: "#60a5fa",
+        muted: "rgba(255,255,255,0.04)",
+        mutedForeground: "rgba(255,255,255,0.40)",
+        surface1: "rgba(255,255,255,0.02)",
+        surface2: "rgba(255,255,255,0.04)",
+        surface3: "rgba(255,255,255,0.06)",
       },
     },
     layout: {
-      sidebarStyle: "glass",
-      cardStyle: "glass",
-      headerStyle: "glass",
-    },
-  },
-  {
-    ...DEFAULT_THEME,
-    name: "Cyberpunk",
-    preset: "cyberpunk",
-    category: "premium",
-    colors: {
-      light: {
-        ...DEFAULT_LIGHT_COLORS,
-        primary: "oklch(0.65 0.28 330)",
-        background: "#faf0ff",
-      },
-      dark: {
-        ...DEFAULT_DARK_COLORS,
-        primary: "#ff00ff",
-        background: "#0a0010",
-        sidebar: "#120020",
-        accent: "#00ffff",
-        ring: "#ff00ff",
-      },
-    },
-    layout: {
-      sidebarStyle: "glass",
-      cardStyle: "bordered",
-      headerStyle: "solid",
-    },
-  },
-  {
-    ...DEFAULT_THEME,
-    name: "Sunset",
-    preset: "sunset",
-    category: "premium",
-    colors: {
-      light: {
-        ...DEFAULT_LIGHT_COLORS,
-        primary: "oklch(0.58 0.18 30)",
-        background: "#fff8f0",
-      },
-      dark: {
-        ...DEFAULT_DARK_COLORS,
-        primary: "#ff7b54",
-        background: "#120e0a",
-        sidebar: "#1a140e",
-        ring: "#ff7b54",
-      },
-    },
-    layout: {
-      sidebarStyle: "glass",
-      cardStyle: "elevated",
-      headerStyle: "transparent",
-    },
-  },
-  {
-    ...DEFAULT_THEME,
-    name: "Forest",
-    preset: "forest",
-    category: "premium",
-    colors: {
-      light: {
-        ...DEFAULT_LIGHT_COLORS,
-        primary: "oklch(0.50 0.12 150)",
-        background: "#f0faf0",
-      },
-      dark: {
-        ...DEFAULT_DARK_COLORS,
-        primary: "#4ade80",
-        background: "#060f06",
-        sidebar: "#0a150a",
-        ring: "#4ade80",
-      },
-    },
-    layout: {
-      sidebarStyle: "glass",
-      cardStyle: "elevated",
-      headerStyle: "transparent",
-    },
-  },
-  {
-    ...DEFAULT_THEME,
-    name: "Midnight",
-    preset: "midnight",
-    category: "premium",
-    colors: {
-      light: {
-        ...DEFAULT_LIGHT_COLORS,
-        primary: "oklch(0.45 0.15 270)",
-        background: "#f0f0ff",
-      },
-      dark: {
-        ...DEFAULT_DARK_COLORS,
-        primary: "#818cf8",
-        background: "#050510",
-        sidebar: "#0a0a18",
-        ring: "#818cf8",
-      },
-    },
-    layout: {
-      sidebarStyle: "solid",
-      cardStyle: "elevated",
-      headerStyle: "transparent",
-    },
-  },
-  {
-    ...DEFAULT_THEME,
-    name: "Lavender",
-    preset: "lavender",
-    category: "premium",
-    colors: {
-      light: {
-        ...DEFAULT_LIGHT_COLORS,
-        primary: "oklch(0.55 0.10 300)",
-        background: "#faf0ff",
-      },
-      dark: {
-        ...DEFAULT_DARK_COLORS,
-        primary: "#c084fc",
-        background: "#0e0818",
-        sidebar: "#140c20",
-        ring: "#c084fc",
-      },
-    },
-    layout: {
-      sidebarStyle: "glass",
-      cardStyle: "elevated",
-      headerStyle: "transparent",
-    },
-  },
-  {
-    ...DEFAULT_THEME,
-    name: "Arctic",
-    preset: "arctic",
-    category: "premium",
-    colors: {
-      light: {
-        ...DEFAULT_LIGHT_COLORS,
-        primary: "oklch(0.55 0.08 210)",
-        background: "#f0faff",
-      },
-      dark: {
-        ...DEFAULT_DARK_COLORS,
-        primary: "#67e8f9",
-        background: "#040e14",
-        sidebar: "#08141c",
-        ring: "#67e8f9",
-      },
-    },
-    layout: {
+      ...DEFAULT_LAYOUT,
       sidebarStyle: "minimal",
       cardStyle: "flat",
       headerStyle: "transparent",
-    },
-  },
-  {
-    ...DEFAULT_THEME,
-    name: "Ember",
-    preset: "ember",
-    category: "premium",
-    colors: {
-      light: {
-        ...DEFAULT_LIGHT_COLORS,
-        primary: "oklch(0.55 0.20 40)",
-        background: "#fff5f0",
-      },
-      dark: {
-        ...DEFAULT_DARK_COLORS,
-        primary: "#fb923c",
-        background: "#140a04",
-        sidebar: "#1c1008",
-        ring: "#fb923c",
-      },
-    },
-    layout: {
-      sidebarStyle: "glass",
-      cardStyle: "elevated",
-      headerStyle: "transparent",
+      borderRadius: "sharp",
+      contentDensity: "spacious",
+      shadowIntensity: "none",
+      animationLevel: "none",
+      accentStyle: "flat",
     },
   },
 ];

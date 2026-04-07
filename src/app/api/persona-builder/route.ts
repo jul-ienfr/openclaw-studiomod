@@ -4,10 +4,14 @@ import { parsePersonaBuilderResult } from "@/features/agents/creation/personaBui
 import { withErrorHandler } from "@/lib/api/error-handler";
 import { PersonaBuilderSchema } from "@/lib/api/schemas/studio";
 import { parseBody, isValidationError } from "@/lib/api/validation";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 
 async function post_handler(request: Request) {
+  const limited = applyRateLimit(request, RATE_LIMITS.personaBuilder);
+  if (limited) return limited;
+
   try {
     const body = await parseBody(request, PersonaBuilderSchema);
     if (isValidationError(body)) return body;

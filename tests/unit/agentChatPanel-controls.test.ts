@@ -1,6 +1,13 @@
 import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import type { AgentState } from "@/features/agents/state/store";
 import { AgentChatPanel } from "@/features/agents/components/AgentChatPanel";
 import type { GatewayModelChoice } from "@/lib/gateway/models";
@@ -45,7 +52,12 @@ const createAgent = (): AgentState => ({
 describe("AgentChatPanel controls", () => {
   const models: GatewayModelChoice[] = [
     { provider: "openai", id: "gpt-5", name: "gpt-5", reasoning: true },
-    { provider: "openai", id: "gpt-5-mini", name: "gpt-5-mini", reasoning: false },
+    {
+      provider: "openai",
+      id: "gpt-5-mini",
+      name: "gpt-5-mini",
+      reasoning: false,
+    },
   ];
 
   afterEach(() => {
@@ -69,10 +81,10 @@ describe("AgentChatPanel controls", () => {
         onSend: vi.fn(),
         onStopRun: vi.fn(),
         onAvatarShuffle: vi.fn(),
-      })
+      }),
     );
 
-    expect(screen.getByLabelText("Model")).toBeInTheDocument();
+    expect(screen.getByLabelText("Choose model")).toBeInTheDocument();
     expect(screen.getByLabelText("Thinking")).toBeInTheDocument();
     expect(screen.queryByDisplayValue("Agent One")).not.toBeInTheDocument();
     expect(screen.getByTestId("agent-rename-toggle")).toBeInTheDocument();
@@ -102,7 +114,7 @@ describe("AgentChatPanel controls", () => {
         onSend: vi.fn(),
         onStopRun: vi.fn(),
         onAvatarShuffle: vi.fn(),
-      })
+      }),
     );
 
     fireEvent.click(screen.getByTestId("agent-rename-toggle"));
@@ -140,7 +152,7 @@ describe("AgentChatPanel controls", () => {
         onSend: vi.fn(),
         onStopRun: vi.fn(),
         onAvatarShuffle: vi.fn(),
-      })
+      }),
     );
 
     fireEvent.click(screen.getByTestId("agent-rename-toggle"));
@@ -172,7 +184,7 @@ describe("AgentChatPanel controls", () => {
         onSend: vi.fn(),
         onStopRun: vi.fn(),
         onAvatarShuffle: vi.fn(),
-      })
+      }),
     );
 
     fireEvent.click(screen.getByTestId("agent-new-session-toggle"));
@@ -195,7 +207,7 @@ describe("AgentChatPanel controls", () => {
         onSend: vi.fn(),
         onStopRun: vi.fn(),
         onAvatarShuffle: vi.fn(),
-      })
+      }),
     );
 
     const idleBadge = container.querySelector('[data-status="idle"]');
@@ -216,14 +228,14 @@ describe("AgentChatPanel controls", () => {
         onSend: vi.fn(),
         onStopRun: vi.fn(),
         onAvatarShuffle: vi.fn(),
-      })
+      }),
     );
 
     const runningBadge = container.querySelector('[data-status="running"]');
     expect(runningBadge).toBeNull();
   });
 
-  it("invokes_on_model_change_when_model_select_changes_and_blurs_select", () => {
+  it("invokes_on_model_change_when_model_option_clicked", () => {
     const onModelChange = vi.fn();
     render(
       createElement(AgentChatPanel, {
@@ -240,18 +252,17 @@ describe("AgentChatPanel controls", () => {
         onSend: vi.fn(),
         onStopRun: vi.fn(),
         onAvatarShuffle: vi.fn(),
-      })
+      }),
     );
 
-    const modelSelect = screen.getByLabelText("Model") as HTMLSelectElement;
-    modelSelect.focus();
-    expect(modelSelect).toHaveFocus();
-
-    fireEvent.change(modelSelect, {
-      target: { value: "openai/gpt-5-mini" },
-    });
+    fireEvent.click(screen.getByLabelText("Choose model"));
+    const options = screen.getAllByRole("option");
+    const miniOption = options.find((opt) =>
+      opt.textContent?.includes("gpt-5-mini"),
+    );
+    expect(miniOption).toBeTruthy();
+    fireEvent.click(miniOption!);
     expect(onModelChange).toHaveBeenCalledWith("openai/gpt-5-mini");
-    expect(modelSelect).not.toHaveFocus();
   });
 
   it("invokes_on_thinking_change_when_thinking_select_changes", () => {
@@ -271,7 +282,7 @@ describe("AgentChatPanel controls", () => {
         onSend: vi.fn(),
         onStopRun: vi.fn(),
         onAvatarShuffle: vi.fn(),
-      })
+      }),
     );
 
     fireEvent.change(screen.getByLabelText("Thinking"), {
@@ -298,7 +309,7 @@ describe("AgentChatPanel controls", () => {
         onSend: vi.fn(),
         onStopRun: vi.fn(),
         onAvatarShuffle: vi.fn(),
-      })
+      }),
     );
 
     fireEvent.click(screen.getByTestId("agent-settings-toggle"));
@@ -323,7 +334,7 @@ describe("AgentChatPanel controls", () => {
         onSend: vi.fn(),
         onStopRun,
         onAvatarShuffle: vi.fn(),
-      })
+      }),
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Stop" }));
@@ -347,7 +358,7 @@ describe("AgentChatPanel controls", () => {
         onSend,
         onStopRun: vi.fn(),
         onAvatarShuffle: vi.fn(),
-      })
+      }),
     );
 
     const textarea = screen.getByPlaceholderText("type a message");
@@ -361,7 +372,10 @@ describe("AgentChatPanel controls", () => {
     const onRemoveQueuedMessage = vi.fn();
     render(
       createElement(AgentChatPanel, {
-        agent: { ...createAgent(), queuedMessages: ["first queued", "second queued"] },
+        agent: {
+          ...createAgent(),
+          queuedMessages: ["first queued", "second queued"],
+        },
         isSelected: true,
         canSend: true,
         models,
@@ -375,11 +389,13 @@ describe("AgentChatPanel controls", () => {
         onRemoveQueuedMessage,
         onStopRun: vi.fn(),
         onAvatarShuffle: vi.fn(),
-      })
+      }),
     );
 
     expect(screen.getByTestId("queued-messages-bar")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Remove queued message 1" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Remove queued message 1" }),
+    );
     expect(onRemoveQueuedMessage).toHaveBeenCalledWith(0);
   });
 
@@ -402,14 +418,17 @@ describe("AgentChatPanel controls", () => {
         onSend: vi.fn(),
         onStopRun: vi.fn(),
         onAvatarShuffle: vi.fn(),
-      })
+      }),
     );
 
     const stopButton = screen.getByRole("button", {
       name: `Stop unavailable: ${stopDisabledReason}`,
     });
     expect(stopButton).toBeDisabled();
-    expect(stopButton.parentElement).toHaveAttribute("title", stopDisabledReason);
+    expect(stopButton.parentElement).toHaveAttribute(
+      "title",
+      stopDisabledReason,
+    );
   });
 
   it("shows_thinking_indicator_while_running_before_stream_text", () => {
@@ -428,11 +447,15 @@ describe("AgentChatPanel controls", () => {
         onSend: vi.fn(),
         onStopRun: vi.fn(),
         onAvatarShuffle: vi.fn(),
-      })
+      }),
     );
 
     expect(screen.getByTestId("agent-typing-indicator")).toBeInTheDocument();
-    expect(within(screen.getByTestId("agent-typing-indicator")).getByText("Thinking")).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId("agent-typing-indicator")).getByText(
+        "Thinking",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("shows_thinking_indicator_after_stream_starts", () => {
@@ -456,11 +479,15 @@ describe("AgentChatPanel controls", () => {
         onSend: vi.fn(),
         onStopRun: vi.fn(),
         onAvatarShuffle: vi.fn(),
-      })
+      }),
     );
 
     expect(screen.getByTestId("agent-typing-indicator")).toBeInTheDocument();
-    expect(within(screen.getByTestId("agent-typing-indicator")).getByText("Thinking")).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId("agent-typing-indicator")).getByText(
+        "Thinking",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("does_not_render_duplicate_typing_indicator_when_internal_thinking_is_visible", () => {
@@ -483,10 +510,12 @@ describe("AgentChatPanel controls", () => {
         onSend: vi.fn(),
         onStopRun: vi.fn(),
         onAvatarShuffle: vi.fn(),
-      })
+      }),
     );
 
-    expect(screen.queryByTestId("agent-typing-indicator")).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("agent-typing-indicator"),
+    ).not.toBeInTheDocument();
     expect(screen.getByText("Thinking (internal)")).toBeInTheDocument();
   });
 
@@ -496,7 +525,11 @@ describe("AgentChatPanel controls", () => {
         agent: {
           ...createAgent(),
           status: "running",
-          outputLines: ["> test", formatThinkingMarkdown("thinking now"), "final response"],
+          outputLines: [
+            "> test",
+            formatThinkingMarkdown("thinking now"),
+            "final response",
+          ],
         },
         isSelected: true,
         canSend: true,
@@ -510,7 +543,7 @@ describe("AgentChatPanel controls", () => {
         onSend: vi.fn(),
         onStopRun: vi.fn(),
         onAvatarShuffle: vi.fn(),
-      })
+      }),
     );
 
     const details = screen.getByText("Thinking (internal)").closest("details");
@@ -536,10 +569,12 @@ describe("AgentChatPanel controls", () => {
         onSend,
         onStopRun: vi.fn(),
         onAvatarShuffle: vi.fn(),
-      })
+      }),
     );
 
-    const textarea = screen.getByPlaceholderText("type a message") as HTMLTextAreaElement;
+    const textarea = screen.getByPlaceholderText(
+      "type a message",
+    ) as HTMLTextAreaElement;
     fireEvent.change(textarea, { target: { value: "hello world" } });
     expect(textarea.value).toBe("hello world");
 
@@ -558,7 +593,7 @@ describe("AgentChatPanel controls", () => {
         onSend,
         onStopRun: vi.fn(),
         onAvatarShuffle: vi.fn(),
-      })
+      }),
     );
     expect(textarea.value).toBe("hello world");
 
@@ -577,7 +612,7 @@ describe("AgentChatPanel controls", () => {
         onSend,
         onStopRun: vi.fn(),
         onAvatarShuffle: vi.fn(),
-      })
+      }),
     );
     expect(textarea.value).toBe("");
   });
@@ -599,7 +634,7 @@ describe("AgentChatPanel controls", () => {
         onSend,
         onStopRun: vi.fn(),
         onAvatarShuffle: vi.fn(),
-      })
+      }),
     );
 
     const textarea = screen.getByPlaceholderText("type a message");

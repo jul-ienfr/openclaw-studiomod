@@ -27,6 +27,7 @@ export type AgentStoreSeed = {
   sessionExecAsk?: "off" | "on-miss" | "always";
   toolCallingEnabled?: boolean;
   showThinkingTraces?: boolean;
+  hideSystemMessages?: boolean;
 };
 
 export type AgentState = AgentStoreSeed & {
@@ -198,48 +199,45 @@ export const useAgentStore = (): AgentStoreContextValue => {
   );
 
   // Stable callbacks — use getState() to avoid depending on the whole store
-  const dispatch = useCallback(
-    (action: Action) => {
-      const s = useAgentZustandStore.getState();
-      switch (action.type) {
-        case "hydrateAgents":
-          s.hydrateAgents(action.agents, action.selectedAgentId);
-          break;
-        case "setError":
-          s.setError(action.error);
-          break;
-        case "setLoading":
-          s.setLoading(action.loading);
-          break;
-        case "updateAgent":
-          s.updateAgent(action.agentId, action.patch);
-          break;
-        case "appendOutput":
-          s.appendOutput(action.agentId, action.line, action.transcript);
-          break;
-        case "enqueueQueuedMessage":
-          s.enqueueQueuedMessage(action.agentId, action.message);
-          break;
-        case "removeQueuedMessage":
-          s.removeQueuedMessage(action.agentId, action.index);
-          break;
-        case "shiftQueuedMessage":
-          s.shiftQueuedMessage(action.agentId, action.expectedMessage);
-          break;
-        case "markActivity":
-          s.markActivity(action.agentId, action.at);
-          break;
-        case "selectAgent":
-          s.selectAgent(action.agentId);
-          break;
-        default: {
-          const _never: never = action;
-          void _never;
-        }
+  const dispatch = useCallback((action: Action) => {
+    const s = useAgentZustandStore.getState();
+    switch (action.type) {
+      case "hydrateAgents":
+        s.hydrateAgents(action.agents, action.selectedAgentId);
+        break;
+      case "setError":
+        s.setError(action.error);
+        break;
+      case "setLoading":
+        s.setLoading(action.loading);
+        break;
+      case "updateAgent":
+        s.updateAgent(action.agentId, action.patch);
+        break;
+      case "appendOutput":
+        s.appendOutput(action.agentId, action.line, action.transcript);
+        break;
+      case "enqueueQueuedMessage":
+        s.enqueueQueuedMessage(action.agentId, action.message);
+        break;
+      case "removeQueuedMessage":
+        s.removeQueuedMessage(action.agentId, action.index);
+        break;
+      case "shiftQueuedMessage":
+        s.shiftQueuedMessage(action.agentId, action.expectedMessage);
+        break;
+      case "markActivity":
+        s.markActivity(action.agentId, action.at);
+        break;
+      case "selectAgent":
+        s.selectAgent(action.agentId);
+        break;
+      default: {
+        const _never: never = action;
+        void _never;
       }
-    },
-    [],
-  );
+    }
+  }, []);
 
   const hydrateAgents = useCallback(
     (agents: AgentStoreSeed[], selectedAgentId?: string) => {
@@ -248,19 +246,13 @@ export const useAgentStore = (): AgentStoreContextValue => {
     [],
   );
 
-  const setLoading = useCallback(
-    (loading: boolean) => {
-      useAgentZustandStore.getState().setLoading(loading);
-    },
-    [],
-  );
+  const setLoading = useCallback((loading: boolean) => {
+    useAgentZustandStore.getState().setLoading(loading);
+  }, []);
 
-  const setError = useCallback(
-    (error: string | null) => {
-      useAgentZustandStore.getState().setError(error);
-    },
-    [],
-  );
+  const setError = useCallback((error: string | null) => {
+    useAgentZustandStore.getState().setError(error);
+  }, []);
 
   return { state, dispatch, hydrateAgents, setLoading, setError };
 };

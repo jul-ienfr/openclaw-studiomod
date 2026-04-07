@@ -1,0 +1,582 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Layout Templates — structural design overrides (Phase 8a)
+   Each template changes composition, grid, effects, borders, animations.
+   Combinable with any color preset.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ──────────────────────────────────────────────────────────────────────────
+   T1 — BENTO GRID
+   Asymmetric modular grid, varied card sizes, soft shadows, no borders.
+   Inspired by Apple, SaaSFrame, 67% of top SaaS in 2026.
+   ────────────────────────────────────────────────────────────────────────── */
+
+body[data-template="bento"] {
+  --template-gap: 14px;
+  --template-radius: 20px;
+}
+
+/* Override all border-radius to bento style */
+body[data-template="bento"] .rounded-xl {
+  border-radius: var(--template-radius) !important;
+}
+body[data-template="bento"] .rounded-lg {
+  border-radius: 16px !important;
+}
+body[data-template="bento"] .rounded-md {
+  border-radius: 14px !important;
+}
+
+/* Cards: no border, surface-based distinction with soft shadow */
+body[data-template="bento"] .bg-card,
+body[data-template="bento"] .glass-card,
+body[data-template="bento"] .glass-panel {
+  border: none !important;
+  background: var(--card);
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.04),
+    0 4px 16px rgb(0 0 0 / 0.06);
+  border-radius: var(--template-radius);
+  backdrop-filter: none;
+}
+
+body[data-template="bento"] .bg-card:hover,
+body[data-template="bento"] .glass-card:hover {
+  box-shadow:
+    0 2px 4px rgb(0 0 0 / 0.06),
+    0 8px 24px rgb(0 0 0 / 0.1);
+  transform: translateY(-1px);
+  transition:
+    box-shadow 250ms ease,
+    transform 250ms ease;
+}
+
+/* Border overrides — clean bento doesn't use visible borders */
+body[data-template="bento"] .border,
+body[data-template="bento"] .border-border {
+  border-color: transparent !important;
+}
+
+body[data-template="bento"] .border-b {
+  border-bottom-color: rgb(0 0 0 / 0.04) !important;
+}
+body[data-template="bento"] .dark .border-b {
+  border-bottom-color: rgb(255 255 255 / 0.04) !important;
+}
+
+/* Sidebar: clean, no glass effect */
+body[data-template="bento"] .glass-sidebar {
+  background: var(--sidebar);
+  border-right: none !important;
+  box-shadow: 1px 0 8px rgb(0 0 0 / 0.04);
+  backdrop-filter: none;
+}
+
+/* Grid layout hints for dashboard — components can opt in with these classes */
+body[data-template="bento"] .grid {
+  gap: var(--template-gap);
+}
+
+/* Buttons: pillowy */
+body[data-template="bento"] button {
+  border-radius: 14px;
+}
+
+body[data-template="bento"] select,
+body[data-template="bento"]
+  input:not([type="color"]):not([type="checkbox"]):not([type="radio"]),
+body[data-template="bento"] textarea {
+  border-radius: 14px;
+  border-color: transparent !important;
+  background: var(--surface1);
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.04);
+}
+
+body[data-template="bento"] select:focus,
+body[data-template="bento"] input:focus,
+body[data-template="bento"] textarea:focus {
+  box-shadow:
+    inset 0 1px 2px rgb(0 0 0 / 0.04),
+    0 0 0 3px var(--primary) / 0.15;
+}
+
+/* Spacing: comfortable, generous padding */
+body[data-template="bento"] main {
+  padding: 1.25rem !important;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   T2 — GLASSMORPHISM
+   Frosted glass everywhere, backdrop-blur, gradient mesh background,
+   semi-transparent surfaces, soft white borders.
+   Inspired by LifeStats, Immersive Garden, iOS/macOS design language.
+   ────────────────────────────────────────────────────────────────────────── */
+
+body[data-template="glassmorphism"] {
+  --template-blur-card: 12px;
+  --template-blur-sidebar: 20px;
+  --template-blur-modal: 28px;
+  --template-glass-border: rgb(255 255 255 / 0.12);
+  --template-radius: 20px;
+}
+
+/* Animated gradient mesh background */
+body[data-template="glassmorphism"]::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(
+      ellipse 60% 50% at 15% 45%,
+      var(--primary) / 0.12,
+      transparent
+    ),
+    radial-gradient(
+      ellipse 50% 60% at 85% 25%,
+      var(--ring) / 0.08,
+      transparent
+    ),
+    radial-gradient(
+      ellipse 55% 45% at 50% 85%,
+      var(--accent) / 0.06,
+      transparent
+    ),
+    var(--background);
+  animation: glassmorphism-mesh-drift 25s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+@keyframes glassmorphism-mesh-drift {
+  0% {
+    background-position:
+      0% 0%,
+      100% 0%,
+      50% 100%;
+  }
+  33% {
+    background-position:
+      10% 20%,
+      80% 10%,
+      40% 90%;
+  }
+  66% {
+    background-position:
+      5% 10%,
+      90% 30%,
+      60% 80%;
+  }
+  100% {
+    background-position:
+      15% 5%,
+      75% 15%,
+      45% 95%;
+  }
+}
+
+/* All cards = frosted glass */
+body[data-template="glassmorphism"] .bg-card,
+body[data-template="glassmorphism"] .glass-card,
+body[data-template="glassmorphism"] .glass-panel {
+  background: color-mix(in oklch, var(--card) 55%, transparent) !important;
+  backdrop-filter: blur(var(--template-blur-card)) saturate(1.4);
+  -webkit-backdrop-filter: blur(var(--template-blur-card)) saturate(1.4);
+  border: 1px solid var(--template-glass-border) !important;
+  box-shadow: 0 4px 24px rgb(0 0 0 / 0.06);
+  border-radius: var(--template-radius);
+}
+
+body[data-template="glassmorphism"] .bg-card:hover,
+body[data-template="glassmorphism"] .glass-card:hover {
+  background: color-mix(in oklch, var(--card) 65%, transparent) !important;
+  box-shadow: 0 6px 32px rgb(0 0 0 / 0.1);
+}
+
+/* Background surface */
+body[data-template="glassmorphism"] .bg-background,
+body[data-template="glassmorphism"] main {
+  background: transparent !important;
+}
+
+/* Sidebar: deep frosted glass */
+body[data-template="glassmorphism"] .glass-sidebar {
+  background: color-mix(in oklch, var(--sidebar) 60%, transparent) !important;
+  backdrop-filter: blur(var(--template-blur-sidebar)) saturate(1.5);
+  -webkit-backdrop-filter: blur(var(--template-blur-sidebar)) saturate(1.5);
+  border-right: 1px solid var(--template-glass-border) !important;
+  box-shadow: 4px 0 24px rgb(0 0 0 / 0.04);
+}
+
+/* Surface overlays: all semi-transparent */
+body[data-template="glassmorphism"] .bg-surface-1 {
+  background: color-mix(in oklch, var(--surface1) 50%, transparent) !important;
+  backdrop-filter: blur(6px);
+}
+
+body[data-template="glassmorphism"] .bg-surface-2 {
+  background: color-mix(in oklch, var(--surface2) 50%, transparent) !important;
+}
+
+/* Borders: always glass borders */
+body[data-template="glassmorphism"] .border,
+body[data-template="glassmorphism"] .border-border {
+  border-color: var(--template-glass-border) !important;
+}
+
+/* Round everything */
+body[data-template="glassmorphism"] .rounded-xl {
+  border-radius: 24px !important;
+}
+body[data-template="glassmorphism"] .rounded-lg {
+  border-radius: 20px !important;
+}
+body[data-template="glassmorphism"] .rounded-md {
+  border-radius: 16px !important;
+}
+
+/* Inputs: frosted */
+body[data-template="glassmorphism"] select,
+body[data-template="glassmorphism"]
+  input:not([type="color"]):not([type="checkbox"]):not([type="radio"]),
+body[data-template="glassmorphism"] textarea {
+  background: color-mix(in oklch, var(--card) 40%, transparent);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--template-glass-border);
+  border-radius: 16px;
+}
+
+/* Active nav item: glass glow */
+body[data-template="glassmorphism"] [aria-current="page"] {
+  background: color-mix(in oklch, var(--primary) 15%, transparent) !important;
+  box-shadow: 0 0 20px var(--primary) / 0.1;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   T3 — NEOBRUTALISM
+   Thick black borders everywhere, offset shadows, bold pastels,
+   sharp corners, zero blur, zero gradients. Anti-corporate.
+   Inspired by Malvah, Gumroad, Figma community neobrutalist kits.
+   ────────────────────────────────────────────────────────────────────────── */
+
+body[data-template="neobrutalism"] {
+  --template-border: 2.5px;
+  --template-shadow-offset: 4px;
+  --template-border-color: var(--foreground);
+  font-weight: 500;
+}
+
+/* Kill all blur, gradients, glass */
+body[data-template="neobrutalism"],
+body[data-template="neobrutalism"] * {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Sharp corners everywhere */
+body[data-template="neobrutalism"] .rounded-xl,
+body[data-template="neobrutalism"] .rounded-lg,
+body[data-template="neobrutalism"] .rounded-md,
+body[data-template="neobrutalism"] .rounded,
+body[data-template="neobrutalism"] .rounded-sm {
+  border-radius: 4px !important;
+}
+body[data-template="neobrutalism"]
+  .rounded-full:not(.h-1):not(.h-2):not(.h-3):not(.w-1):not(.w-2):not(.w-3) {
+  border-radius: 4px !important;
+}
+
+/* Cards: thick border + offset shadow */
+body[data-template="neobrutalism"] .bg-card,
+body[data-template="neobrutalism"] .glass-card,
+body[data-template="neobrutalism"] .glass-panel {
+  border: var(--template-border) solid var(--template-border-color) !important;
+  box-shadow: var(--template-shadow-offset) var(--template-shadow-offset) 0
+    var(--template-border-color);
+  border-radius: 4px !important;
+  background: var(--card);
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease;
+}
+
+body[data-template="neobrutalism"] .bg-card:hover,
+body[data-template="neobrutalism"] .glass-card:hover {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 var(--template-border-color);
+}
+
+/* Borders: thick and visible */
+body[data-template="neobrutalism"] .border,
+body[data-template="neobrutalism"] .border-border {
+  border-color: var(--template-border-color) !important;
+  border-width: var(--template-border) !important;
+}
+
+body[data-template="neobrutalism"] .border-b {
+  border-bottom-width: var(--template-border) !important;
+  border-bottom-color: var(--template-border-color) !important;
+}
+
+/* Sidebar: bold */
+body[data-template="neobrutalism"] .glass-sidebar {
+  background: var(--sidebar);
+  border-right: var(--template-border) solid var(--template-border-color) !important;
+  box-shadow: 3px 0 0 var(--template-border-color);
+  backdrop-filter: none;
+}
+
+/* Active nav: strong fill */
+body[data-template="neobrutalism"] [aria-current="page"] {
+  background: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+  border: var(--template-border) solid var(--template-border-color) !important;
+  box-shadow: 2px 2px 0 var(--template-border-color);
+  border-radius: 4px !important;
+}
+
+/* Buttons: chunky */
+body[data-template="neobrutalism"] button {
+  border: var(--template-border) solid var(--template-border-color) !important;
+  box-shadow: 3px 3px 0 var(--template-border-color);
+  border-radius: 4px !important;
+  font-weight: 600;
+  transition:
+    transform 100ms ease,
+    box-shadow 100ms ease;
+}
+
+body[data-template="neobrutalism"] button:hover {
+  transform: translate(1.5px, 1.5px);
+  box-shadow: 1.5px 1.5px 0 var(--template-border-color);
+}
+
+body[data-template="neobrutalism"] button:active {
+  transform: translate(3px, 3px);
+  box-shadow: 0 0 0 var(--template-border-color);
+}
+
+/* Inputs: bordered */
+body[data-template="neobrutalism"] select,
+body[data-template="neobrutalism"]
+  input:not([type="color"]):not([type="checkbox"]):not([type="radio"]),
+body[data-template="neobrutalism"] textarea {
+  border: var(--template-border) solid var(--template-border-color) !important;
+  border-radius: 4px !important;
+  background: var(--background);
+  box-shadow: 2px 2px 0 var(--template-border-color);
+  font-weight: 500;
+}
+
+body[data-template="neobrutalism"] select:focus,
+body[data-template="neobrutalism"] input:focus,
+body[data-template="neobrutalism"] textarea:focus {
+  box-shadow: 2px 2px 0 var(--primary);
+  border-color: var(--primary) !important;
+}
+
+/* Typography: bold headings */
+body[data-template="neobrutalism"] h1,
+body[data-template="neobrutalism"] h2,
+body[data-template="neobrutalism"] h3 {
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+body[data-template="neobrutalism"] h4,
+body[data-template="neobrutalism"] h5,
+body[data-template="neobrutalism"] h6 {
+  font-weight: 700;
+}
+
+/* Remove any smooth shadows — brutalism uses hard edges */
+body[data-template="neobrutalism"] .shadow-sm,
+body[data-template="neobrutalism"] .shadow-md,
+body[data-template="neobrutalism"] .shadow-lg,
+body[data-template="neobrutalism"] .shadow-xl {
+  box-shadow: var(--template-shadow-offset) var(--template-shadow-offset) 0
+    var(--template-border-color) !important;
+}
+
+/* Remove pseudo-element overlays from presets */
+body[data-template="neobrutalism"]::before,
+body[data-template="neobrutalism"]::after {
+  display: none !important;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   T4 — CINEMATIC DARK
+   Deep black, neon accents, glow borders, oversized thin typography,
+   near-invisible sidebar, smooth hover glow.
+   Inspired by ZenWallet, Rabbet, Charts Mega, Lando Norris.
+   ────────────────────────────────────────────────────────────────────────── */
+
+body[data-template="cinematic-dark"] {
+  --template-bg-deep: #050508;
+  --template-card-surface: #0a0a12;
+  --template-border-glow: rgb(255 255 255 / 0.05);
+  --template-glow-color: var(--primary);
+  --template-glow-spread: 20px;
+}
+
+/* Force dark background (cinematic = always dark feel) */
+body[data-template="cinematic-dark"] {
+  --background: var(--template-bg-deep);
+  --card: var(--template-card-surface);
+  --sidebar: var(--template-bg-deep);
+  --surface1: rgb(255 255 255 / 0.03);
+  --surface2: rgb(255 255 255 / 0.05);
+  --surface3: rgb(255 255 255 / 0.08);
+  --border: var(--template-border-glow);
+}
+
+/* Subtle radial glow from top */
+body[data-template="cinematic-dark"]::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(
+      ellipse 80% 40% at 50% -5%,
+      var(--template-glow-color) / 0.05,
+      transparent
+    ),
+    radial-gradient(
+      ellipse 50% 60% at 80% 100%,
+      var(--template-glow-color) / 0.02,
+      transparent
+    ),
+    var(--template-bg-deep);
+  pointer-events: none;
+}
+
+/* Cards: near-invisible surface with glow on hover */
+body[data-template="cinematic-dark"] .bg-card,
+body[data-template="cinematic-dark"] .glass-card,
+body[data-template="cinematic-dark"] .glass-panel {
+  background: var(--template-card-surface) !important;
+  border: 1px solid var(--template-border-glow) !important;
+  box-shadow: 0 0 var(--template-glow-spread) var(--template-glow-color) / 0.02;
+  border-radius: 12px;
+  backdrop-filter: none;
+  transition:
+    border-color 350ms ease-out,
+    box-shadow 350ms ease-out;
+}
+
+body[data-template="cinematic-dark"] .bg-card:hover,
+body[data-template="cinematic-dark"] .glass-card:hover {
+  border-color: color-mix(
+    in oklch,
+    var(--template-glow-color) 25%,
+    transparent
+  ) !important;
+  box-shadow:
+    0 0 30px var(--template-glow-color) / 0.07,
+    0 0 60px var(--template-glow-color) / 0.03;
+}
+
+/* Borders: very subtle */
+body[data-template="cinematic-dark"] .border,
+body[data-template="cinematic-dark"] .border-border {
+  border-color: var(--template-border-glow) !important;
+}
+
+/* Sidebar: nearly invisible, melts into black */
+body[data-template="cinematic-dark"] .glass-sidebar {
+  background: transparent !important;
+  border-right: 1px solid rgb(255 255 255 / 0.03) !important;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+/* Active nav: neon glow pill */
+body[data-template="cinematic-dark"] [aria-current="page"] {
+  background: var(--template-glow-color) / 0.1 !important;
+  box-shadow: 0 0 16px var(--template-glow-color) / 0.15;
+  border: 1px solid var(--template-glow-color) / 0.2;
+}
+
+/* Typography: thin oversized headings */
+body[data-template="cinematic-dark"] h1,
+body[data-template="cinematic-dark"] h2 {
+  font-size: clamp(1.5rem, 2.5vw, 2.75rem);
+  font-weight: 300;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+body[data-template="cinematic-dark"] h3 {
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+
+/* Body text: slightly lighter weight */
+body[data-template="cinematic-dark"] {
+  font-weight: 400;
+  letter-spacing: 0.005em;
+}
+
+/* Inputs: minimal, dark */
+body[data-template="cinematic-dark"] select,
+body[data-template="cinematic-dark"]
+  input:not([type="color"]):not([type="checkbox"]):not([type="radio"]),
+body[data-template="cinematic-dark"] textarea {
+  background: rgb(255 255 255 / 0.03);
+  border: 1px solid rgb(255 255 255 / 0.06);
+  border-radius: 10px;
+  transition:
+    border-color 250ms ease,
+    box-shadow 250ms ease;
+}
+
+body[data-template="cinematic-dark"] select:focus,
+body[data-template="cinematic-dark"] input:focus,
+body[data-template="cinematic-dark"] textarea:focus {
+  border-color: var(--template-glow-color);
+  box-shadow: 0 0 12px var(--template-glow-color) / 0.15;
+}
+
+/* Buttons: subtle with glow on hover */
+body[data-template="cinematic-dark"] button {
+  border-radius: 10px;
+  transition:
+    box-shadow 300ms ease,
+    border-color 300ms ease;
+}
+
+body[data-template="cinematic-dark"] button:hover {
+  box-shadow: 0 0 16px var(--template-glow-color) / 0.1;
+}
+
+body[data-template="cinematic-dark"] .bg-primary {
+  box-shadow: 0 0 20px var(--primary) / 0.25;
+}
+
+body[data-template="cinematic-dark"] .bg-primary:hover {
+  box-shadow: 0 0 30px var(--primary) / 0.35;
+}
+
+/* Shadows: neon-tinted */
+body[data-template="cinematic-dark"] .shadow-sm {
+  box-shadow: 0 0 8px var(--template-glow-color) / 0.04 !important;
+}
+body[data-template="cinematic-dark"] .shadow-md {
+  box-shadow: 0 0 16px var(--template-glow-color) / 0.06 !important;
+}
+body[data-template="cinematic-dark"] .shadow-lg {
+  box-shadow: 0 0 24px var(--template-glow-color) / 0.08 !important;
+}
+
+/* Scrollbar: thin, glowing */
+body[data-template="cinematic-dark"] ::-webkit-scrollbar {
+  width: 4px;
+}
+body[data-template="cinematic-dark"] ::-webkit-scrollbar-thumb {
+  background: var(--template-glow-color) / 0.2;
+  border-radius: 2px;
+}
+
+/* Remove competing preset overlays */
+body[data-template="cinematic-dark"]::before {
+  display: none !important;
+}

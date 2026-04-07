@@ -82,22 +82,18 @@ export const buildGatewayModelChoices = (
 ) => {
   const allowedKeys = buildAllowedModelKeys(snapshot);
   if (allowedKeys.length === 0) return catalog;
-  // When an allowlist is configured, only show allowed models
-  const allowedSet = new Set(allowedKeys);
-  const filtered = catalog.filter((entry) =>
-    allowedSet.has(`${entry.provider}/${entry.id}`),
-  );
-  // Append any allowed keys not already in the catalog
+  // Start with the full catalog and append configured extras not in catalog
+  const result = [...catalog];
   const catalogKeys = new Set(
-    filtered.map((entry) => `${entry.provider}/${entry.id}`),
+    catalog.map((entry) => `${entry.provider}/${entry.id}`),
   );
   for (const key of allowedKeys) {
     if (catalogKeys.has(key)) continue;
     const [provider, id] = key.split("/");
     if (!provider || !id) continue;
-    filtered.push({ provider, id, name: key });
+    result.push({ provider, id, name: key });
   }
-  return filtered;
+  return result;
 };
 
 /**

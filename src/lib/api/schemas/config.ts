@@ -21,11 +21,12 @@ export type CronConfigPatchInput = z.infer<typeof CronConfigPatchSchema>;
 export const CronJobPatchSchema = z
   .object({
     name: z.string().min(1).optional(),
-    schedule: z.string().min(1).optional(),
+    schedule: z.any().optional(),
     agentId: z.string().min(1).optional(),
     payload: z.record(z.string(), z.unknown()).optional(),
     delivery: z.string().optional(),
     state: z.enum(["enabled", "disabled"]).optional(),
+    enabled: z.boolean().optional(),
   })
   .passthrough();
 

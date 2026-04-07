@@ -1,13 +1,19 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
-import {
-  agentStoreReducer,
-  initialAgentStoreState,
-  type AgentStoreSeed,
-} from "@/features/agents/state/store";
+import { type AgentStoreSeed } from "@/features/agents/state/store";
+import { useAgentZustandStore } from "@/features/agents/state/zustandStore";
 import { createTranscriptEntryFromLine } from "@/features/agents/state/transcript";
 
 describe("agent store transcript upsert", () => {
+  beforeEach(() => {
+    useAgentZustandStore.setState({
+      agents: [],
+      selectedAgentId: null,
+      loading: false,
+      error: null,
+    });
+  });
+
   it("replaces appendOutput entries that share transcript entryId", () => {
     const seed: AgentStoreSeed = {
       agentId: "agent-1",
@@ -15,46 +21,36 @@ describe("agent store transcript upsert", () => {
       sessionKey: "agent:agent-1:studio:test-session",
     };
 
-    let state = agentStoreReducer(initialAgentStoreState, {
-      type: "hydrateAgents",
-      agents: [seed],
+    const store = useAgentZustandStore.getState();
+    store.hydrateAgents([seed]);
+
+    store.appendOutput("agent-1", "fallback final", {
+      source: "runtime-agent",
+      runId: "run-1",
+      sessionKey: seed.sessionKey,
+      timestampMs: 1000,
+      role: "assistant",
+      kind: "assistant",
+      entryId: "run:run-1:assistant:final",
+      confirmed: false,
     });
 
-    state = agentStoreReducer(state, {
-      type: "appendOutput",
-      agentId: "agent-1",
-      line: "fallback final",
-      transcript: {
-        source: "runtime-agent",
-        runId: "run-1",
-        sessionKey: seed.sessionKey,
-        timestampMs: 1000,
-        role: "assistant",
-        kind: "assistant",
-        entryId: "run:run-1:assistant:final",
-        confirmed: false,
-      },
+    store.appendOutput("agent-1", "canonical final", {
+      source: "runtime-chat",
+      runId: "run-1",
+      sessionKey: seed.sessionKey,
+      timestampMs: 1100,
+      role: "assistant",
+      kind: "assistant",
+      entryId: "run:run-1:assistant:final",
+      confirmed: true,
     });
 
-    state = agentStoreReducer(state, {
-      type: "appendOutput",
-      agentId: "agent-1",
-      line: "canonical final",
-      transcript: {
-        source: "runtime-chat",
-        runId: "run-1",
-        sessionKey: seed.sessionKey,
-        timestampMs: 1100,
-        role: "assistant",
-        kind: "assistant",
-        entryId: "run:run-1:assistant:final",
-        confirmed: true,
-      },
-    });
-
-    const agent = state.agents.find((entry) => entry.agentId === "agent-1");
+    const agent = useAgentZustandStore
+      .getState()
+      .agents.find((entry) => entry.agentId === "agent-1");
     const assistantEntries = (agent?.transcriptEntries ?? []).filter(
-      (entry) => entry.kind === "assistant"
+      (entry) => entry.kind === "assistant",
     );
 
     expect(assistantEntries).toHaveLength(1);
@@ -70,10 +66,8 @@ describe("agent store transcript upsert", () => {
       sessionKey: "agent:agent-1:studio:test-session",
     };
 
-    let state = agentStoreReducer(initialAgentStoreState, {
-      type: "hydrateAgents",
-      agents: [seed],
-    });
+    const store = useAgentZustandStore.getState();
+    store.hydrateAgents([seed]);
 
     const first = createTranscriptEntryFromLine({
       line: "first duplicate",
@@ -101,34 +95,27 @@ describe("agent store transcript upsert", () => {
       throw new Error("expected transcript entries");
     }
 
-    state = agentStoreReducer(state, {
-      type: "updateAgent",
-      agentId: "agent-1",
-      patch: {
-        transcriptEntries: [first, second],
-        outputLines: [first.text, second.text],
-      },
+    store.updateAgent("agent-1", {
+      transcriptEntries: [first, second],
+      outputLines: [first.text, second.text],
     });
 
-    state = agentStoreReducer(state, {
-      type: "appendOutput",
-      agentId: "agent-1",
-      line: "canonical final",
-      transcript: {
-        source: "runtime-chat",
-        runId: "run-1",
-        sessionKey: seed.sessionKey,
-        timestampMs: 1100,
-        role: "assistant",
-        kind: "assistant",
-        entryId: "run:run-1:assistant:final",
-        confirmed: true,
-      },
+    store.appendOutput("agent-1", "canonical final", {
+      source: "runtime-chat",
+      runId: "run-1",
+      sessionKey: seed.sessionKey,
+      timestampMs: 1100,
+      role: "assistant",
+      kind: "assistant",
+      entryId: "run:run-1:assistant:final",
+      confirmed: true,
     });
 
-    const agent = state.agents.find((entry) => entry.agentId === "agent-1");
+    const agent = useAgentZustandStore
+      .getState()
+      .agents.find((entry) => entry.agentId === "agent-1");
     const assistantEntries = (agent?.transcriptEntries ?? []).filter(
-      (entry) => entry.kind === "assistant"
+      (entry) => entry.kind === "assistant",
     );
 
     expect(assistantEntries).toHaveLength(1);

@@ -1,37 +1,25 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import fs from "node:fs";
 import path from "node:path";
 import { resolveStateDir } from "@/lib/clawdbot/paths";
 import { parseBody, parseQuery, isValidationError } from "@/lib/api/validation";
+import {
+  ProviderPatchSchema,
+  ProviderDeleteQuerySchema,
+} from "@/lib/api/schemas/providers";
 import { createLogger } from "@/lib/logger";
 import { withErrorHandler } from "@/lib/api/error-handler";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 
 const log = createLogger("api:providers");
 
-// --- Schemas ---
-
-const ProviderPatchSchema = z.object({
-  id: z.string().min(1, "id required"),
-  api: z.string().optional(),
-  apiKey: z.string().optional(),
-  accessToken: z.string().optional(),
-  baseUrl: z.string().optional(),
-  label: z.string().optional(),
-  enabled: z.boolean().optional(),
-});
-
-const ProviderDeleteQuerySchema = z.object({
-  id: z.string().min(1, "id required"),
-});
-
 // --- Helpers ---
 
 type RawProviderConfig = {
-  apiKey?: string;
-  accessToken?: string;
+  apiKey?: string | { source: string; provider?: string; id?: string };
+  accessToken?: string | { source: string; provider?: string; id?: string };
   baseUrl?: string;
   api?: string;
   models?: unknown[];
@@ -58,16 +46,33 @@ function maskKey(key: string): string {
   return key.slice(0, 4) + "****" + key.slice(-4);
 }
 
+function describeKey(key: unknown): string {
+  if (!key) return "****";
+  if (typeof key === "object") {
+    const id = (key as { id?: string }).id;
+    return id ? `[env:${id}]` : "[env]";
+  }
+  const s = String(key);
+  // Template string like "${VAR_NAME}"
+  const tmpl = s.match(/^\$\{(.+)\}$/);
+  if (tmpl) return `[env:${tmpl[1]}]`;
+  // Plain string — mask it
+  return maskKey(s);
+}
+
 async function get_handler() {
   try {
     const config = readConfig();
     const modelsSection = (config.models ?? {}) as Record<string, unknown>;
-    const rawProviders = (modelsSection.providers ?? {}) as Record<string, RawProviderConfig>;
+    const rawProviders = (modelsSection.providers ?? {}) as Record<
+      string,
+      RawProviderConfig
+    >;
 
     const providers = Object.entries(rawProviders).map(([id, conf]) => ({
       id,
-      apiKey: conf.apiKey ? maskKey(conf.apiKey) : undefined,
-      accessToken: conf.accessToken ? maskKey(conf.accessToken) : undefined,
+      apiKey: conf.apiKey ? describeKey(conf.apiKey) : undefined,
+      accessToken: conf.accessToken ? describeKey(conf.accessToken) : undefined,
       baseUrl: conf.baseUrl,
       api: conf.api,
       label: conf.label as string | undefined,
@@ -83,11 +88,17 @@ async function get_handler() {
     return NextResponse.json({ providers, fallbackChain });
   } catch (err) {
     log.error("Failed to list providers", { error: String(err) });
-    return NextResponse.json({ error: String(err), providers: [], fallbackChain: [] }, { status: 500 });
+    return NextResponse.json(
+      { error: String(err), providers: [], fallbackChain: [] },
+      { status: 500 },
+    );
   }
 }
 
 async function patch_handler(request: Request) {
+  const limited = applyRateLimit(request, RATE_LIMITS.providersWrite);
+  if (limited) return limited;
+
   try {
     const parsed = await parseBody(request, ProviderPatchSchema);
     if (isValidationError(parsed)) return parsed;
@@ -96,14 +107,18 @@ async function patch_handler(request: Request) {
 
     const config = readConfig();
     const modelsSection = (config.models ?? {}) as Record<string, unknown>;
-    const rawProviders = (modelsSection.providers ?? {}) as Record<string, RawProviderConfig>;
+    const rawProviders = (modelsSection.providers ?? {}) as Record<
+      string,
+      RawProviderConfig
+    >;
 
-    const existing = rawProviders[id] ?? {} as RawProviderConfig;
+    const existing = rawProviders[id] ?? ({} as RawProviderConfig);
 
     if (api !== undefined) existing.api = api;
     if (label !== undefined) existing.label = label || undefined;
     if (apiKey !== undefined && apiKey !== "") existing.apiKey = apiKey;
-    if (accessToken !== undefined && accessToken !== "") existing.accessToken = accessToken;
+    if (accessToken !== undefined && accessToken !== "")
+      existing.accessToken = accessToken;
     if (baseUrl !== undefined) existing.baseUrl = baseUrl || undefined;
 
     rawProviders[id] = existing;
@@ -120,6 +135,9 @@ async function patch_handler(request: Request) {
 }
 
 async function delete_handler(request: Request) {
+  const limited = applyRateLimit(request, RATE_LIMITS.providersWrite);
+  if (limited) return limited;
+
   try {
     const url = new URL(request.url);
     const parsed = parseQuery(url, ProviderDeleteQuerySchema);
@@ -129,7 +147,10 @@ async function delete_handler(request: Request) {
 
     const config = readConfig();
     const modelsSection = (config.models ?? {}) as Record<string, unknown>;
-    const rawProviders = (modelsSection.providers ?? {}) as Record<string, RawProviderConfig>;
+    const rawProviders = (modelsSection.providers ?? {}) as Record<
+      string,
+      RawProviderConfig
+    >;
 
     delete rawProviders[id];
     modelsSection.providers = rawProviders;

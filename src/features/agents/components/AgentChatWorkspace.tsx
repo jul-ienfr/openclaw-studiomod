@@ -47,16 +47,30 @@ export type AgentChatWorkspaceProps = {
   onLoadMoreHistory: (agentId: string) => void;
   onOpenSettings: (agentId: string) => void;
   onRenameAgent: (agentId: string, name: string) => Promise<boolean> | boolean;
-  onNewSession: (agentId: string) => void;
+  onNewSession: (agentId: string, channelId?: string) => void;
   onSelectSession: (agentId: string, sessionKey: string) => void;
   onRefreshSessions: () => void;
-  onModelChange: (agentId: string, sessionKey: string, value: string | null) => void;
-  onThinkingChange: (agentId: string, sessionKey: string, value: string | null) => void;
+  onModelChange: (
+    agentId: string,
+    sessionKey: string,
+    value: string | null,
+  ) => void;
+  onThinkingChange: (
+    agentId: string,
+    sessionKey: string,
+    value: string | null,
+  ) => void;
   onToolCallingToggle: (agentId: string, enabled: boolean) => void;
   onThinkingTracesToggle: (agentId: string, enabled: boolean) => void;
   onHideSystemMessagesToggle: (agentId: string, enabled: boolean) => void;
   onDraftChange: (agentId: string, value: string) => void;
-  onSend: (agentId: string, sessionKey: string, message: string, attachments?: GatewayAttachment[], opts?: { force?: boolean }) => void;
+  onSend: (
+    agentId: string,
+    sessionKey: string,
+    message: string,
+    attachments?: GatewayAttachment[],
+    opts?: { force?: boolean },
+  ) => void;
   onRemoveQueuedMessage: (agentId: string, index: number) => void;
   onStopRun: (agentId: string, sessionKey: string) => void;
   onAvatarShuffle: (agentId: string) => void;
@@ -162,10 +176,16 @@ export const AgentChatWorkspace = ({
                 models={gatewayModels}
                 stopBusy={stopBusyAgentId === focusedAgent.agentId}
                 stopDisabledReason={focusedAgentStopDisabledReason}
-                onLoadMoreHistory={() => onLoadMoreHistory(focusedAgent.agentId)}
+                onLoadMoreHistory={() =>
+                  onLoadMoreHistory(focusedAgent.agentId)
+                }
                 onOpenSettings={() => onOpenSettings(focusedAgent.agentId)}
-                onRename={async (name) => onRenameAgent(focusedAgent.agentId, name)}
-                onNewSession={() => onNewSession(focusedAgent.agentId)}
+                onRename={async (name) =>
+                  onRenameAgent(focusedAgent.agentId, name)
+                }
+                onNewSession={(channelId?: string) =>
+                  onNewSession(focusedAgent.agentId, channelId)
+                }
                 sessions={focusedAgentSessions}
                 sessionsLoading={focusedAgentSessionsLoading}
                 onSelectSession={(sessionKey) => {
@@ -173,10 +193,18 @@ export const AgentChatWorkspace = ({
                   onRefreshSessions();
                 }}
                 onModelChange={(value) =>
-                  onModelChange(focusedAgent.agentId, focusedAgent.sessionKey, value)
+                  onModelChange(
+                    focusedAgent.agentId,
+                    focusedAgent.sessionKey,
+                    value,
+                  )
                 }
                 onThinkingChange={(value) =>
-                  onThinkingChange(focusedAgent.agentId, focusedAgent.sessionKey, value)
+                  onThinkingChange(
+                    focusedAgent.agentId,
+                    focusedAgent.sessionKey,
+                    value,
+                  )
                 }
                 onToolCallingToggle={(enabled) =>
                   onToolCallingToggle(focusedAgent.agentId, enabled)
@@ -187,9 +215,16 @@ export const AgentChatWorkspace = ({
                 onHideSystemMessagesToggle={(enabled) =>
                   onHideSystemMessagesToggle(focusedAgent.agentId, enabled)
                 }
-                onDraftChange={(value) => onDraftChange(focusedAgent.agentId, value)}
+                onDraftChange={(value) =>
+                  onDraftChange(focusedAgent.agentId, value)
+                }
                 onSend={(message, attachments) =>
-                  onSend(focusedAgent.agentId, focusedAgent.sessionKey, message, attachments)
+                  onSend(
+                    focusedAgent.agentId,
+                    focusedAgent.sessionKey,
+                    message,
+                    attachments,
+                  )
                 }
                 onRemoveQueuedMessage={(index) =>
                   onRemoveQueuedMessage(focusedAgent.agentId, index)
@@ -206,13 +241,17 @@ export const AgentChatWorkspace = ({
                     { force: true },
                   );
                 }}
-                onStopRun={() => onStopRun(focusedAgent.agentId, focusedAgent.sessionKey)}
+                onStopRun={() =>
+                  onStopRun(focusedAgent.agentId, focusedAgent.sessionKey)
+                }
                 onAvatarShuffle={() => onAvatarShuffle(focusedAgent.agentId)}
                 otherAgents={allAgents
                   .filter((a) => a.agentId !== focusedAgent.agentId)
                   .map((a) => ({ agentId: a.agentId, name: a.name }))}
                 onForwardToAgent={(targetAgentId, message) => {
-                  const target = allAgents.find((a) => a.agentId === targetAgentId);
+                  const target = allAgents.find(
+                    (a) => a.agentId === targetAgentId,
+                  );
                   if (!target) return;
                   onSend(target.agentId, target.sessionKey, message);
                 }}

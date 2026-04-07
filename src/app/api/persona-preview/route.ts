@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withErrorHandler } from "@/lib/api/error-handler";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 
@@ -30,6 +31,9 @@ type PersonaPreviewRequestBody = {
 };
 
 async function post_handler(request: Request) {
+  const limited = applyRateLimit(request, RATE_LIMITS.personaGeneric);
+  if (limited) return limited;
+
   try {
     const body = (await request.json()) as unknown;
 

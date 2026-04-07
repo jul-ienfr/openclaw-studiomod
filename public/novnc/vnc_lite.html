@@ -174,6 +174,65 @@
         // Set parameters that can be changed on an active connection
         rfb.viewOnly = readQueryVariable('view_only', false);
         rfb.scaleViewport = readQueryVariable('scale', false);
+
+        // ── Transparent clipboard bridge (bidirectional) ─────────
+
+        // Hidden textarea to capture native paste events (works on HTTP)
+        const _pasteArea = document.createElement('textarea');
+        _pasteArea.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;';
+        document.body.appendChild(_pasteArea);
+
+        // 1. VNC server → local clipboard (remote Ctrl+C)
+        rfb.addEventListener("clipboard", (e) => {
+            const text = e.detail.text;
+            if (!text) return;
+            if (window.parent !== window) {
+                window.parent.postMessage({ type: 'vnc-clipboard', text }, '*');
+            }
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).catch(() => {});
+            }
+        });
+
+        // 2. Receive messages from parent (manual paste via clipboard bar)
+        window.addEventListener("message", (e) => {
+            if (e.data && e.data.type === 'vnc-paste' && typeof e.data.text === 'string') {
+                rfb.clipboardPasteFrom(e.data.text);
+                rfb.sendKey(0xffe3, "ControlLeft", true);
+                rfb.sendKey(0x0076, "KeyV", true);
+                rfb.sendKey(0x0076, "KeyV", false);
+                rfb.sendKey(0xffe3, "ControlLeft", false);
+            }
+        });
+
+        // 3. Intercept Ctrl+V: redirect to hidden textarea so browser pastes into it
+        document.getElementById('screen').addEventListener("keydown", (e) => {
+            if (!(e.ctrlKey || e.metaKey) || e.key !== 'v' || e.shiftKey) return;
+            // Stop noVNC from sending Ctrl+V as a VNC key event
+            e.stopPropagation();
+            // Do NOT preventDefault — let browser process the native paste
+            _pasteArea.value = '';
+            _pasteArea.focus();
+            // The paste event will fire on _pasteArea (see handler below)
+        }, true);
+
+        // 4. Capture the paste result and forward to VNC
+        _pasteArea.addEventListener('paste', (e) => {
+            const text = (e.clipboardData || window.clipboardData).getData('text');
+            if (text) {
+                rfb.clipboardPasteFrom(text);
+                // Replay Ctrl+V in the remote desktop
+                rfb.sendKey(0xffe3, "ControlLeft", true);
+                rfb.sendKey(0x0076, "KeyV", true);
+                rfb.sendKey(0x0076, "KeyV", false);
+                rfb.sendKey(0xffe3, "ControlLeft", false);
+            }
+            // Refocus the VNC canvas
+            setTimeout(() => {
+                const canvas = document.getElementById('screen').querySelector('canvas');
+                if (canvas) canvas.focus();
+            }, 50);
+        });
     </script>
 </head>
 

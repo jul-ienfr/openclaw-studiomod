@@ -9,7 +9,10 @@ import {
 } from "@/features/agents/operations/chatInteractionWorkflow";
 import { sendChatMessageViaStudio } from "@/features/agents/operations/chatSendOperation";
 import { mergePendingLivePatch } from "@/features/agents/state/livePatchQueue";
-import { buildNewSessionAgentPatch, type AgentState } from "@/features/agents/state/store";
+import {
+  buildNewSessionAgentPatch,
+  type AgentState,
+} from "@/features/agents/state/store";
 import type { GatewayStatus } from "@/lib/gateway/GatewayClient";
 
 type ChatInteractionDispatchAction =
@@ -43,9 +46,20 @@ export type ChatInteractionController = {
   stopBusyAgentId: string | null;
   flushPendingDraft: (agentId: string | null) => void;
   handleDraftChange: (agentId: string, value: string) => void;
-  handleSend: (agentId: string, sessionKey: string, message: string, attachments?: { type?: string; mimeType: string; content: string; fileName?: string }[], options?: { force?: boolean }) => Promise<void>;
+  handleSend: (
+    agentId: string,
+    sessionKey: string,
+    message: string,
+    attachments?: {
+      type?: string;
+      mimeType: string;
+      content: string;
+      fileName?: string;
+    }[],
+    options?: { force?: boolean },
+  ) => Promise<void>;
   removeQueuedMessage: (agentId: string, index: number) => void;
-  handleNewSession: (agentId: string) => Promise<void>;
+  handleNewSession: (agentId: string, channelId?: string) => Promise<void>;
   handleSelectSession: (agentId: string, newSessionKey: string) => void;
   handleStopRun: (agentId: string, sessionKey: string) => Promise<void>;
   queueLivePatch: (agentId: string, patch: Partial<AgentState>) => void;
@@ -53,16 +67,20 @@ export type ChatInteractionController = {
 };
 
 export function useChatInteractionController(
-  params: UseChatInteractionControllerParams
+  params: UseChatInteractionControllerParams,
 ): ChatInteractionController {
   const [stopBusyAgentId, setStopBusyAgentId] = useState<string | null>(null);
   const stopBusyAgentIdRef = useRef<string | null>(stopBusyAgentId);
   const pendingDraftValuesRef = useRef<Map<string, string>>(new Map());
   const pendingDraftTimersRef = useRef<Map<string, number>>(new Map());
-  const pendingLivePatchesRef = useRef<Map<string, Partial<AgentState>>>(new Map());
+  const pendingLivePatchesRef = useRef<Map<string, Partial<AgentState>>>(
+    new Map(),
+  );
   const activeQueueSendAgentIdsRef = useRef<Set<string>>(new Set());
   const flushLivePatchesRef = useRef<() => void>(() => {});
-  const livePatchBatcherRef = useRef(createRafBatcher(() => flushLivePatchesRef.current()));
+  const livePatchBatcherRef = useRef(
+    createRafBatcher(() => flushLivePatchesRef.current()),
+  );
 
   useEffect(() => {
     stopBusyAgentIdRef.current = stopBusyAgentId;
@@ -70,14 +88,17 @@ export function useChatInteractionController(
 
   const flushPendingDraft = useCallback(
     (agentId: string | null) => {
-      const hasPendingValue = Boolean(agentId && pendingDraftValuesRef.current.has(agentId));
+      const hasPendingValue = Boolean(
+        agentId && pendingDraftValuesRef.current.has(agentId),
+      );
       const flushIntent = planDraftFlushIntent({
         agentId,
         hasPendingValue,
       });
       if (flushIntent.kind !== "flush") return;
 
-      const timer = pendingDraftTimersRef.current.get(flushIntent.agentId) ?? null;
+      const timer =
+        pendingDraftTimersRef.current.get(flushIntent.agentId) ?? null;
       if (timer !== null) {
         window.clearTimeout(timer);
         pendingDraftTimersRef.current.delete(flushIntent.agentId);
@@ -92,7 +113,7 @@ export function useChatInteractionController(
         patch: { draft: value },
       });
     },
-    [params]
+    [params],
   );
 
   useEffect(() => {
@@ -130,13 +151,19 @@ export function useChatInteractionController(
     };
   }, []);
 
-  const queueLivePatch = useCallback((agentId: string, patch: Partial<AgentState>) => {
-    const key = agentId.trim();
-    if (!key) return;
-    const existing = pendingLivePatchesRef.current.get(key);
-    pendingLivePatchesRef.current.set(key, mergePendingLivePatch(existing, patch));
-    livePatchBatcherRef.current.schedule();
-  }, []);
+  const queueLivePatch = useCallback(
+    (agentId: string, patch: Partial<AgentState>) => {
+      const key = agentId.trim();
+      if (!key) return;
+      const existing = pendingLivePatchesRef.current.get(key);
+      pendingLivePatchesRef.current.set(
+        key,
+        mergePendingLivePatch(existing, patch),
+      );
+      livePatchBatcherRef.current.schedule();
+    },
+    [],
+  );
 
   const clearPendingLivePatch = useCallback((agentId: string) => {
     const key = agentId.trim();
@@ -183,14 +210,26 @@ export function useChatInteractionController(
       }, timerIntent.delayMs);
       pendingDraftTimersRef.current.set(agentId, timer);
     },
-    [params]
+    [params],
   );
 
   const handleSend = useCallback(
-    async (agentId: string, sessionKey: string, message: string, attachments?: { type?: string; mimeType: string; content: string; fileName?: string }[], options?: { force?: boolean }) => {
+    async (
+      agentId: string,
+      sessionKey: string,
+      message: string,
+      attachments?: {
+        type?: string;
+        mimeType: string;
+        content: string;
+        fileName?: string;
+      }[],
+      options?: { force?: boolean },
+    ) => {
       const trimmed = message.trim();
       if (!trimmed && !(attachments && attachments.length > 0)) return;
-      const pendingDraftTimer = pendingDraftTimersRef.current.get(agentId) ?? null;
+      const pendingDraftTimer =
+        pendingDraftTimersRef.current.get(agentId) ?? null;
       if (pendingDraftTimer !== null) {
         window.clearTimeout(pendingDraftTimer);
         pendingDraftTimersRef.current.delete(agentId);
@@ -221,7 +260,9 @@ export function useChatInteractionController(
         client: params.client,
         dispatch: params.dispatch,
         getAgent: (currentAgentId) =>
-          params.getAgents().find((entry) => entry.agentId === currentAgentId) ?? null,
+          params
+            .getAgents()
+            .find((entry) => entry.agentId === currentAgentId) ?? null,
         agentId,
         sessionKey,
         message: trimmed,
@@ -229,7 +270,7 @@ export function useChatInteractionController(
         clearRunTracking: (runId) => params.clearRunTracking(runId),
       });
     },
-    [clearPendingLivePatch, params]
+    [clearPendingLivePatch, params],
   );
 
   const removeQueuedMessage = useCallback(
@@ -241,11 +282,15 @@ export function useChatInteractionController(
         index,
       });
     },
-    [params]
+    [params],
   );
 
   const sendNextQueuedMessage = useCallback(
-    async (agent: Pick<AgentState, "agentId" | "sessionKey"> & { nextMessage: string }) => {
+    async (
+      agent: Pick<AgentState, "agentId" | "sessionKey"> & {
+        nextMessage: string;
+      },
+    ) => {
       if (params.status !== "connected") return;
       const nextMessage = agent.nextMessage.trim();
       if (!nextMessage) return;
@@ -259,14 +304,16 @@ export function useChatInteractionController(
         client: params.client,
         dispatch: params.dispatch,
         getAgent: (currentAgentId) =>
-          params.getAgents().find((entry) => entry.agentId === currentAgentId) ?? null,
+          params
+            .getAgents()
+            .find((entry) => entry.agentId === currentAgentId) ?? null,
         agentId: agent.agentId,
         sessionKey: agent.sessionKey,
         message: nextMessage,
         clearRunTracking: (runId) => params.clearRunTracking(runId),
       });
     },
-    [clearPendingLivePatch, params]
+    [clearPendingLivePatch, params],
   );
 
   useEffect(() => {
@@ -314,7 +361,8 @@ export function useChatInteractionController(
           sessionKey: stopIntent.sessionKey,
         });
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to stop run.";
+        const message =
+          err instanceof Error ? err.message : "Failed to stop run.";
         params.setError(message);
         console.error(message);
         params.dispatch({
@@ -330,17 +378,22 @@ export function useChatInteractionController(
         });
       }
     },
-    [params]
+    [params],
   );
 
   const handleNewSession = useCallback(
-    async (agentId: string) => {
-      const agent = params.getAgents().find((entry) => entry.agentId === agentId);
+    async (agentId: string, channelId?: string) => {
+      const agent = params
+        .getAgents()
+        .find((entry) => entry.agentId === agentId);
       const newSessionIntent = planNewSessionIntent({
         hasAgent: Boolean(agent),
         sessionKey: agent?.sessionKey ?? "",
       });
-      if (newSessionIntent.kind === "deny" && newSessionIntent.reason === "missing-agent") {
+      if (
+        newSessionIntent.kind === "deny" &&
+        newSessionIntent.reason === "missing-agent"
+      ) {
         params.setError(newSessionIntent.message);
         return;
       }
@@ -350,7 +403,10 @@ export function useChatInteractionController(
         if (newSessionIntent.kind === "deny") {
           throw new Error(newSessionIntent.message);
         }
-        await params.client.call("sessions.reset", { key: newSessionIntent.sessionKey });
+        await params.client.call("sessions.reset", {
+          key: newSessionIntent.sessionKey,
+          ...(channelId ? { channel: channelId } : {}),
+        });
         const patch = buildNewSessionAgentPatch(agent);
         params.clearRunTracking(agent.runId);
         params.clearHistoryInFlight(newSessionIntent.sessionKey);
@@ -364,7 +420,8 @@ export function useChatInteractionController(
         params.setInspectSidebarNull();
         params.setMobilePaneChat();
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to start new session.";
+        const message =
+          err instanceof Error ? err.message : "Failed to start new session.";
         params.setError(message);
         params.dispatch({
           type: "appendOutput",
@@ -373,12 +430,14 @@ export function useChatInteractionController(
         });
       }
     },
-    [params]
+    [params],
   );
 
   const handleSelectSession = useCallback(
     (agentId: string, newSessionKey: string) => {
-      const agent = params.getAgents().find((entry) => entry.agentId === agentId);
+      const agent = params
+        .getAgents()
+        .find((entry) => entry.agentId === agentId);
       if (!agent) return;
       const patch = {
         ...buildNewSessionAgentPatch(agent),
@@ -392,7 +451,7 @@ export function useChatInteractionController(
       params.setInspectSidebarNull();
       params.setMobilePaneChat();
     },
-    [params]
+    [params],
   );
 
   return {

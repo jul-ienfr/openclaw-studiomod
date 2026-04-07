@@ -4,11 +4,13 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useReducer,
   createElement,
   type ReactNode,
 } from "react";
+import { randomUUID } from "@/lib/uuid";
 
 // ------------------------------------------------------------------
 // Types
@@ -124,7 +126,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const pushNotification = useCallback((payload: PushPayload) => {
     const notification: Notification = {
       ...payload,
-      id: crypto.randomUUID(),
+      id: randomUUID(),
       timestamp: Date.now(),
       read: false,
     };
@@ -143,8 +145,14 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     dispatch({ type: "markAllRead" });
   }, []);
 
-  // Register global push bridge
-  _pushGlobal = pushNotification;
+  useEffect(() => {
+    _pushGlobal = pushNotification;
+    return () => {
+      if (_pushGlobal === pushNotification) {
+        _pushGlobal = null;
+      }
+    };
+  }, [pushNotification]);
 
   const unreadCount = useMemo(
     () => state.notifications.filter((n) => !n.read).length,

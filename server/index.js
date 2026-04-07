@@ -6,6 +6,8 @@ const next = require("next");
 
 const { createAccessGate } = require("./access-gate");
 const { createGatewayProxy } = require("./gateway-proxy");
+const { createServerGatewayClient } = require("./server-gateway-client");
+const { createEventBroadcaster } = require("./event-broadcaster");
 const { handleKnownWsUpgrades } = require("./ws-proxy");
 const mobileTokenStore = require("./mobile-token-store");
 const tunnelDiscovery = require("./tunnel-discovery");
@@ -120,6 +122,23 @@ async function main() {
     token: masterToken,
     tokenStore: mobileTokenStore,
   });
+
+  // ── Server-owned gateway connection (SSE pattern) ─────────────────────
+  const broadcaster = createEventBroadcaster();
+  const gatewaySettings = loadUpstreamGatewaySettings(process.env);
+  const serverGatewayClient = createServerGatewayClient({
+    url: gatewaySettings.url,
+    token: gatewaySettings.token,
+    onMessage: (msg) => broadcaster.broadcast(msg),
+    onConnect: () => {
+      console.log("[studio] gateway connected");
+      broadcaster.broadcast({ type: "event", event: "gateway.reconnected", payload: {} });
+    },
+    onClose: ({ code, reason }) => console.log(`[studio] gateway closed (${code}: ${reason})`),
+  });
+  // Expose globally so Next.js API routes can access them
+  globalThis.__studioGatewayClient = serverGatewayClient;
+  globalThis.__studioEventBroadcaster = broadcaster;
 
   const proxy = createGatewayProxy({
     loadUpstreamSettings: async () => {
@@ -320,6 +339,8 @@ async function main() {
   // ── Graceful shutdown ─────────────────────────────────────────────
   const shutdown = () => {
     console.log("[studio] shutting down gracefully...");
+    serverGatewayClient.shutdown();
+    broadcaster.shutdown();
     proxy.wss.close();
     Promise.all(servers.map((s) => new Promise((resolve) => s.close(resolve))))
       .then(() => {

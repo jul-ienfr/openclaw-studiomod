@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { useGatewayConnection } from "@/lib/gateway/GatewayClient";
+import { useSharedGatewayConnection } from "@/lib/gateway/GatewayConnectionProvider";
+import { type GatewayConnectionState } from "@/lib/gateway/GatewayClient";
 import {
   type GatewayModelChoice,
   type GatewayModelPolicySnapshot,
@@ -75,15 +76,15 @@ const resolveControlUiUrl = (params: {
 
 export type AgentGatewayControllerState = {
   /** The gateway client instance */
-  client: ReturnType<typeof useGatewayConnection>["client"];
+  client: GatewayConnectionState["client"];
   /** Current connection status */
-  status: ReturnType<typeof useGatewayConnection>["status"];
+  status: GatewayConnectionState["status"];
   /** Gateway URL */
   gatewayUrl: string;
   /** Authentication token */
   token: string;
   /** Local gateway defaults if available */
-  localGatewayDefaults: ReturnType<typeof useGatewayConnection>["localGatewayDefaults"];
+  localGatewayDefaults: GatewayConnectionState["localGatewayDefaults"];
   /** Connection error */
   gatewayError: string | null;
   /** Connect to gateway */
@@ -123,9 +124,6 @@ export type AgentGatewayControllerState = {
 };
 
 export const useAgentGatewayController = (): AgentGatewayControllerState => {
-  const [settingsCoordinator] = useState(() =>
-    createStudioSettingsCoordinator(),
-  );
   const {
     client,
     status,
@@ -138,7 +136,8 @@ export const useAgentGatewayController = (): AgentGatewayControllerState => {
     useLocalGatewayDefaults,
     setGatewayUrl,
     setToken,
-  } = useGatewayConnection(settingsCoordinator);
+    settingsCoordinator,
+  } = useSharedGatewayConnection();
 
   const [gatewayModels, setGatewayModels] = useState<GatewayModelChoice[]>([]);
   const [gatewayModelsError, setGatewayModelsError] = useState<string | null>(
@@ -174,12 +173,6 @@ export const useAgentGatewayController = (): AgentGatewayControllerState => {
       }),
     [gatewayConfigSnapshot, gatewayUrl],
   );
-
-  useEffect(() => {
-    return () => {
-      void settingsCoordinator.flushPending();
-    };
-  }, [settingsCoordinator]);
 
   return {
     client,

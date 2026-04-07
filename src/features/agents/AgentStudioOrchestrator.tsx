@@ -789,70 +789,7 @@ const AgentStudioInner = () => {
     }
   }, [gatewayError]);
 
-  // --- Early returns for loading/disconnected states ---
-  if (
-    !agentsLoadedOnce &&
-    (!didAttemptGatewayConnect || status === "connecting")
-  ) {
-    return (
-      <div className="relative min-h-screen w-full overflow-hidden bg-background">
-        <div className="flex min-h-screen items-center justify-center px-6">
-          <div className="glass-panel ui-panel w-full max-w-md px-6 py-6 text-center">
-            <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-              OpenClaw Studio
-            </div>
-            <div className="mt-3 text-sm text-muted-foreground">
-              {status === "connecting"
-                ? tp("connectingGateway")
-                : tp("bootingStudio")}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (
-    status === "disconnected" &&
-    !agentsLoadedOnce &&
-    didAttemptGatewayConnect
-  ) {
-    return (
-      <div className="relative min-h-screen w-full overflow-hidden bg-background">
-        <div className="flex min-h-screen items-center justify-center px-6">
-          <div className="glass-panel ui-panel w-full max-w-md px-6 py-6 text-center">
-            <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-              OpenClaw Studio
-            </div>
-            <div className="mt-3 text-sm text-muted-foreground">
-              {gatewayError
-                ? `${tp("connectingGateway")}… (${gatewayError})`
-                : `${tp("connectingGateway")}…`}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (status === "connected" && !agentsLoadedOnce) {
-    return (
-      <div className="relative min-h-screen w-full overflow-hidden bg-background">
-        <div className="flex min-h-screen items-center justify-center px-6">
-          <div className="glass-panel ui-panel w-full max-w-md px-6 py-6 text-center">
-            <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-              OpenClaw Studio
-            </div>
-            <div className="mt-3 text-sm text-muted-foreground">
-              Loading agents...
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // --- Main connected view ---
+  // --- Main view (no blocking screens) ---
   return (
     <div className="relative min-h-screen w-full overflow-hidden bg-background">
       {state.loading ? (
@@ -877,6 +814,7 @@ const AgentStudioInner = () => {
           onIntercom={() => panelActions.toggle("intercom")}
           onVoice={() => panelActions.toggle("voice")}
           onClaudeCode={() => panelActions.toggle("claudeCode")}
+          onAcpBridge={() => panelActions.toggle("acpBridge")}
           onBrowserView={() => panelActions.toggle("browserView")}
           configuredProviderCount={configuredProviderIds.length}
           totalProviderCount={PROVIDER_REGISTRY.length}
@@ -997,6 +935,8 @@ const AgentStudioInner = () => {
               }}
               showClaudeCodePanel={showClaudeCodeSidebar || panels.claudeCode}
               onCloseClaudeCode={() => panelActions.hide("claudeCode")}
+              showAcpPanel={panels.acpBridge}
+              onCloseAcp={() => panelActions.hide("acpBridge")}
             />
           )}
         </div>

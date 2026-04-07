@@ -13,8 +13,11 @@ import {
   BarChart3,
   ScrollText,
   MonitorPlay,
+  Monitor,
   MessageSquare,
   Mic,
+  Terminal,
+  Cpu,
 } from "lucide-react";
 import { resolveGatewayStatusBadgeClass } from "./colorSemantics";
 
@@ -31,6 +34,9 @@ type HeaderBarProps = {
   onCanvas?: () => void;
   onIntercom?: () => void;
   onVoice?: () => void;
+  onClaudeCode?: () => void;
+  onAcpBridge?: () => void;
+  onBrowserView?: () => void;
   showConnectionSettings?: boolean;
   configuredProviderCount?: number;
   totalProviderCount?: number;
@@ -49,6 +55,9 @@ export const HeaderBar = ({
   onCanvas,
   onIntercom,
   onVoice,
+  onClaudeCode,
+  onAcpBridge,
+  onBrowserView,
   showConnectionSettings = true,
   configuredProviderCount = 0,
   totalProviderCount = 0,
@@ -262,6 +271,54 @@ export const HeaderBar = ({
                     >
                       <Mic className="mr-2 inline h-3 w-3" aria-hidden="true" />
                       {t("voice")}
+                    </button>
+                  ) : null}
+                  {onClaudeCode ? (
+                    <button
+                      className="ui-btn-ghost w-full justify-start border-transparent px-3 py-2 text-left text-xs font-medium tracking-normal text-foreground"
+                      type="button"
+                      onClick={() => {
+                        onClaudeCode();
+                        setMenuOpen(false);
+                      }}
+                      data-testid="claude-code-toggle"
+                    >
+                      <Terminal
+                        className="mr-2 inline h-3 w-3"
+                        aria-hidden="true"
+                      />
+                      Claude Code
+                    </button>
+                  ) : null}
+                  {onAcpBridge ? (
+                    <button
+                      className="ui-btn-ghost w-full justify-start border-transparent px-3 py-2 text-left text-xs font-medium tracking-normal text-foreground"
+                      type="button"
+                      onClick={() => {
+                        onAcpBridge();
+                        setMenuOpen(false);
+                      }}
+                      data-testid="acp-bridge-toggle"
+                    >
+                      <Cpu className="mr-2 inline h-3 w-3" aria-hidden="true" />
+                      ACP Bridge
+                    </button>
+                  ) : null}
+                  {onBrowserView ? (
+                    <button
+                      className="ui-btn-ghost w-full justify-start border-transparent px-3 py-2 text-left text-xs font-medium tracking-normal text-foreground"
+                      type="button"
+                      onClick={() => {
+                        onBrowserView();
+                        setMenuOpen(false);
+                      }}
+                      data-testid="browser-view-toggle"
+                    >
+                      <Monitor
+                        className="mr-2 inline h-3 w-3"
+                        aria-hidden="true"
+                      />
+                      Browser View
                     </button>
                   ) : null}
                   <div className="my-1 border-t border-border" />

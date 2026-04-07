@@ -7,9 +7,10 @@ import {
   useRef,
   useState,
   type MutableRefObject,
+  Suspense,
 } from "react";
 import { useTranslations } from "next-intl";
-import ReactMarkdown from "react-markdown";
+import dynamic from "next/dynamic";
 import remarkGfm from "remark-gfm";
 import { ChevronRight, Clock } from "lucide-react";
 import { rewriteMediaLinesToMarkdown } from "@/lib/text/media-markdown";
@@ -40,6 +41,43 @@ import { chatUrlTransform, chatMarkdownComponents } from "./ChatMarkdownImg";
 import { MessageActionBar } from "./MessageActionBar";
 import { ExecApprovalCard } from "./ExecApprovalCard";
 import { ToolCallDetails } from "./ToolCallDetails";
+
+/* ── Lazy-loaded ReactMarkdown (~75KB gzip) ─────────────────────── */
+const ReactMarkdown = dynamic(() => import("react-markdown"), { ssr: false });
+
+/* ── LiveTimer ──────────────────────────────────────────────── */
+/* Isolated timer component — only re-renders itself every 250ms */
+
+const LiveTimer = memo(function LiveTimer({
+  isActive,
+  runStartedAt,
+  onDurationChange,
+}: {
+  isActive: boolean;
+  runStartedAt?: number | null;
+  onDurationChange: (durationMs: number | undefined) => void;
+}) {
+  useEffect(() => {
+    if (!isActive || typeof runStartedAt !== "number") {
+      onDurationChange(undefined);
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      onDurationChange(Math.max(0, Date.now() - runStartedAt));
+    }, 0);
+    const intervalId = window.setInterval(() => {
+      onDurationChange(Math.max(0, Date.now() - runStartedAt));
+    }, 250);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      window.clearInterval(intervalId);
+    };
+  }, [isActive, runStartedAt, onDurationChange]);
+
+  return null; // This component only manages state, doesn't render
+});
 
 /* ── ThinkingDetailsRow ──────────────────────────────────────────── */
 
@@ -137,12 +175,14 @@ const ThinkingDetailsRow = memo(function ThinkingDetailsRow({
 const UserMessageCard = memo(function UserMessageCard({
   text,
   timestampMs,
+  interAgentName,
   onReply,
   onForward,
   otherAgents,
 }: {
   text: string;
   timestampMs?: number;
+  interAgentName?: string;
   onReply?: () => void;
   onForward?: (targetAgentId: string, text: string) => void;
   otherAgents?: { agentId: string; name: string }[];
@@ -153,24 +193,57 @@ const UserMessageCard = memo(function UserMessageCard({
     return (targetAgentId: string) => onForward(targetAgentId, raw);
   }, [onForward, text]);
 
+  const isInterAgent = Boolean(interAgentName);
+
   return (
-    <div className="group/msg relative w-full max-w-[70ch] self-end overflow-hidden rounded-2xl rounded-tr-sm bg-primary text-primary-foreground shadow-sm">
+    <div
+      className={
+        isInterAgent
+          ? "group/msg relative self-start overflow-hidden rounded-2xl rounded-tl-sm border border-violet-500/30 bg-violet-500/10 text-foreground shadow-sm"
+          : "group/msg relative self-end overflow-hidden rounded-2xl rounded-tr-sm bg-primary text-primary-foreground shadow-sm"
+      }
+      style={{ maxWidth: "min(70ch, 100%)" }}
+    >
       <MessageActionBar
         onReply={onReply}
         onForward={forwardWithText}
         otherAgents={otherAgents}
       />
-      <div className="flex items-center justify-between gap-3 border-b border-white/10 px-3 py-1.5">
-        <div className="type-meta min-w-0 truncate font-mono text-primary-foreground/80 text-[11px]">
-          You
+      <div
+        className={
+          isInterAgent
+            ? "flex items-center justify-between gap-3 border-b border-violet-500/20 px-3 py-1.5"
+            : "flex items-center justify-between gap-3 border-b border-white/10 px-3 py-1.5"
+        }
+      >
+        <div
+          className={
+            isInterAgent
+              ? "type-meta min-w-0 truncate font-mono text-violet-400 text-[11px]"
+              : "type-meta min-w-0 truncate font-mono text-primary-foreground/80 text-[11px]"
+          }
+        >
+          {interAgentName ?? "You"}
         </div>
         {typeof timestampMs === "number" ? (
-          <time className="type-meta shrink-0 font-mono text-[10px] text-primary-foreground/60">
+          <time
+            className={
+              isInterAgent
+                ? "type-meta shrink-0 font-mono text-[10px] text-foreground/50"
+                : "type-meta shrink-0 font-mono text-[10px] text-primary-foreground/60"
+            }
+          >
             {formatChatTimestamp(timestampMs)}
           </time>
         ) : null}
       </div>
-      <div className="agent-markdown type-body px-3 py-3 text-primary-foreground">
+      <div
+        className={
+          isInterAgent
+            ? "agent-markdown type-body px-3 py-3 text-foreground"
+            : "agent-markdown type-body px-3 py-3 text-primary-foreground"
+        }
+      >
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
           urlTransform={chatUrlTransform}
@@ -235,7 +308,7 @@ const AssistantMessageCard = memo(function AssistantMessageCard({
   }, [onForward, contentText]);
 
   return (
-    <div className="group/msg w-full self-start">
+    <div className="group/msg w-full min-w-0 self-start">
       <div
         className={`relative w-full ${widthClass} ${ASSISTANT_GUTTER_CLASS}`}
       >
@@ -431,7 +504,10 @@ const AgentChatFinalItems = memo(function AgentChatFinalItems({
   onForward?: (targetAgentId: string, text: string) => void;
   otherAgents?: { agentId: string; name: string }[];
 }) {
-  const blocks = buildAgentChatRenderBlocks(chatItems);
+  const blocks = useMemo(
+    () => buildAgentChatRenderBlocks(chatItems),
+    [chatItems],
+  );
 
   return (
     <>
@@ -442,6 +518,7 @@ const AgentChatFinalItems = memo(function AgentChatFinalItems({
               key={`chat-${agentId}-user-${index}`}
               text={block.text}
               timestampMs={block.timestampMs}
+              interAgentName={block.interAgentName}
               onReply={onReply ? () => onReply(block.text) : undefined}
               onForward={onForward}
               otherAgents={otherAgents}
@@ -535,9 +612,18 @@ export const AgentChatTranscript = memo(function AgentChatTranscript({
   const tc = useTranslations("chat");
   const scrollFrameRef = useRef<number | null>(null);
   const pinnedRef = useRef(true);
+  const hasInitialScrollRef = useRef(false);
   const [isPinned, setIsPinned] = useState(true);
   const [isAtTop, setIsAtTop] = useState(false);
-  const [nowMs, setNowMs] = useState<number | null>(null);
+  const nowMsRef = useRef<number | null>(null);
+  const [thinkingDurationMs, setThinkingDurationMs] = useState<
+    number | undefined
+  >(undefined);
+
+  const handleTimerUpdate = useCallback((durationMs: number | undefined) => {
+    nowMsRef.current = durationMs ?? null;
+    setThinkingDurationMs(durationMs);
+  }, []);
 
   const scrollChatToBottom = useCallback(() => {
     if (!chatRef.current) return;
@@ -595,10 +681,36 @@ export const AgentChatTranscript = memo(function AgentChatTranscript({
       liveAssistantCharCount > 0 ||
       liveThinkingCharCount > 0);
 
+  // Auto-scroll to bottom on initial chat load (once per mount)
+  const didAutoScrollRef = useRef(false);
+  useEffect(() => {
+    if (!didAutoScrollRef.current && outputLineCount > 0) {
+      didAutoScrollRef.current = true;
+      setPinned(true);
+      scrollChatToBottom();
+    }
+  }, [outputLineCount, scrollChatToBottom]);
+
   useEffect(() => {
     const shouldForceScroll = scrollToBottomNextOutputRef.current;
     if (shouldForceScroll) {
       scrollToBottomNextOutputRef.current = false;
+      scheduleScrollToBottom();
+      return;
+    }
+
+    // Force scroll on first content load regardless of pin state
+    // (history loads async after mount, so useLayoutEffect can't catch it)
+    // Three-layer approach for reliability:
+    //   1. setPinned(true) — immediately hide "jump to bottom" button
+    //   2. direct scrollTop assignment — synchronous, bypasses scrollIntoView quirks
+    //   3. scheduleScrollToBottom — rAF follow-up in case scrollHeight wasn't final
+    if (!hasInitialScrollRef.current && outputLineCount > 0) {
+      hasInitialScrollRef.current = true;
+      setPinned(true);
+      if (chatRef.current) {
+        chatRef.current.scrollTop = chatRef.current.scrollHeight;
+      }
       scheduleScrollToBottom();
       return;
     }
@@ -631,32 +743,17 @@ export const AgentChatTranscript = memo(function AgentChatTranscript({
   const hasApprovals = pendingExecApprovals.length > 0;
   const hasTranscriptContent = chatItems.length > 0 || hasApprovals;
 
-  useEffect(() => {
-    if (
-      status !== "running" ||
-      typeof runStartedAt !== "number" ||
-      !showLiveAssistantCard
-    ) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setNowMs(Date.now());
-    }, 0);
-    const intervalId = window.setInterval(() => setNowMs(Date.now()), 250);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-      window.clearInterval(intervalId);
-    };
-  }, [runStartedAt, showLiveAssistantCard, status]);
-
   return (
     <div className="relative flex-1 overflow-hidden">
+      <LiveTimer
+        isActive={showLiveAssistantCard}
+        runStartedAt={runStartedAt}
+        onDurationChange={handleTimerUpdate}
+      />
       <div
         ref={chatRef}
         data-testid="agent-chat-scroll"
-        className={`ui-chat-scroll ui-chat-scroll-borderless h-full overflow-auto p-4 dark:p-6 sm:p-5 dark:sm:p-7 ${showJumpToLatest ? "pb-20" : ""}`}
+        className={`ui-chat-scroll ui-chat-scroll-borderless h-full overflow-y-auto overflow-x-hidden p-4 dark:p-6 sm:p-5 dark:sm:p-7 ${showJumpToLatest ? "pb-20" : ""}`}
         onScroll={() => updatePinnedFromScroll()}
         onWheel={(event) => {
           event.stopPropagation();
@@ -665,7 +762,7 @@ export const AgentChatTranscript = memo(function AgentChatTranscript({
           event.stopPropagation();
         }}
       >
-        <div className="relative flex flex-col gap-6 dark:gap-8 text-[14px] leading-[1.65] text-foreground">
+        <div className="relative flex min-w-0 flex-col overflow-hidden gap-6 dark:gap-8 text-[14px] leading-[1.65] text-foreground">
           <div
             aria-hidden
             className={`pointer-events-none absolute ${SPINE_LEFT} top-0 bottom-0 w-px bg-border/20`}
@@ -719,12 +816,7 @@ export const AgentChatTranscript = memo(function AgentChatTranscript({
                   name={name}
                   timestampMs={runStartedAt ?? undefined}
                   thinkingText={liveThinkingText || null}
-                  thinkingDurationMs={
-                    typeof runStartedAt === "number" &&
-                    typeof nowMs === "number"
-                      ? Math.max(0, nowMs - runStartedAt)
-                      : undefined
-                  }
+                  thinkingDurationMs={thinkingDurationMs}
                   contentText={liveAssistantText || null}
                   streaming={status === "running"}
                 />

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withErrorHandler } from "@/lib/api/error-handler";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/rateLimit";
 
 // TODO: Replace the placeholder logic with an actual LLM-based coherence
 // validator via the gateway client once LLM routing is wired.
@@ -19,6 +20,9 @@ function getCacheKey(body: unknown): string {
 }
 
 async function post_handler(request: Request) {
+  const limited = applyRateLimit(request, RATE_LIMITS.personaGeneric);
+  if (limited) return limited;
+
   try {
     const body = await request.json();
 

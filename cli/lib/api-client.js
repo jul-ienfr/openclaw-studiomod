@@ -1,17 +1,35 @@
 const http = require("node:http");
 const https = require("node:https");
+const fs = require("node:fs");
+const path = require("node:path");
+const os = require("node:os");
 
 const DEFAULT_BASE_URL = "http://localhost:3000";
 
-const getBaseUrl = () => process.env.OPENCLAW_STUDIO_URL || DEFAULT_BASE_URL;
+const getConfigUrl = () => {
+  try {
+    const configPath = path.join(os.homedir(), ".openclaw", "openclaw.json");
+    if (fs.existsSync(configPath)) {
+      const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+      // Check if URL is defined in config, default back if not
+      if (config.url) return config.url;
+      if (config.gateway?.url) return config.gateway.url;
+    }
+  } catch (err) {
+    // Ignore errors reading config and fallback to env/default
+  }
+  return null;
+};
+
+const getBaseUrl = () => process.env.OPENCLAW_STUDIO_URL || getConfigUrl() || DEFAULT_BASE_URL;
 
 /**
  * Make an HTTP request to the Studio API.
  */
-const request = (method, path, body) => {
+const request = (method, apiPath, body) => {
   return new Promise((resolve, reject) => {
     const base = getBaseUrl();
-    const url = new URL(path, base);
+    const url = new URL(apiPath, base);
     const isHttps = url.protocol === "https:";
     const lib = isHttps ? https : http;
 
@@ -50,9 +68,9 @@ const request = (method, path, body) => {
 };
 
 const api = {
-  get: (path) => request("GET", path),
-  post: (path, body) => request("POST", path, body),
-  put: (path, body) => request("PUT", path, body),
+  get: (apiPath) => request("GET", apiPath),
+  post: (apiPath, body) => request("POST", apiPath, body),
+  put: (apiPath, body) => request("PUT", apiPath, body),
 };
 
 module.exports = { api, getBaseUrl };

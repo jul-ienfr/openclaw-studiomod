@@ -3,6 +3,7 @@ import { z } from "zod";
 import { parseBody, isValidationError } from "@/lib/api/validation";
 import { createLogger } from "@/lib/logger";
 import { withErrorHandler } from "@/lib/api/error-handler";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 
@@ -146,6 +147,9 @@ async function validateCohere(
 }
 
 async function post_handler(request: Request) {
+  const limited = applyRateLimit(request, RATE_LIMITS.providersValidate);
+  if (limited) return limited;
+
   try {
     const parsed = await parseBody(request, ValidateBodySchema);
     if (isValidationError(parsed)) return parsed;

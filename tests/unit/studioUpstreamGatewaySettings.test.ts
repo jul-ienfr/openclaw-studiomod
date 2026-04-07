@@ -4,7 +4,8 @@ import path from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-const makeTempDir = (name: string) => fs.mkdtempSync(path.join(os.tmpdir(), `${name}-`));
+const makeTempDir = (name: string) =>
+  fs.mkdtempSync(path.join(os.tmpdir(), `${name}-`));
 
 describe("server studio upstream gateway settings", () => {
   const priorStateDir = process.env.OPENCLAW_STATE_DIR;
@@ -24,11 +25,16 @@ describe("server studio upstream gateway settings", () => {
 
     fs.writeFileSync(
       path.join(tempDir, "openclaw.json"),
-      JSON.stringify({ gateway: { port: 18790, auth: { token: "tok" } } }, null, 2),
-      "utf8"
+      JSON.stringify(
+        { gateway: { port: 18790, auth: { token: "tok" } } },
+        null,
+        2,
+      ),
+      "utf8",
     );
 
-    const { loadUpstreamGatewaySettings } = await import("../../server/studio-settings");
+    const { loadUpstreamGatewaySettings } =
+      await import("../../server/studio-settings");
     const settings = loadUpstreamGatewaySettings(process.env);
     expect(settings.url).toBe("ws://localhost:18790");
     expect(settings.token).toBe("tok");
@@ -38,19 +44,28 @@ describe("server studio upstream gateway settings", () => {
     tempDir = makeTempDir("studio-upstream-url-keep");
     process.env.OPENCLAW_STATE_DIR = tempDir;
 
-    fs.mkdirSync(path.join(tempDir, "openclaw-studio"), { recursive: true });
+    fs.mkdirSync(path.join(tempDir, "openclaw-studio-v2"), { recursive: true });
     fs.writeFileSync(
-      path.join(tempDir, "openclaw-studio", "settings.json"),
-      JSON.stringify({ gateway: { url: "ws://gateway.example:18789", token: "" } }, null, 2),
-      "utf8"
+      path.join(tempDir, "openclaw-studio-v2", "settings.json"),
+      JSON.stringify(
+        { gateway: { url: "ws://gateway.example:18789", token: "" } },
+        null,
+        2,
+      ),
+      "utf8",
     );
     fs.writeFileSync(
       path.join(tempDir, "openclaw.json"),
-      JSON.stringify({ gateway: { port: 18789, auth: { token: "tok-local" } } }, null, 2),
-      "utf8"
+      JSON.stringify(
+        { gateway: { port: 18789, auth: { token: "tok-local" } } },
+        null,
+        2,
+      ),
+      "utf8",
     );
 
-    const { loadUpstreamGatewaySettings } = await import("../../server/studio-settings");
+    const { loadUpstreamGatewaySettings } =
+      await import("../../server/studio-settings");
     const settings = loadUpstreamGatewaySettings(process.env);
     expect(settings.url).toBe("ws://gateway.example:18789");
     expect(settings.token).toBe("tok-local");

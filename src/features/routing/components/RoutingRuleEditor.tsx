@@ -3,7 +3,12 @@
 import { useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { X, Plus, Trash2 } from "lucide-react";
-import type { RoutingRule, RoutingCondition, RoutingConditionType } from "../types";
+import { randomUUID } from "@/lib/uuid";
+import type {
+  RoutingRule,
+  RoutingCondition,
+  RoutingConditionType,
+} from "../types";
 
 type Agent = { id: string; name: string };
 
@@ -36,7 +41,9 @@ export function RoutingRuleEditor({ rule, agents, onSave, onClose }: Props) {
   const [name, setName] = useState(rule?.name ?? "");
   const [priority, setPriority] = useState(rule?.priority ?? 50);
   const [targetAgentId, setTargetAgentId] = useState(rule?.targetAgentId ?? "");
-  const [fallbackAgentId, setFallbackAgentId] = useState(rule?.fallbackAgentId ?? "");
+  const [fallbackAgentId, setFallbackAgentId] = useState(
+    rule?.fallbackAgentId ?? "",
+  );
   const [conditions, setConditions] = useState<RoutingCondition[]>(
     rule?.conditions.length ? rule.conditions : [emptyCondition()],
   );
@@ -50,7 +57,7 @@ export function RoutingRuleEditor({ rule, agents, onSave, onClose }: Props) {
     if (!isValid) return;
     const filteredConditions = conditions.filter((c) => c.value.trim() !== "");
     onSave({
-      id: rule?.id ?? crypto.randomUUID(),
+      id: rule?.id ?? randomUUID(),
       name: name.trim(),
       enabled: rule?.enabled ?? true,
       priority,
@@ -58,11 +65,25 @@ export function RoutingRuleEditor({ rule, agents, onSave, onClose }: Props) {
       targetAgentId,
       fallbackAgentId: fallbackAgentId || undefined,
     });
-  }, [isValid, conditions, rule, name, priority, targetAgentId, fallbackAgentId, onSave]);
+  }, [
+    isValid,
+    conditions,
+    rule,
+    name,
+    priority,
+    targetAgentId,
+    fallbackAgentId,
+    onSave,
+  ]);
 
-  const updateCondition = useCallback((index: number, patch: Partial<RoutingCondition>) => {
-    setConditions((prev) => prev.map((c, i) => (i === index ? { ...c, ...patch } : c)));
-  }, []);
+  const updateCondition = useCallback(
+    (index: number, patch: Partial<RoutingCondition>) => {
+      setConditions((prev) =>
+        prev.map((c, i) => (i === index ? { ...c, ...patch } : c)),
+      );
+    },
+    [],
+  );
 
   const addCondition = useCallback(() => {
     setConditions((prev) => [...prev, emptyCondition()]);
@@ -77,7 +98,9 @@ export function RoutingRuleEditor({ rule, agents, onSave, onClose }: Props) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
       aria-modal="true"
       role="dialog"
       aria-label={title}
@@ -96,10 +119,15 @@ export function RoutingRuleEditor({ rule, agents, onSave, onClose }: Props) {
         </div>
 
         {/* Body */}
-        <div className="space-y-4 overflow-y-auto px-6 py-4" style={{ maxHeight: "60vh" }}>
+        <div
+          className="space-y-4 overflow-y-auto px-6 py-4"
+          style={{ maxHeight: "60vh" }}
+        >
           {/* Name */}
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">{t("ruleName")}</label>
+            <label className="text-xs text-muted-foreground">
+              {t("ruleName")}
+            </label>
             <input
               type="text"
               value={name}
@@ -111,7 +139,9 @@ export function RoutingRuleEditor({ rule, agents, onSave, onClose }: Props) {
 
           {/* Priority */}
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">{t("priority")} (0–100)</label>
+            <label className="text-xs text-muted-foreground">
+              {t("priority")} (0–100)
+            </label>
             <input
               type="number"
               min={0}
@@ -124,7 +154,9 @@ export function RoutingRuleEditor({ rule, agents, onSave, onClose }: Props) {
 
           {/* Target agent */}
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">{t("targetAgent")}</label>
+            <label className="text-xs text-muted-foreground">
+              {t("targetAgent")}
+            </label>
             <select
               value={targetAgentId}
               onChange={(e) => setTargetAgentId(e.target.value)}
@@ -141,7 +173,9 @@ export function RoutingRuleEditor({ rule, agents, onSave, onClose }: Props) {
 
           {/* Fallback agent */}
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">{t("fallbackAgent")}</label>
+            <label className="text-xs text-muted-foreground">
+              {t("fallbackAgent")}
+            </label>
             <select
               value={fallbackAgentId}
               onChange={(e) => setFallbackAgentId(e.target.value)}
@@ -159,7 +193,9 @@ export function RoutingRuleEditor({ rule, agents, onSave, onClose }: Props) {
           {/* Conditions */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-xs text-muted-foreground">{t("conditions")}</label>
+              <label className="text-xs text-muted-foreground">
+                {t("conditions")}
+              </label>
               <button
                 onClick={addCondition}
                 className="flex items-center gap-1 text-xs text-primary hover:underline"
@@ -172,7 +208,11 @@ export function RoutingRuleEditor({ rule, agents, onSave, onClose }: Props) {
               <div key={i} className="flex items-center gap-2">
                 <select
                   value={cond.type}
-                  onChange={(e) => updateCondition(i, { type: e.target.value as RoutingConditionType })}
+                  onChange={(e) =>
+                    updateCondition(i, {
+                      type: e.target.value as RoutingConditionType,
+                    })
+                  }
                   className="rounded-md border border-border bg-surface-2 px-2 py-1 text-xs text-foreground focus:outline-none"
                 >
                   {CONDITION_TYPES.map((ct) => (
@@ -199,7 +239,9 @@ export function RoutingRuleEditor({ rule, agents, onSave, onClose }: Props) {
                 <input
                   type="text"
                   value={cond.value}
-                  onChange={(e) => updateCondition(i, { value: e.target.value })}
+                  onChange={(e) =>
+                    updateCondition(i, { value: e.target.value })
+                  }
                   placeholder={t("conditionValue")}
                   className="min-w-0 flex-1 rounded-md border border-border bg-surface-2 px-2 py-1 text-xs text-foreground focus:outline-none"
                 />

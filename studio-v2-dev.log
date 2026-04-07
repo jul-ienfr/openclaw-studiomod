@@ -1,0 +1,2 @@
+⨯ Unable to acquire lock at /home/jul/code/openclaw-studio-v2/.next/dev/lock, is another instance of next dev running?
+  Suggestion: If you intended to restart next dev, terminate the other process, and then try again.

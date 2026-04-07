@@ -30,6 +30,7 @@ export const ProviderStoreProvider = ({
   const store = useMemo(
     () => ({
       configs: zustand.configs,
+      loadConfigs: zustand.loadConfigs,
       saveProvider: zustand.saveProvider,
       removeProvider: zustand.removeProvider,
       getProvidersWithStatus: (): ProviderWithStatus[] =>

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { resolveStateDir } from "@/lib/clawdbot/paths";
-import { z } from "zod";
 import { parseQuery, isValidationError } from "@/lib/api/validation";
+import { ReportsQuerySchema } from "@/lib/api/schemas/reports";
 import fs from "node:fs";
 import path from "node:path";
 import { withErrorHandler } from "@/lib/api/error-handler";
@@ -54,7 +54,7 @@ function loadNcConfig(): NcConfig | null {
   }
 }
 
-function detectAgent(title: string): string | undefined {
+function detectAgent(title: string, content?: string): string | undefined {
   // Match patterns like "Rapport mining-crypto", "Rapport recherche-emploi", etc.
   const match = title.match(/^Rapport\s+(.+)$/i);
   if (match) return match[1].trim();
@@ -62,6 +62,19 @@ function detectAgent(title: string): string | undefined {
   // Also match "[Agent] Title" pattern
   const bracketMatch = title.match(/^\[([^\]]+)\]/);
   if (bracketMatch) return bracketMatch[1].trim();
+
+  // Fallback: extract from content header when title is generic ("New note")
+  if (content) {
+    // Match "# Rapport_2026-03-13_hebdo-business" or "# rapport_2026-03-13_mining"
+    const contentDateMatch = content
+      .trimStart()
+      .match(/^#\s*Rapport[_\s]+\d{4}-\d{2}-\d{2}[_\s]+(.+)/im);
+    if (contentDateMatch) return contentDateMatch[1].trim();
+
+    // Match "# Rapport BU-1 Veille Intelligence" or "# Rapport mining-crypto"
+    const contentMatch = content.trimStart().match(/^#\s*Rapport\s+(.+)/im);
+    if (contentMatch) return contentMatch[1].trim();
+  }
 
   return undefined;
 }
@@ -97,21 +110,27 @@ function detectStatus(content: string): ReportStatus | undefined {
 }
 
 function parseReport(note: NcNote): ParsedReport {
+  // When title is generic "New note (X)", extract a better title from content
+  let displayTitle = note.title;
+  if (
+    displayTitle.match(/^New note/i) &&
+    note.content.trimStart().startsWith("#")
+  ) {
+    const firstLine = note.content.trimStart().split("\n")[0];
+    const headerMatch = firstLine.match(/^#+\s*(.+)/);
+    if (headerMatch) displayTitle = headerMatch[1].trim();
+  }
+
   return {
     id: note.id,
-    title: note.title,
+    title: displayTitle,
     content: note.content,
     category: note.category,
     modified: note.modified,
-    agent: detectAgent(note.title),
+    agent: detectAgent(displayTitle, note.content),
     status: detectStatus(note.content),
   };
 }
-
-const ReportsQuerySchema = z.object({
-  agent: z.string().max(256).optional(),
-  status: z.enum(["OK", "ALERTE", "CRITIQUE"]).optional(),
-});
 
 async function get_handler(request: Request) {
   const url = new URL(request.url);
@@ -166,14 +185,20 @@ async function get_handler(request: Request) {
 
     const notes: NcNote[] = await response.json();
 
-    // Filter notes that look like reports (category contains "rapport" or title starts with "Rapport")
+    // Filter notes that look like reports
     let reports = notes
       .filter((note) => {
-        const isReport =
-          note.category.toLowerCase().includes("rapport") ||
+        // Category-based match (existing)
+        const categoryMatch = note.category.toLowerCase().includes("rapport");
+        // Title-based match (existing)
+        const titleMatch =
           note.title.toLowerCase().startsWith("rapport") ||
           note.title.match(/^\[.+\]/) !== null;
-        return isReport;
+        // Content-based match (NEW: catches "New note" entries that are actually reports)
+        const contentMatch =
+          note.content.trimStart().match(/^#\s*Rapport/i) !== null;
+
+        return categoryMatch || titleMatch || contentMatch;
       })
       .map(parseReport);
 

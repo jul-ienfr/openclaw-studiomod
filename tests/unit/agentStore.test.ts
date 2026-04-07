@@ -1,31 +1,37 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import {
-  agentStoreReducer,
   buildNewSessionAgentPatch,
   getFilteredAgents,
-  initialAgentStoreState,
   type AgentStoreSeed,
 } from "@/features/agents/state/store";
+import { useAgentZustandStore } from "@/features/agents/state/zustandStore";
 
 describe("agent store", () => {
+  beforeEach(() => {
+    useAgentZustandStore.setState({
+      agents: [],
+      selectedAgentId: null,
+      loading: false,
+      error: null,
+    });
+  });
+
   it("hydrates agents with defaults and selection", () => {
     const seed: AgentStoreSeed = {
       agentId: "agent-1",
       name: "Agent One",
       sessionKey: "agent:agent-1:main",
     };
-    const next = agentStoreReducer(initialAgentStoreState, {
-      type: "hydrateAgents",
-      agents: [seed],
-    });
-    expect(next.loading).toBe(false);
-    expect(next.selectedAgentId).toBe("agent-1");
-    expect(next.agents).toHaveLength(1);
-    expect(next.agents[0].status).toBe("idle");
-    expect(next.agents[0].thinkingLevel).toBe("high");
-    expect(next.agents[0].sessionCreated).toBe(false);
-    expect(next.agents[0].outputLines).toEqual([]);
+    useAgentZustandStore.getState().hydrateAgents([seed]);
+    const state = useAgentZustandStore.getState();
+    expect(state.loading).toBe(false);
+    expect(state.selectedAgentId).toBe("agent-1");
+    expect(state.agents).toHaveLength(1);
+    expect(state.agents[0].status).toBe("idle");
+    expect(state.agents[0].thinkingLevel).toBe("high");
+    expect(state.agents[0].sessionCreated).toBe(false);
+    expect(state.agents[0].outputLines).toEqual([]);
   });
 
   it("hydrates agents with a requested selection when present", () => {
@@ -41,12 +47,8 @@ describe("agent store", () => {
         sessionKey: "agent:agent-2:main",
       },
     ];
-    const next = agentStoreReducer(initialAgentStoreState, {
-      type: "hydrateAgents",
-      agents: seeds,
-      selectedAgentId: " agent-2 ",
-    });
-    expect(next.selectedAgentId).toBe("agent-2");
+    useAgentZustandStore.getState().hydrateAgents(seeds, " agent-2 ");
+    expect(useAgentZustandStore.getState().selectedAgentId).toBe("agent-2");
   });
 
   it("keeps existing selection when requested selection is invalid", () => {
@@ -62,20 +64,11 @@ describe("agent store", () => {
         sessionKey: "agent:agent-2:main",
       },
     ];
-    let state = agentStoreReducer(initialAgentStoreState, {
-      type: "hydrateAgents",
-      agents: seeds,
-    });
-    state = agentStoreReducer(state, {
-      type: "selectAgent",
-      agentId: "agent-2",
-    });
-    state = agentStoreReducer(state, {
-      type: "hydrateAgents",
-      agents: seeds,
-      selectedAgentId: "missing-agent",
-    });
-    expect(state.selectedAgentId).toBe("agent-2");
+    const store = useAgentZustandStore.getState();
+    store.hydrateAgents(seeds);
+    store.selectAgent("agent-2");
+    store.hydrateAgents(seeds, "missing-agent");
+    expect(useAgentZustandStore.getState().selectedAgentId).toBe("agent-2");
   });
 
   it("builds a patch that resets runtime state for a session reset", () => {
@@ -84,35 +77,31 @@ describe("agent store", () => {
       name: "Agent One",
       sessionKey: "agent:agent-1:studio:old-session",
     };
-    let state = agentStoreReducer(initialAgentStoreState, {
-      type: "hydrateAgents",
-      agents: [seed],
-    });
-    state = agentStoreReducer(state, {
-      type: "updateAgent",
-      agentId: "agent-1",
-      patch: {
-        status: "running",
-        awaitingUserInput: true,
-        hasUnseenActivity: true,
-        outputLines: ["> hello", "response"],
-        lastResult: "response",
-        lastDiff: "diff",
-        runId: "run-1",
-        streamText: "live",
-        thinkingTrace: "thinking",
-        latestOverride: "override",
-        latestOverrideKind: "heartbeat",
-        lastAssistantMessageAt: 1700000000000,
-        lastActivityAt: 1700000000001,
-        latestPreview: "preview",
-        lastUserMessage: "hello",
-        draft: "draft",
-        historyLoadedAt: 1700000000002,
-      },
+    const store = useAgentZustandStore.getState();
+    store.hydrateAgents([seed]);
+    store.updateAgent("agent-1", {
+      status: "running",
+      awaitingUserInput: true,
+      hasUnseenActivity: true,
+      outputLines: ["> hello", "response"],
+      lastResult: "response",
+      lastDiff: "diff",
+      runId: "run-1",
+      streamText: "live",
+      thinkingTrace: "thinking",
+      latestOverride: "override",
+      latestOverrideKind: "heartbeat",
+      lastAssistantMessageAt: 1700000000000,
+      lastActivityAt: 1700000000001,
+      latestPreview: "preview",
+      lastUserMessage: "hello",
+      draft: "draft",
+      historyLoadedAt: 1700000000002,
     });
 
-    const agent = state.agents.find((entry) => entry.agentId === "agent-1")!;
+    const agent = useAgentZustandStore
+      .getState()
+      .agents.find((entry) => entry.agentId === "agent-1")!;
     const patch = buildNewSessionAgentPatch(agent);
 
     expect(patch.sessionKey).toBe("agent:agent-1:studio:old-session");
@@ -143,20 +132,13 @@ describe("agent store", () => {
       name: "Agent One",
       sessionKey: "agent:agent-1:main",
     };
-    let state = agentStoreReducer(initialAgentStoreState, {
-      type: "hydrateAgents",
-      agents: [seed],
-    });
-    state = agentStoreReducer(state, {
-      type: "updateAgent",
-      agentId: "agent-1",
-      patch: { sessionCreated: true },
-    });
-    state = agentStoreReducer(state, {
-      type: "hydrateAgents",
-      agents: [seed],
-    });
-    expect(state.agents[0]?.sessionCreated).toBe(true);
+    const store = useAgentZustandStore.getState();
+    store.hydrateAgents([seed]);
+    store.updateAgent("agent-1", { sessionCreated: true });
+    store.hydrateAgents([seed]);
+    expect(useAgentZustandStore.getState().agents[0]?.sessionCreated).toBe(
+      true,
+    );
   });
 
   it("resets_runtime_state_when_session_key_changes_on_hydration", () => {
@@ -165,19 +147,13 @@ describe("agent store", () => {
       name: "Agent One",
       sessionKey: "agent:agent-1:studio:legacy",
     };
-    let state = agentStoreReducer(initialAgentStoreState, {
-      type: "hydrateAgents",
-      agents: [initialSeed],
-    });
-    state = agentStoreReducer(state, {
-      type: "updateAgent",
-      agentId: "agent-1",
-      patch: {
-        sessionCreated: true,
-        outputLines: ["> old"],
-        lastResult: "old result",
-        runId: "run-1",
-      },
+    const store = useAgentZustandStore.getState();
+    store.hydrateAgents([initialSeed]);
+    store.updateAgent("agent-1", {
+      sessionCreated: true,
+      outputLines: ["> old"],
+      lastResult: "old result",
+      runId: "run-1",
     });
 
     const nextSeed: AgentStoreSeed = {
@@ -185,11 +161,8 @@ describe("agent store", () => {
       name: "Agent One",
       sessionKey: "agent:agent-1:main",
     };
-    state = agentStoreReducer(state, {
-      type: "hydrateAgents",
-      agents: [nextSeed],
-    });
-    const next = state.agents[0];
+    store.hydrateAgents([nextSeed]);
+    const next = useAgentZustandStore.getState().agents[0];
     expect(next?.sessionKey).toBe("agent:agent-1:main");
     expect(next?.sessionCreated).toBe(false);
     expect(next?.outputLines).toEqual([]);
@@ -203,28 +176,24 @@ describe("agent store", () => {
       name: "Agent One",
       sessionKey: "agent:agent-1:main",
     };
-    let state = agentStoreReducer(initialAgentStoreState, {
-      type: "hydrateAgents",
-      agents: [seed],
-    });
-    state = agentStoreReducer(state, {
-      type: "updateAgent",
-      agentId: "agent-1",
-      patch: { outputLines: ["> hello", "response"] },
+    const store = useAgentZustandStore.getState();
+    store.hydrateAgents([seed]);
+    store.updateAgent("agent-1", {
+      outputLines: ["> hello", "response"],
     });
 
-    const beforeDraftUpdate = state.agents[0];
+    const beforeDraftUpdate = useAgentZustandStore.getState().agents[0];
 
-    state = agentStoreReducer(state, {
-      type: "updateAgent",
-      agentId: "agent-1",
-      patch: { draft: "x" },
-    });
-    const afterDraftUpdate = state.agents[0];
+    store.updateAgent("agent-1", { draft: "x" });
+    const afterDraftUpdate = useAgentZustandStore.getState().agents[0];
 
     expect(afterDraftUpdate.outputLines).toBe(beforeDraftUpdate.outputLines);
-    expect(afterDraftUpdate.transcriptEntries).toBe(beforeDraftUpdate.transcriptEntries);
-    expect(afterDraftUpdate.transcriptSequenceCounter).toBe(beforeDraftUpdate.transcriptSequenceCounter);
+    expect(afterDraftUpdate.transcriptEntries).toBe(
+      beforeDraftUpdate.transcriptEntries,
+    );
+    expect(afterDraftUpdate.transcriptSequenceCounter).toBe(
+      beforeDraftUpdate.transcriptSequenceCounter,
+    );
   });
 
   it("tracks_unseen_activity_for_non_selected_agents", () => {
@@ -240,24 +209,19 @@ describe("agent store", () => {
         sessionKey: "agent:agent-2:main",
       },
     ];
-    const hydrated = agentStoreReducer(initialAgentStoreState, {
-      type: "hydrateAgents",
-      agents: seeds,
-    });
-    const withActivity = agentStoreReducer(hydrated, {
-      type: "markActivity",
-      agentId: "agent-2",
-      at: 1700000000000,
-    });
-    const second = withActivity.agents.find((agent) => agent.agentId === "agent-2");
+    const store = useAgentZustandStore.getState();
+    store.hydrateAgents(seeds);
+    store.markActivity("agent-2", 1700000000000);
+    const second = useAgentZustandStore
+      .getState()
+      .agents.find((agent) => agent.agentId === "agent-2");
     expect(second?.hasUnseenActivity).toBe(true);
     expect(second?.lastActivityAt).toBe(1700000000000);
 
-    const selected = agentStoreReducer(withActivity, {
-      type: "selectAgent",
-      agentId: "agent-2",
-    });
-    const cleared = selected.agents.find((agent) => agent.agentId === "agent-2");
+    store.selectAgent("agent-2");
+    const cleared = useAgentZustandStore
+      .getState()
+      .agents.find((agent) => agent.agentId === "agent-2");
     expect(cleared?.hasUnseenActivity).toBe(false);
   });
 
@@ -279,37 +243,25 @@ describe("agent store", () => {
         sessionKey: "agent:agent-3:main",
       },
     ];
-    let state = agentStoreReducer(initialAgentStoreState, {
-      type: "hydrateAgents",
-      agents: seeds,
+    const store = useAgentZustandStore.getState();
+    store.hydrateAgents(seeds);
+    store.updateAgent("agent-1", {
+      status: "idle",
+      awaitingUserInput: true,
     });
-    state = agentStoreReducer(state, {
-      type: "updateAgent",
-      agentId: "agent-1",
-      patch: { status: "idle", awaitingUserInput: true },
-    });
-    state = agentStoreReducer(state, {
-      type: "updateAgent",
-      agentId: "agent-2",
-      patch: { status: "running" },
-    });
-    state = agentStoreReducer(state, {
-      type: "updateAgent",
-      agentId: "agent-3",
-      patch: { status: "error" },
-    });
+    store.updateAgent("agent-2", { status: "running" });
+    store.updateAgent("agent-3", { status: "error" });
 
-    expect(getFilteredAgents(state, "all").map((agent) => agent.agentId)).toEqual([
-      "agent-2",
-      "agent-1",
-      "agent-3",
-    ]);
-    expect(getFilteredAgents(state, "running").map((agent) => agent.agentId)).toEqual([
-      "agent-2",
-    ]);
-    expect(getFilteredAgents(state, "approvals").map((agent) => agent.agentId)).toEqual([
-      "agent-1",
-    ]);
+    const state = useAgentZustandStore.getState();
+    expect(
+      getFilteredAgents(state, "all").map((agent) => agent.agentId),
+    ).toEqual(["agent-2", "agent-1", "agent-3"]);
+    expect(
+      getFilteredAgents(state, "running").map((agent) => agent.agentId),
+    ).toEqual(["agent-2"]);
+    expect(
+      getFilteredAgents(state, "approvals").map((agent) => agent.agentId),
+    ).toEqual(["agent-1"]);
   });
 
   it("clears_unseen_indicator_on_focus", () => {
@@ -325,24 +277,19 @@ describe("agent store", () => {
         sessionKey: "agent:agent-2:main",
       },
     ];
-    let state = agentStoreReducer(initialAgentStoreState, {
-      type: "hydrateAgents",
-      agents: seeds,
-    });
-    state = agentStoreReducer(state, {
-      type: "markActivity",
-      agentId: "agent-2",
-      at: 1700000000100,
-    });
+    const store = useAgentZustandStore.getState();
+    store.hydrateAgents(seeds);
+    store.markActivity("agent-2", 1700000000100);
 
-    const before = state.agents.find((agent) => agent.agentId === "agent-2");
+    const before = useAgentZustandStore
+      .getState()
+      .agents.find((agent) => agent.agentId === "agent-2");
     expect(before?.hasUnseenActivity).toBe(true);
 
-    state = agentStoreReducer(state, {
-      type: "selectAgent",
-      agentId: "agent-2",
-    });
-    const after = state.agents.find((agent) => agent.agentId === "agent-2");
+    store.selectAgent("agent-2");
+    const after = useAgentZustandStore
+      .getState()
+      .agents.find((agent) => agent.agentId === "agent-2");
     expect(after?.hasUnseenActivity).toBe(false);
   });
 
@@ -364,36 +311,28 @@ describe("agent store", () => {
         sessionKey: "agent:agent-3:main",
       },
     ];
-    let state = agentStoreReducer(initialAgentStoreState, {
-      type: "hydrateAgents",
-      agents: seeds,
+    const store = useAgentZustandStore.getState();
+    store.hydrateAgents(seeds);
+    store.updateAgent("agent-1", {
+      status: "running",
+      lastAssistantMessageAt: 200,
     });
-    state = agentStoreReducer(state, {
-      type: "updateAgent",
-      agentId: "agent-1",
-      patch: { status: "running", lastAssistantMessageAt: 200 },
+    store.updateAgent("agent-2", {
+      status: "running",
+      lastAssistantMessageAt: 500,
     });
-    state = agentStoreReducer(state, {
-      type: "updateAgent",
-      agentId: "agent-2",
-      patch: { status: "running", lastAssistantMessageAt: 500 },
-    });
-    state = agentStoreReducer(state, {
-      type: "updateAgent",
-      agentId: "agent-3",
-      patch: { status: "running", lastAssistantMessageAt: 300 },
+    store.updateAgent("agent-3", {
+      status: "running",
+      lastAssistantMessageAt: 300,
     });
 
-    expect(getFilteredAgents(state, "all").map((agent) => agent.agentId)).toEqual([
-      "agent-2",
-      "agent-3",
-      "agent-1",
-    ]);
-    expect(getFilteredAgents(state, "running").map((agent) => agent.agentId)).toEqual([
-      "agent-2",
-      "agent-3",
-      "agent-1",
-    ]);
+    const state = useAgentZustandStore.getState();
+    expect(
+      getFilteredAgents(state, "all").map((agent) => agent.agentId),
+    ).toEqual(["agent-2", "agent-3", "agent-1"]);
+    expect(
+      getFilteredAgents(state, "running").map((agent) => agent.agentId),
+    ).toEqual(["agent-2", "agent-3", "agent-1"]);
   });
 
   it("prioritizes_running_agents_in_all_filter_even_without_assistant_reply", () => {
@@ -409,24 +348,21 @@ describe("agent store", () => {
         sessionKey: "agent:agent-2:main",
       },
     ];
-    let state = agentStoreReducer(initialAgentStoreState, {
-      type: "hydrateAgents",
-      agents: seeds,
+    const store = useAgentZustandStore.getState();
+    store.hydrateAgents(seeds);
+    store.updateAgent("agent-1", {
+      status: "idle",
+      lastAssistantMessageAt: 900,
     });
-    state = agentStoreReducer(state, {
-      type: "updateAgent",
-      agentId: "agent-1",
-      patch: { status: "idle", lastAssistantMessageAt: 900 },
-    });
-    state = agentStoreReducer(state, {
-      type: "updateAgent",
-      agentId: "agent-2",
-      patch: { status: "running", runStartedAt: 1000, lastAssistantMessageAt: null },
+    store.updateAgent("agent-2", {
+      status: "running",
+      runStartedAt: 1000,
+      lastAssistantMessageAt: null,
     });
 
-    expect(getFilteredAgents(state, "all").map((agent) => agent.agentId)).toEqual([
-      "agent-2",
-      "agent-1",
-    ]);
+    const state = useAgentZustandStore.getState();
+    expect(
+      getFilteredAgents(state, "all").map((agent) => agent.agentId),
+    ).toEqual(["agent-2", "agent-1"]);
   });
 });

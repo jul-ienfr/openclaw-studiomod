@@ -176,7 +176,102 @@ export function getStaticCommands(): CommandItem[] {
       href: "/mobile-access",
       keywords: ["settings"],
     },
+
+    // -- Actions --
+    {
+      id: "action-clear-session",
+      label: "Clear session",
+      section: "Actions",
+      icon: "Trash2",
+      action: () => document.dispatchEvent(new CustomEvent("chat:clear")),
+    },
+    {
+      id: "action-toggle-sidebar",
+      label: "Toggle sidebar",
+      section: "Actions",
+      icon: "PanelLeft",
+      action: () => document.dispatchEvent(new CustomEvent("sidebar:toggle")),
+      keywords: ["sidebar"],
+    },
+    {
+      id: "action-export-chat",
+      label: "Export conversation",
+      section: "Actions",
+      icon: "Download",
+      action: () => document.dispatchEvent(new CustomEvent("chat:export")),
+      keywords: ["export", "download"],
+    },
+    {
+      id: "action-restart-agent",
+      label: "Restart agent",
+      section: "Actions",
+      icon: "RefreshCw",
+      action: () => document.dispatchEvent(new CustomEvent("agent:restart")),
+      keywords: ["restart", "reload", "agent"],
+    },
+    {
+      id: "action-stop-agent",
+      label: "Stop agent",
+      section: "Actions",
+      icon: "Square",
+      action: () => document.dispatchEvent(new CustomEvent("agent:stop")),
+      keywords: ["stop", "kill", "agent"],
+    },
+    {
+      id: "action-toggle-tools",
+      label: "Toggle tool calling",
+      section: "Actions",
+      icon: "Wrench",
+      action: () =>
+        document.dispatchEvent(new CustomEvent("agent:toggle-tools")),
+      keywords: ["tools", "function", "toggle"],
+    },
+    {
+      id: "action-toggle-thinking",
+      label: "Toggle thinking traces",
+      section: "Actions",
+      icon: "Brain",
+      action: () =>
+        document.dispatchEvent(new CustomEvent("agent:toggle-thinking")),
+      keywords: ["thinking", "reasoning", "traces", "toggle"],
+    },
+    {
+      id: "action-switch-model",
+      label: "Switch model",
+      section: "Actions",
+      icon: "Cpu",
+      action: () =>
+        document.dispatchEvent(new CustomEvent("agent:switch-model")),
+      keywords: ["model", "llm", "switch", "change"],
+    },
   ];
+}
+
+export function getActionCommands(handlers: {
+  clearSession?: () => void;
+  toggleSidebar?: () => void;
+}): CommandItem[] {
+  const items: CommandItem[] = [];
+  if (handlers.clearSession) {
+    items.push({
+      id: "action-clear-session-handler",
+      label: "Clear session",
+      section: "Actions",
+      icon: "Trash2",
+      action: handlers.clearSession,
+    });
+  }
+  if (handlers.toggleSidebar) {
+    items.push({
+      id: "action-toggle-sidebar-handler",
+      label: "Toggle sidebar",
+      section: "Actions",
+      icon: "PanelLeft",
+      action: handlers.toggleSidebar,
+      keywords: ["sidebar"],
+    });
+  }
+  return items;
 }
 
 export function buildAgentCommands(

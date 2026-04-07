@@ -4,11 +4,15 @@ import { renderExecTemplate } from "@/lib/skills/skill-executor";
 import { withErrorHandler } from "@/lib/api/error-handler";
 import { SkillExecuteSchema } from "@/lib/api/schemas/studio";
 import { parseBody, isValidationError } from "@/lib/api/validation";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 async function post_handler(request: Request) {
+  const limited = applyRateLimit(request, RATE_LIMITS.skillsExecute);
+  if (limited) return limited;
+
   try {
     const validated = await parseBody(request, SkillExecuteSchema);
     if (isValidationError(validated)) return validated;

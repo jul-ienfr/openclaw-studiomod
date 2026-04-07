@@ -23,6 +23,11 @@ const ClaudeCodePanel = dynamic(
   { ssr: false },
 );
 
+const AcpPanel = dynamic(
+  () => import("@/features/agents/components/AcpPanel").then((m) => m.AcpPanel),
+  { ssr: false },
+);
+
 const CC_STORAGE_KEY = "openclaw-cc-panel-width";
 const CC_MIN_WIDTH = 300;
 const CC_MAX_WIDTH = 800;
@@ -145,6 +150,8 @@ export interface ChatWorkspaceViewProps {
   onResolveExecApproval: (id: string, decision: ExecApprovalDecision) => void;
   showClaudeCodePanel?: boolean;
   onCloseClaudeCode?: () => void;
+  showAcpPanel?: boolean;
+  onCloseAcp?: () => void;
 }
 
 export function ChatWorkspaceView({
@@ -185,6 +192,8 @@ export function ChatWorkspaceView({
   onResolveExecApproval,
   showClaudeCodePanel,
   onCloseClaudeCode,
+  showAcpPanel,
+  onCloseAcp,
 }: ChatWorkspaceViewProps) {
   const tp = useTranslations("page");
   const hasAnyAgents = agents.length > 0;
@@ -236,12 +245,12 @@ export function ChatWorkspaceView({
         </ErrorBoundary>
       </div>
       <div
-        className={`${mobilePane === "chat" ? "flex" : "hidden"} ui-panel ui-depth-workspace min-h-0 flex-1 overflow-hidden xl:flex`}
+        className={`${mobilePane === "chat" ? "flex" : "hidden"} ui-panel ui-depth-workspace min-h-0 min-w-0 flex-1 overflow-hidden xl:flex`}
         data-testid="focused-agent-panel"
       >
         {focusedAgent ? (
-          <div className="flex min-h-0 flex-1 flex-col">
-            <div className="min-h-0 flex-1">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <div className="min-h-0 min-w-0 flex-1">
               <AgentChatPanel
                 agent={focusedAgent}
                 isSelected={false}
@@ -344,7 +353,29 @@ export function ChatWorkspaceView({
             onMouseDown={onResizeStart}
           />
           <ErrorBoundary fallbackLabel="Claude Code panel error">
-            <ClaudeCodePanel onClose={onCloseClaudeCode ?? (() => {})} />
+            <ClaudeCodePanel
+              onClose={onCloseClaudeCode ?? (() => {})}
+              focusedAgentId={focusedAgent?.agentId ?? undefined}
+            />
+          </ErrorBoundary>
+        </div>
+      ) : null}
+      {showAcpPanel ? (
+        <div
+          className="relative hidden min-h-0 shrink-0 flex-col overflow-hidden rounded-xl border border-border/60 bg-card xl:flex"
+          style={{ width: ccWidth }}
+          data-testid="acp-bridge-sidebar"
+        >
+          {/* Drag handle */}
+          <div
+            className="absolute inset-y-0 left-0 z-10 w-1.5 cursor-col-resize transition-colors hover:bg-primary/30 active:bg-primary/50"
+            onMouseDown={onResizeStart}
+          />
+          <ErrorBoundary fallbackLabel="ACP Bridge panel error">
+            <AcpPanel
+              onClose={onCloseAcp ?? (() => {})}
+              focusedAgentId={focusedAgent?.agentId ?? undefined}
+            />
           </ErrorBoundary>
         </div>
       ) : null}

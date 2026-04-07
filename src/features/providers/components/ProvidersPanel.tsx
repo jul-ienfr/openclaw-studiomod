@@ -78,17 +78,24 @@ function ProvidersPanelInner() {
   const [testingAll, setTestingAll] = useState(false);
   const [fallbackChain, setFallbackChain] = useState<string[]>([]);
 
-  // Fetch fallback chain from API
+  // Fetch fallback chain and provider configs from API
   useEffect(() => {
     void (async () => {
       try {
+        // Load configs from openclaw.json
+        const configs = await fetchProviderConfigs();
+        store.loadConfigs(configs);
+
+        // Also fetch fallback chain
         const res = await fetch("/api/providers");
         if (!res.ok) return;
         const data = (await res.json()) as { fallbackChain?: string[] };
         if (data.fallbackChain) setFallbackChain(data.fallbackChain);
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     })();
-  }, []);
+  }, [store]);
 
   const providersWithStatus: ProviderWithStatus[] = useMemo(
     () => store.getProvidersWithStatus(),
@@ -320,15 +327,23 @@ function ProvidersPanelInner() {
                   (p) => p.id === provPart || model.startsWith(p.id),
                 );
                 return (
-                  <span key={`${model}-${i}`} className="flex items-center gap-1">
+                  <span
+                    key={`${model}-${i}`}
+                    className="flex items-center gap-1"
+                  >
                     <span className="rounded-md bg-surface-2 px-2 py-1 text-[11px] font-medium text-foreground">
                       {providerDef ? (
-                        <span className="mr-1 inline-block h-2 w-2 rounded-full" style={{ backgroundColor: providerDef.iconColor }} />
+                        <span
+                          className="mr-1 inline-block h-2 w-2 rounded-full"
+                          style={{ backgroundColor: providerDef.iconColor }}
+                        />
                       ) : null}
                       {model}
                     </span>
                     {i < fallbackChain.length - 1 && (
-                      <span className="text-[10px] text-muted-foreground">→</span>
+                      <span className="text-[10px] text-muted-foreground">
+                        →
+                      </span>
                     )}
                   </span>
                 );
@@ -488,6 +503,10 @@ function ProviderStoreProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  const loadConfigs = (newConfigs: Record<string, ProviderConfig>) => {
+    setConfigs(newConfigs);
+  };
+
   const getProvidersWithStatus = () => buildProvidersWithStatus(configs);
 
   const getConfiguredProviderIds = () =>
@@ -497,6 +516,7 @@ function ProviderStoreProvider({ children }: { children: React.ReactNode }) {
     <ProviderStoreContext.Provider
       value={{
         configs,
+        loadConfigs,
         saveProvider,
         removeProvider,
         getProvidersWithStatus,

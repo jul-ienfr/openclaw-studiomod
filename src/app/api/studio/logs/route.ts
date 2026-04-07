@@ -27,11 +27,6 @@ const LogsQuerySchema = z.object({
 
 async function get_handler(request: Request) {
   try {
-    // Run migrations first to ensure the logs table exists
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { runMigrations } = require("@/lib/db/migrations");
-    runMigrations();
-
     const url = new URL(request.url);
     const parsed = parseQuery(url, LogsQuerySchema);
     if (isValidationError(parsed)) return parsed;
@@ -49,7 +44,12 @@ async function get_handler(request: Request) {
     if (parsed.format === "csv") {
       const header = "timestamp,level,source,message";
       const rows = logs.map(
-        (l: { timestamp: string; level: string; source: string; message: string }) =>
+        (l: {
+          timestamp: string;
+          level: string;
+          source: string;
+          message: string;
+        }) =>
           `${l.timestamp},${l.level},${l.source},"${String(l.message).replace(/"/g, '""')}"`,
       );
       const csv = [header, ...rows].join("\n");

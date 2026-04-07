@@ -497,12 +497,16 @@ export const formatMetaMarkdown = (meta: {
   role: "user" | "assistant";
   timestamp: number;
   thinkingDurationMs?: number | null;
+  interAgentName?: string | null;
 }): string => {
   return `${META_PREFIX}${JSON.stringify({
     role: meta.role,
     timestamp: meta.timestamp,
     ...(typeof meta.thinkingDurationMs === "number"
       ? { thinkingDurationMs: meta.thinkingDurationMs }
+      : {}),
+    ...(typeof meta.interAgentName === "string" && meta.interAgentName
+      ? { interAgentName: meta.interAgentName }
       : {}),
   })}`;
 };
@@ -513,6 +517,7 @@ export const parseMetaMarkdown = (
   role: "user" | "assistant";
   timestamp: number;
   thinkingDurationMs?: number;
+  interAgentName?: string;
 } | null => {
   if (!isMetaMarkdown(line)) return null;
   const raw = line.slice(META_PREFIX.length).trim();
@@ -532,9 +537,20 @@ export const parseMetaMarkdown = (
       Number.isFinite(parsed.thinkingDurationMs)
         ? parsed.thinkingDurationMs
         : undefined;
-    return thinkingDurationMs !== undefined
-      ? { role, timestamp, thinkingDurationMs }
-      : { role, timestamp };
+    const interAgentName =
+      typeof parsed.interAgentName === "string" && parsed.interAgentName
+        ? parsed.interAgentName
+        : undefined;
+    const result: {
+      role: "user" | "assistant";
+      timestamp: number;
+      thinkingDurationMs?: number;
+      interAgentName?: string;
+    } = { role, timestamp };
+    if (thinkingDurationMs !== undefined)
+      result.thinkingDurationMs = thinkingDurationMs;
+    if (interAgentName !== undefined) result.interAgentName = interAgentName;
+    return result;
   } catch {
     return null;
   }

@@ -8,3 +8,4 @@ Sentry.init({
   replaysOnErrorSampleRate: 1.0,
   environment: process.env.NODE_ENV,
 });
+export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;

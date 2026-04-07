@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { resolveStateDir } from "@/lib/clawdbot/paths";
 import { withErrorHandler } from "@/lib/api/error-handler";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 
@@ -16,16 +17,24 @@ async function get_handler() {
   try {
     const fp = getFilePath();
     if (!fs.existsSync(fp)) return NextResponse.json({ rules: [] });
-    const data = JSON.parse(fs.readFileSync(fp, "utf8")) as { rules: unknown[] };
+    const data = JSON.parse(fs.readFileSync(fp, "utf8")) as {
+      rules: unknown[];
+    };
     return NextResponse.json({ rules: data.rules ?? [] });
   } catch (err) {
-    return NextResponse.json({ error: String(err), rules: [] }, { status: 500 });
+    return NextResponse.json(
+      { error: String(err), rules: [] },
+      { status: 500 },
+    );
   }
 }
 
 async function post_handler(request: Request) {
+  const limited = applyRateLimit(request, RATE_LIMITS.routingWrite);
+  if (limited) return limited;
+
   try {
-    const body = await request.json() as { rules: unknown[] };
+    const body = (await request.json()) as { rules: unknown[] };
     const fp = getFilePath();
     const dir = path.dirname(fp);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });

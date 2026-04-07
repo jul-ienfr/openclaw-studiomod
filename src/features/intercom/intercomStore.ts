@@ -1,4 +1,5 @@
 import type { InterAgentMessage } from "./types";
+import { randomUUID } from "@/lib/uuid";
 
 const MAX_MESSAGES = 500;
 const STORAGE_KEY = "openclaw-studio:intercom-messages";
@@ -16,17 +17,22 @@ const loadMessages = (): InterAgentMessage[] => {
 };
 
 const persistMessages = () => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(buffer.slice(-MAX_MESSAGES)));
+  localStorage.setItem(
+    STORAGE_KEY,
+    JSON.stringify(buffer.slice(-MAX_MESSAGES)),
+  );
 };
 
 export const initIntercomStore = () => {
   buffer = loadMessages();
 };
 
-export const pushIntercomMessage = (msg: Omit<InterAgentMessage, "id" | "timestamp">) => {
+export const pushIntercomMessage = (
+  msg: Omit<InterAgentMessage, "id" | "timestamp">,
+) => {
   buffer.push({
     ...msg,
-    id: crypto.randomUUID(),
+    id: randomUUID(),
     timestamp: Date.now(),
   });
   if (buffer.length > MAX_MESSAGES) {
@@ -37,7 +43,9 @@ export const pushIntercomMessage = (msg: Omit<InterAgentMessage, "id" | "timesta
 
 export const getIntercomMessages = (agentId?: string): InterAgentMessage[] => {
   if (!agentId) return [...buffer];
-  return buffer.filter((m) => m.fromAgentId === agentId || m.toAgentId === agentId);
+  return buffer.filter(
+    (m) => m.fromAgentId === agentId || m.toAgentId === agentId,
+  );
 };
 
 export const clearIntercomMessages = () => {

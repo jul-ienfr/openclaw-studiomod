@@ -2,15 +2,26 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Bot, Eye, Zap, Settings, Bell } from "lucide-react";
+import {
+  LayoutDashboard,
+  Bot,
+  Eye,
+  Zap,
+  Settings,
+  Bell,
+  Brain,
+  Briefcase,
+} from "lucide-react";
 import { useNotifications } from "@/features/notifications/useNotifications";
 import { useNavBadges } from "@/hooks/useNavBadges";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/agents", label: "Agents", icon: Bot },
+  { href: "/paperclip/companies", label: "Paperclip", icon: Briefcase },
   { href: "/watcher", label: "Watcher", icon: Eye },
   { href: "/operations", label: "Operations", icon: Zap },
+  { href: "/ai-manager", label: "AI Manager", icon: Brain },
   { href: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
@@ -19,12 +30,17 @@ export function AppNav() {
   const { unreadCount } = useNotifications();
   const navBadges = useNavBadges();
 
-  const isActive = (href: string) =>
-    pathname === href || pathname.startsWith(href + "/");
+  const isActive = (href: string) => {
+    // Treat the whole /paperclip/* section as active for the Paperclip nav item
+    if (href === "/paperclip/companies")
+      return pathname.startsWith("/paperclip");
+    return pathname === href || pathname.startsWith(href + "/");
+  };
 
   return (
     <nav
-      className="glass-sidebar flex h-screen w-[72px] shrink-0 flex-col items-center border-r border-border/50 py-4"
+      className="glass-sidebar flex h-screen shrink-0 flex-col items-center border-r border-border/50 py-4"
+      style={{ width: "var(--nav-width, 72px)" }}
       role="navigation"
       aria-label="Main navigation"
     >

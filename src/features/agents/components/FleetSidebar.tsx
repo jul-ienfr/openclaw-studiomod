@@ -1,5 +1,5 @@
 import type { AgentState, FocusFilter } from "@/features/agents/state/store";
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, memo } from "react";
 import { useTranslations } from "next-intl";
 import { Search, MessageSquare, Clock, Star } from "lucide-react";
 import { AgentAvatar } from "./AgentAvatar";
@@ -39,7 +39,7 @@ const formatRelativeTime = (timestampMs: number | null): string | null => {
 };
 
 const STATUS_DOT_CLASS: Record<string, string> = {
-  running: "bg-green-400 animate-pulse shadow-[0_0_4px_rgba(74,222,128,0.7)]",
+  running: "bg-[#4ade80] animate-pulse shadow-[0_0_4px_rgba(74,222,128,0.7)]",
   idle: "bg-muted-foreground/40",
   error: "bg-destructive",
 };
@@ -48,7 +48,7 @@ function resolveStatusDotClass(status: AgentState["status"]): string {
   return STATUS_DOT_CLASS[status] ?? "bg-muted-foreground/40";
 }
 
-export const FleetSidebar = ({
+function FleetSidebarComponent({
   agents,
   selectedAgentId,
   filter,
@@ -60,7 +60,7 @@ export const FleetSidebar = ({
   channelsByAgent,
   favoriteAgentIds = [],
   onToggleFavorite,
-}: FleetSidebarProps) => {
+}: FleetSidebarProps) {
   const t = useTranslations("fleet");
   const ts = useTranslations("status");
   const [searchQuery, setSearchQuery] = useState("");
@@ -373,4 +373,6 @@ export const FleetSidebar = ({
       </div>
     </aside>
   );
-};
+}
+
+export const FleetSidebar = memo(FleetSidebarComponent);

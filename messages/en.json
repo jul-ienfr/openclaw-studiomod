@@ -203,7 +203,8 @@
     "cliDetected": "{count} credential(s) detected",
     "cliNoneDetected": "No CLI credentials detected on this system.",
     "cliImportFrom": "from {source}",
-    "cliImportButton": "Import"
+    "cliImportButton": "Import",
+    "globalHint": "Credentials are managed per agent. Open an agent's settings panel to add or edit its credentials."
   },
   "channels": {
     "title": "Channels",
@@ -918,7 +919,8 @@
     "sub_webhooks": "Webhooks",
     "sub_voice": "Voice",
     "sub_mobile": "Mobile",
-    "sub_advanced": "Advanced"
+    "sub_advanced": "Advanced",
+    "sub_models": "Models"
   },
   "workflowEditor": {
     "title": "Workflow Editor",

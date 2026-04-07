@@ -7,6 +7,7 @@ import {
   type GatewayStatus,
 } from "@/lib/gateway/GatewayClient";
 import type { AgentState, AgentAction } from "@/features/agents/state/store";
+import { pushNotificationGlobal } from "@/features/notifications/notificationStore";
 
 export interface UseGatewayEventSetupParams {
   client: GatewayClient;
@@ -80,6 +81,39 @@ export function useGatewayEventSetup({
     const unsubscribe = client.onEvent((event: EventFrame) => {
       handler.handleEvent(event);
       handleGatewayEventIngress(event);
+
+      if (event.type === "event") {
+        if (event.event === "agent.error") {
+          pushNotificationGlobal({
+            type: "error",
+            source:
+              (event.payload as { agentId?: string } | undefined)?.agentId ??
+              "gateway",
+            title: "Agent error",
+            message:
+              (event.payload as { message?: string } | undefined)?.message ??
+              "An agent encountered an error",
+            autoDismiss: 8000,
+          });
+        } else if (event.event === "cron.failure") {
+          pushNotificationGlobal({
+            type: "warning",
+            source: "cron",
+            title: "Cron failure",
+            message:
+              (event.payload as { jobId?: string } | undefined)?.jobId ??
+              "A scheduled job failed",
+            autoDismiss: 8000,
+          });
+        } else if (event.event === "gateway.reconnected") {
+          pushNotificationGlobal({
+            type: "info",
+            source: "gateway",
+            title: "Gateway reconnected",
+            autoDismiss: 4000,
+          });
+        }
+      }
     });
     return () => {
       runtimeEventHandlerRef.current = null;

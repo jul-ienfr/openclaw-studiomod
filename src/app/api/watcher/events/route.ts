@@ -20,7 +20,11 @@ async function get_handler(request: Request) {
       function send(event: string, data: unknown) {
         if (closed) return;
         try {
-          controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
+          controller.enqueue(
+            encoder.encode(
+              `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`,
+            ),
+          );
         } catch {
           closed = true;
         }
@@ -33,12 +37,27 @@ async function get_handler(request: Request) {
         if (closed) return;
         try {
           const db = getDb();
-          const sources = db.prepare("SELECT * FROM source_state ORDER BY source ASC").all();
-          const newCount = (db.prepare("SELECT COUNT(*) AS c FROM items WHERE status = 'new'").get() as { c: number }).c;
-          const lastImpl = db.prepare("SELECT id, status, implemented_at FROM implementations ORDER BY implemented_at DESC LIMIT 1").get();
+          // Group all queries in a single transaction to reduce DB round-trips
+          const [sources, newCountRow, lastImpl] = db.transaction(() => [
+            db.prepare("SELECT * FROM source_state ORDER BY source ASC").all(),
+            db
+              .prepare("SELECT COUNT(*) AS c FROM items WHERE status = 'new'")
+              .get() as { c: number },
+            db
+              .prepare(
+                "SELECT id, status, implemented_at FROM implementations ORDER BY implemented_at DESC LIMIT 1",
+              )
+              .get() as
+              | { id: string; status: string; implemented_at: number }
+              | undefined,
+          ])() as [
+            unknown,
+            { c: number },
+            { id: string; status: string; implemented_at: number } | undefined,
+          ];
 
           send("sources-updated", { sources });
-          send("new-items", { count: newCount });
+          send("new-items", { count: newCountRow.c });
           if (lastImpl) send("implementation-status", { latest: lastImpl });
         } catch {
           // DB may not exist yet — send ping to keep alive
@@ -56,7 +75,11 @@ async function get_handler(request: Request) {
       request.signal.addEventListener("abort", () => {
         closed = true;
         if (timer) clearTimeout(timer);
-        try { controller.close(); } catch { /* ignore */ }
+        try {
+          controller.close();
+        } catch {
+          /* ignore */
+        }
       });
     },
     cancel() {

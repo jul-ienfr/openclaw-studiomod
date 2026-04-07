@@ -80,6 +80,21 @@ export const RATE_LIMITS = {
   skillsRemove: rateLimit({ windowMs: 60_000, maxRequests: 10 }),
   skillsCatalog: rateLimit({ windowMs: 60_000, maxRequests: 20 }),
   pathSuggestions: rateLimit({ windowMs: 60_000, maxRequests: 60 }),
+  // ── Compute-intensive ──
+  voiceTts: rateLimit({ windowMs: 60_000, maxRequests: 5 }),
+  voiceStt: rateLimit({ windowMs: 60_000, maxRequests: 5 }),
+  personaBuilder: rateLimit({ windowMs: 60_000, maxRequests: 5 }),
+  personaGeneric: rateLimit({ windowMs: 60_000, maxRequests: 10 }),
+  // ── Credential-sensitive ──
+  providersWrite: rateLimit({ windowMs: 60_000, maxRequests: 5 }),
+  providersValidate: rateLimit({ windowMs: 60_000, maxRequests: 3 }),
+  // ── Config writes ──
+  channelsWrite: rateLimit({ windowMs: 60_000, maxRequests: 10 }),
+  webhooksWrite: rateLimit({ windowMs: 60_000, maxRequests: 10 }),
+  routingWrite: rateLimit({ windowMs: 60_000, maxRequests: 10 }),
+  skillsExecute: rateLimit({ windowMs: 60_000, maxRequests: 10 }),
+  // ── System ──
+  cacheDelete: rateLimit({ windowMs: 60_000, maxRequests: 5 }),
   // ── Sensitive routes ──
   authSetup: rateLimit({ windowMs: 60_000, maxRequests: 3 }),
   authLogout: rateLimit({ windowMs: 60_000, maxRequests: 10 }),

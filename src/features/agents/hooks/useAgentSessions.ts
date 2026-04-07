@@ -75,11 +75,22 @@ export function useAgentSessions(params: {
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const fetchIdRef = useRef(0);
+  // Cache sessions by agentId for instant tab switching
+  const cacheRef = useRef<Map<string, SessionInfo[]>>(new Map());
 
   const fetchSessions = useCallback(async () => {
     if (status !== "connected" || !agentId) return;
     const fetchId = ++fetchIdRef.current;
-    setLoading(true);
+
+    // Check cache first — display immediately for instant UI
+    const cached = cacheRef.current.get(agentId);
+    if (cached) {
+      setSessions(cached);
+      // Still fetch in background to update
+    } else {
+      setLoading(true);
+    }
+
     try {
       const result = (await client.call("sessions.list", {
         agentId,
@@ -92,7 +103,9 @@ export function useAgentSessions(params: {
       const normalized = raw
         .map(normalizeSession)
         .filter((s) => s.key.length > 0);
-      setSessions(sortSessions(normalized));
+      const sorted = sortSessions(normalized);
+      cacheRef.current.set(agentId, sorted);
+      setSessions(sorted);
     } catch {
       // silently fail — non-critical UI
     } finally {

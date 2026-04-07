@@ -56,6 +56,11 @@ const ThemeLayoutSchema = z
     sidebarStyle: z.enum(["glass", "solid", "minimal"]),
     cardStyle: z.enum(["glass", "elevated", "flat", "bordered"]),
     headerStyle: z.enum(["transparent", "solid", "glass"]),
+    borderRadius: z.enum(["sharp", "rounded", "pill"]),
+    contentDensity: z.enum(["compact", "comfortable", "spacious"]),
+    shadowIntensity: z.enum(["none", "subtle", "heavy"]),
+    animationLevel: z.enum(["none", "subtle", "full"]),
+    accentStyle: z.enum(["flat", "glow", "neon", "gradient"]),
   })
   .partial();
 
@@ -73,6 +78,7 @@ export const ThemePutSchema = z
     name: z.string().min(1),
     preset: z.string().min(1),
     category: z.enum(["classic", "premium"]).optional(),
+    templateId: z.string().optional(),
     colors: z.object({
       light: ThemeColorsSchema,
       dark: ThemeColorsSchema,
@@ -92,6 +98,7 @@ export const ThemePatchSchema = z
     name: z.string().optional(),
     preset: z.string().optional(),
     category: z.enum(["classic", "premium"]).optional(),
+    templateId: z.string().optional(),
     colors: z
       .object({
         light: ThemeColorsSchema.optional(),

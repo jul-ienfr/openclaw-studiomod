@@ -1,4 +1,5 @@
 import type { LogEntry, LogLevel, LogSource, LogFilter } from "./types";
+import { randomUUID } from "@/lib/uuid";
 
 const MAX_PER_SOURCE = 500;
 const MAX_TOTAL = 4000;
@@ -68,7 +69,7 @@ export const pushLog = (
   options: PushLogOptions,
 ) => {
   const entry: LogEntry = {
-    id: crypto.randomUUID(),
+    id: randomUUID(),
     timestamp: Date.now(),
     level,
     source: options.source,

@@ -27,23 +27,20 @@ const MetricsQuerySchema = z.object({
 
 async function get_handler(request: Request) {
   try {
-    // Run migrations first to ensure the metrics table exists
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { runMigrations } = require("@/lib/db/migrations");
-    runMigrations();
-
     const url = new URL(request.url);
     const parsed = parseQuery(url, MetricsQuerySchema);
     if (isValidationError(parsed)) return parsed;
 
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { queryMetrics, aggregateMetrics } = require("@/lib/db/repositories/metrics-repo");
+    const {
+      queryMetrics,
+      aggregateMetrics,
+    } = require("@/lib/db/repositories/metrics-repo");
 
     // If groupBy is specified, return aggregated data for charts
     if (parsed.groupBy) {
       const since =
-        parsed.since ??
-        new Date(Date.now() - 86400000).toISOString(); // default: last 24h
+        parsed.since ?? new Date(Date.now() - 86400000).toISOString(); // default: last 24h
       const aggregated = aggregateMetrics(
         parsed.metricType ?? "message",
         since,

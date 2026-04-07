@@ -1,6 +1,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { ThemeConfig, DEFAULT_THEME, DEFAULT_LAYOUT } from "./index";
+import { DEFAULT_TEMPLATE_ID } from "./templates";
 import { resolveStateDir } from "@/lib/clawdbot/paths";
 
 export function getThemePath(): string {
@@ -33,6 +34,11 @@ export async function readTheme(): Promise<ThemeConfig> {
       merged.version = "2";
       merged.layout = merged.layout ?? DEFAULT_LAYOUT;
       merged.category = merged.category ?? "classic";
+    }
+
+    // Ensure templateId exists
+    if (!merged.templateId) {
+      merged.templateId = DEFAULT_TEMPLATE_ID;
     }
 
     return merged;

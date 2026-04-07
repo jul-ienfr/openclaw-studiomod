@@ -1,0 +1,144 @@
+▲ Next.js 16.1.6 (Turbopack)
+- Environments: .env.local
+- Experiments (use with caution):
+  · clientTraceMetadata
+
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+  Creating an optimized production build ...
+✓ Compiled successfully in 66s
+  Running next.config.js provided runAfterProductionCompile ...
+✓ Completed runAfterProductionCompile in 30598ms
+  Running TypeScript ...
+  Collecting page data using 15 workers ...
+  Generating static pages using 15 workers (0/47) ...
+  Generating static pages using 15 workers (11/47) 
+  Generating static pages using 15 workers (23/47) 
+  Generating static pages using 15 workers (35/47) 
+✓ Generating static pages using 15 workers (47/47) in 114.4ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ƒ /
+├ ƒ /_not-found
+├ ƒ /[...invalid]
+├ ƒ /agents
+├ ƒ /agents/[agentId]/settings
+├ ƒ /ai-manager
+├ ƒ /api/agents/model
+├ ƒ /api/alerts
+├ ƒ /api/analytics
+├ ƒ /api/auth/login
+├ ƒ /api/auth/logout
+├ ƒ /api/auth/me
+├ ƒ /api/auth/session
+├ ƒ /api/auth/setup
+├ ƒ /api/auth/ws-token
+├ ƒ /api/ceo/status
+├ ƒ /api/channels
+├ ƒ /api/config/cron
+├ ƒ /api/config/cron/[id]
+├ ƒ /api/config/system
+├ ƒ /api/credentials
+├ ƒ /api/credentials/[agentId]
+├ ƒ /api/credentials/cli-detect
+├ ƒ /api/credentials/env-import
+├ ƒ /api/events/stream
+├ ƒ /api/gateway/agent-state
+├ ƒ /api/gateway/dotenv-keys
+├ ƒ /api/gateway/media
+├ ƒ /api/gateway/skills/remove
+├ ƒ /api/intercom
+├ ƒ /api/logs
+├ ƒ /api/mobile-access/discovery
+├ ƒ /api/mobile-access/status
+├ ƒ /api/mobile-access/tokens
+├ ƒ /api/mobile-access/tunnel
+├ ƒ /api/path-suggestions
+├ ƒ /api/persona-builder
+├ ƒ /api/persona-preview
+├ ƒ /api/persona-test
+├ ƒ /api/persona-validator
+├ ƒ /api/providers
+├ ƒ /api/providers/validate
+├ ƒ /api/providers/validate-batch
+├ ƒ /api/reports
+├ ƒ /api/routing
+├ ƒ /api/skills-catalog
+├ ƒ /api/skills/execute
+├ ƒ /api/skills/list
+├ ƒ /api/skills/parse
+├ ƒ /api/studio
+├ ƒ /api/studio/cache
+├ ƒ /api/studio/db
+├ ƒ /api/studio/logs
+├ ƒ /api/studio/metrics
+├ ƒ /api/studio/pillars
+├ ƒ /api/studio/pillars/[id]
+├ ƒ /api/studio/theme
+├ ƒ /api/voice
+├ ƒ /api/voice/stt
+├ ƒ /api/voice/tts
+├ ƒ /api/voice/voicebox/profiles
+├ ƒ /api/voice/voicebox/profiles/[id]
+├ ƒ /api/voice/voicebox/profiles/[id]/samples
+├ ƒ /api/voice/voicebox/profiles/samples/[sampleId]
+├ ƒ /api/voice/voicebox/status
+├ ƒ /api/watcher/actions
+├ ƒ /api/watcher/author-score
+├ ƒ /api/watcher/config
+├ ƒ /api/watcher/config/export
+├ ƒ /api/watcher/config/import
+├ ƒ /api/watcher/events
+├ ƒ /api/watcher/implementations
+├ ƒ /api/watcher/items
+├ ƒ /api/watcher/items/[id]
+├ ƒ /api/watcher/models/test
+├ ƒ /api/watcher/reports
+├ ƒ /api/watcher/scores
+├ ƒ /api/watcher/scores/[itemId]
+├ ƒ /api/watcher/search
+├ ƒ /api/watcher/search/clawhub
+├ ƒ /api/watcher/session
+├ ƒ /api/watcher/sources
+├ ƒ /api/webhooks
+├ ƒ /browser-view
+├ ƒ /channels
+├ ƒ /config
+├ ƒ /credentials
+├ ƒ /dashboard
+├ ƒ /jobs
+├ ƒ /login
+├ ƒ /logs
+├ ƒ /mobile-access
+├ ƒ /operations
+├ ƒ /providers
+├ ƒ /reports
+├ ƒ /routing
+├ ƒ /settings
+├ ƒ /setup
+├ ƒ /skills
+├ ƒ /voice
+├ ƒ /watcher
+├ ƒ /watcher/history
+├ ƒ /watcher/implementations
+├ ƒ /watcher/reports
+├ ƒ /watcher/review
+├ ƒ /watcher/scoring
+├ ƒ /watcher/scoring/[itemId]
+├ ƒ /watcher/search
+├ ƒ /watcher/settings
+├ ƒ /watcher/settings/advanced
+├ ƒ /watcher/settings/automation
+├ ƒ /watcher/settings/models
+├ ƒ /watcher/settings/notifications
+├ ƒ /watcher/settings/scoring
+├ ƒ /watcher/settings/security
+├ ƒ /watcher/settings/sources
+├ ƒ /watcher/sources
+└ ƒ /webhooks
+
+
+ƒ Proxy (Middleware)
+
+ƒ  (Dynamic)  server-rendered on demand
+

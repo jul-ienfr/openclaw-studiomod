@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCacheStats, pruneGatewayCache } from "@/lib/cache/gateway-cache";
 import { invalidateCacheByPrefix } from "@/lib/db/repositories/cache-repo";
 import { withErrorHandler } from "@/lib/api/error-handler";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,6 +24,9 @@ async function get_handler() {
 
 /** DELETE /api/studio/cache — purge cache entries */
 async function delete_handler(request: Request) {
+  const limited = applyRateLimit(request, RATE_LIMITS.cacheDelete);
+  if (limited) return limited;
+
   try {
     const { searchParams } = new URL(request.url);
     const prefix = searchParams.get("prefix");

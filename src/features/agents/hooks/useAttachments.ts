@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { randomUUID } from "@/lib/uuid";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 
@@ -57,7 +58,7 @@ export function useAttachments() {
         previewUrlsRef.current.add(previewUrl);
       }
       results.push({
-        id: crypto.randomUUID(),
+        id: randomUUID(),
         file,
         fileName: file.name,
         mimeType: file.type || "application/octet-stream",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Terminal,
   X,
@@ -14,6 +14,12 @@ import {
   Zap,
   Clock,
   CheckCircle,
+  Settings2,
+  AlertTriangle,
+  FileCode,
+  Bot,
+  Cpu,
+  CircleDot,
 } from "lucide-react";
 
 // ── Types ──
@@ -74,7 +80,7 @@ type BridgeConfig = {
   agents: string[];
 };
 
-type EventFilter = "ALL" | "SYS" | "TOOL" | "AI" | "ERROR";
+const MAIN_FILTER_CATEGORIES = ["SYS", "TOOL", "AI", "ERROR"] as const;
 
 // ── Helpers ──
 
@@ -86,7 +92,16 @@ const EVENT_ICON: Record<string, string> = {
   result: "DONE",
 };
 
-const EVENT_CATEGORY: Record<string, EventFilter> = {
+const EVENT_BADGE_COLORS: Record<string, string> = {
+  system: "bg-blue-500/15 text-blue-400",
+  assistant: "bg-violet-500/15 text-violet-400",
+  tool_use: "bg-amber-500/15 text-amber-400",
+  tool_result: "bg-amber-500/10 text-amber-400/70",
+  result: "bg-emerald-500/15 text-emerald-400",
+  error: "bg-red-500/15 text-red-400",
+};
+
+const EVENT_CATEGORY: Record<string, string> = {
   system: "SYS",
   tool_use: "TOOL",
   tool_result: "TOOL",
@@ -101,6 +116,15 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: "text-yellow-400",
   timeout: "text-orange-400",
   queued: "text-purple-400",
+};
+
+const STATUS_BG: Record<string, string> = {
+  running: "bg-blue-500/8 border-blue-500/20",
+  completed: "bg-emerald-500/5 border-emerald-500/15",
+  error: "bg-red-500/5 border-red-500/15",
+  cancelled: "bg-yellow-500/5 border-yellow-500/15",
+  timeout: "bg-orange-500/5 border-orange-500/15",
+  queued: "bg-purple-500/5 border-purple-500/15",
 };
 
 function formatTokens(n: number): string {
@@ -119,6 +143,17 @@ function formatDuration(ms: number): string {
   if (ms < 1000) return `${ms}ms`;
   const s = Math.round(ms / 1000);
   return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m${s % 60}s`;
+}
+
+function timeAgo(ts: number): string {
+  const diff = Math.floor((Date.now() - ts) / 1000);
+  if (diff < 5) return "now";
+  if (diff < 60) return `${diff}s ago`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  return new Date(ts).toLocaleTimeString("fr-FR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function computeSessionStats(processes: ProcessInfo[]) {
@@ -171,25 +206,265 @@ function liveElapsed(startedAt: number): string {
   return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m${s % 60}s`;
 }
 
-// ── Component ──
+// ── Subcomponents ──
+
+function PulseDot({ color = "bg-blue-400" }: { color?: string }) {
+  return (
+    <span className="relative flex h-2 w-2 shrink-0">
+      <span
+        className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 ${color}`}
+      />
+      <span className={`relative inline-flex h-2 w-2 rounded-full ${color}`} />
+    </span>
+  );
+}
+
+function StatChip({
+  icon: Icon,
+  label,
+  value,
+  color = "text-muted-foreground",
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+  color?: string;
+}) {
+  return (
+    <div
+      className={`flex items-center gap-1 rounded-md bg-surface-1/50 px-2 py-1 font-mono text-[11px] ${color}`}
+      title={label}
+    >
+      <Icon className="h-3 w-3 shrink-0 opacity-60" />
+      <span className="text-foreground/80">{value}</span>
+    </div>
+  );
+}
+
+function ProcessCard({
+  process: p,
+  expanded,
+  onToggle,
+  onCancel,
+  onFetchOutput,
+  fullOutput,
+}: {
+  process: ProcessInfo;
+  expanded: boolean;
+  onToggle: () => void;
+  onCancel?: () => void;
+  onFetchOutput?: () => void;
+  fullOutput?: string | null;
+}) {
+  const isRunning = p.status === "running";
+  const isQueued = p.status === "queued";
+
+  return (
+    <div
+      className={`rounded-lg border transition-colors ${STATUS_BG[p.status] ?? "bg-surface-1/30 border-border/30"}`}
+    >
+      <div
+        className="flex items-center gap-2 px-3 py-2 cursor-pointer"
+        onClick={onToggle}
+      >
+        {/* Status indicator */}
+        {isRunning ? (
+          <PulseDot color="bg-blue-400" />
+        ) : isQueued ? (
+          <PulseDot color="bg-purple-400" />
+        ) : (
+          <CircleDot
+            className={`h-3 w-3 shrink-0 ${STATUS_COLORS[p.status] ?? "text-muted-foreground"}`}
+          />
+        )}
+
+        {/* Task */}
+        <span className="flex-1 truncate font-mono text-[12px] text-foreground/90">
+          {p.task}
+        </span>
+
+        {/* Metrics */}
+        {p.turnCount != null && p.turnCount > 0 && (
+          <span
+            className="rounded bg-surface-2/50 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground"
+            title="Turns"
+          >
+            {p.turnCount}t
+          </span>
+        )}
+        <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+          {isRunning ? liveElapsed(p.startedAt) : p.elapsed}
+        </span>
+        {p.costUsd != null && p.costUsd > 0 && (
+          <span className="font-mono text-[10px] text-emerald-400/70">
+            {formatCost(p.costUsd)}
+          </span>
+        )}
+
+        {/* Cancel button */}
+        {isRunning && onCancel && (
+          <button
+            type="button"
+            className="shrink-0 rounded p-1 text-red-400/50 transition-colors hover:bg-red-500/15 hover:text-red-400"
+            onClick={(e) => {
+              e.stopPropagation();
+              onCancel();
+            }}
+            title="Cancel"
+          >
+            <Square className="h-3 w-3" />
+          </button>
+        )}
+
+        {/* Expand chevron */}
+        {expanded ? (
+          <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground/50" />
+        ) : (
+          <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground/50" />
+        )}
+      </div>
+
+      {/* Expanded detail */}
+      {expanded && (
+        <div className="space-y-1.5 border-t border-border/20 px-3 py-2">
+          <div className="flex flex-wrap gap-x-3 gap-y-1">
+            {p.model && (
+              <span className="font-mono text-[11px] text-muted-foreground">
+                <Cpu className="mr-1 inline h-3 w-3 opacity-50" />
+                {p.model}
+              </span>
+            )}
+            {p.usage && (
+              <span className="font-mono text-[11px] text-muted-foreground">
+                <Zap className="mr-1 inline h-3 w-3 opacity-50" />
+                {formatTokens(p.usage.inputTokens)} in /{" "}
+                {formatTokens(p.usage.outputTokens)} out
+                {p.usage.cacheReadTokens > 0 && (
+                  <span className="opacity-60">
+                    {" "}
+                    (cache: {formatTokens(p.usage.cacheReadTokens)})
+                  </span>
+                )}
+              </span>
+            )}
+          </div>
+
+          {p.error && (
+            <div className="flex items-start gap-1.5 rounded bg-red-500/10 px-2 py-1.5 font-mono text-[11px] text-red-400">
+              <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+              {p.error}
+            </div>
+          )}
+
+          {p.filesModified && p.filesModified.length > 0 && (
+            <div className="space-y-0.5">
+              <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+                Files modified
+              </span>
+              <div className="flex flex-wrap gap-1">
+                {p.filesModified.map((f, i) => (
+                  <span
+                    key={i}
+                    className="rounded bg-surface-2/50 px-1.5 py-0.5 font-mono text-[11px] text-foreground/70"
+                  >
+                    <FileCode className="mr-1 inline h-3 w-3 opacity-40" />
+                    {f.split("/").pop()}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Output preview or full output */}
+          {(fullOutput || p.outputPreview) && (
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+                  Output
+                </span>
+                {!fullOutput && onFetchOutput && p.status !== "running" && (
+                  <button
+                    type="button"
+                    className="font-mono text-[10px] text-primary/60 hover:text-primary"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onFetchOutput();
+                    }}
+                  >
+                    Load full
+                  </button>
+                )}
+              </div>
+              <pre className="mt-0.5 max-h-48 overflow-y-auto whitespace-pre-wrap rounded-md bg-black/20 px-2.5 py-2 font-mono text-[11px] leading-relaxed text-foreground/60">
+                {fullOutput || p.outputPreview}
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main Component ──
 
 type ClaudeCodePanelProps = {
   onClose: () => void;
+  focusedAgentId?: string;
 };
 
-export const ClaudeCodePanel = ({ onClose }: ClaudeCodePanelProps) => {
+export const ClaudeCodePanel = ({
+  onClose,
+  focusedAgentId,
+}: ClaudeCodePanelProps) => {
   const [processes, setProcesses] = useState<ProcessInfo[]>([]);
   const [queueInfo, setQueueInfo] = useState<QueueInfo | null>(null);
   const [events, setEvents] = useState<StreamEvent[]>([]);
   const [config, setConfig] = useState<BridgeConfig | null>(null);
   const [proxyToggling, setProxyToggling] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedAgent, setSelectedAgent] = useState<string>("studio-dev");
+  const [selectedAgent, setSelectedAgent] = useState<string>(
+    focusedAgentId || "studio-dev",
+  );
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
-  const [eventFilter, setEventFilter] = useState<EventFilter>("ALL");
+  const [showConfig, setShowConfig] = useState(false);
+  const [eventFilter, setEventFilter] = useState<Set<string>>(new Set());
+  const [fullOutputs, setFullOutputs] = useState<Record<string, string>>({});
   const eventsEndRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
+
+  // Derive unique tool subtypes from events (for dynamic filter chips)
+  const toolSubtypes = useMemo(() => {
+    const subtypes = new Set<string>();
+    for (const ev of events) {
+      if (
+        ev.type === "tool_use" &&
+        ev.subtype &&
+        ev.subtype !== "claude_code"
+      ) {
+        subtypes.add(ev.subtype);
+      }
+    }
+    return [...subtypes].sort();
+  }, [events]);
+
+  const toggleFilter = useCallback((value: string) => {
+    setEventFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(value)) next.delete(value);
+      else next.add(value);
+      return next;
+    });
+  }, []);
+
+  // Is the focused agent a CC agent?
+  const isCCAgent = config?.agents?.includes(selectedAgent) ?? false;
+
+  // Sync selectedAgent with focused agent from parent
+  useEffect(() => {
+    if (focusedAgentId) setSelectedAgent(focusedAgentId);
+  }, [focusedAgentId]);
 
   useLiveTimer(processes);
 
@@ -212,13 +487,26 @@ export const ClaudeCodePanel = ({ onClose }: ClaudeCodePanelProps) => {
       const res = await fetch("/claude-code/api/status");
       if (!res.ok) return;
       const data = await res.json();
-      // Backward compat: handle both array (old) and object (new)
       if (Array.isArray(data)) {
         setProcesses(data);
         setQueueInfo(null);
       } else {
         setProcesses(data.processes ?? []);
         setQueueInfo(data.queue ?? null);
+      }
+    } catch {}
+  }, []);
+
+  // Fetch full output for a process
+  const fetchFullOutput = useCallback(async (processId: string) => {
+    try {
+      const res = await fetch(
+        `/claude-code/api/output?id=${encodeURIComponent(processId)}`,
+      );
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.output) {
+        setFullOutputs((prev) => ({ ...prev, [processId]: data.output }));
       }
     } catch {}
   }, []);
@@ -287,7 +575,7 @@ export const ClaudeCodePanel = ({ onClose }: ClaudeCodePanelProps) => {
 
   // SSE connection
   useEffect(() => {
-    if (!selectedAgent) return;
+    if (!selectedAgent || !isCCAgent) return;
     const es = new EventSource(`/claude-code/api/events/${selectedAgent}`);
     eventSourceRef.current = es;
     es.onmessage = (e) => {
@@ -304,7 +592,7 @@ export const ClaudeCodePanel = ({ onClose }: ClaudeCodePanelProps) => {
       es.close();
       eventSourceRef.current = null;
     };
-  }, [selectedAgent]);
+  }, [selectedAgent, isCCAgent]);
 
   // Auto-scroll events
   useEffect(() => {
@@ -319,41 +607,67 @@ export const ClaudeCodePanel = ({ onClose }: ClaudeCodePanelProps) => {
     return () => clearInterval(interval);
   }, [fetchConfig, fetchProcesses]);
 
-  const active = processes.filter(
+  // Clear events when switching agents
+  useEffect(() => {
+    setEvents([]);
+    setExpandedId(null);
+    setFullOutputs({});
+  }, [selectedAgent]);
+
+  const agentProcesses = processes.filter((p) => p.agent === selectedAgent);
+  const active = agentProcesses.filter(
     (p) => p.status === "running" || p.status === "queued",
   );
-  const completed = processes.filter(
+  const completed = agentProcesses.filter(
     (p) => p.status !== "running" && p.status !== "queued",
   );
   const runningCount = active.filter((p) => p.status === "running").length;
-  const stats = computeSessionStats(processes);
+  const stats = computeSessionStats(agentProcesses);
 
-  const filteredEvents =
-    eventFilter === "ALL"
-      ? events
-      : events.filter(
-          (ev) => (EVENT_CATEGORY[ev.type] ?? "SYS") === eventFilter,
-        );
+  // Global running across ALL agents (for the always-visible banner)
+  const allRunning = processes.filter((p) => p.status === "running");
+  const allQueued = processes.filter((p) => p.status === "queued");
+
+  const filteredEvents = useMemo(() => {
+    if (eventFilter.size === 0) return events;
+    return events.filter((ev) => {
+      // Check main category filter (SYS, TOOL, AI, ERROR)
+      const category = EVENT_CATEGORY[ev.type];
+      if (category && eventFilter.has(category)) return true;
+      // Check specific tool subtype filter (Read, Edit, Bash, etc.)
+      if (ev.subtype && eventFilter.has(ev.subtype)) return true;
+      return false;
+    });
+  }, [events, eventFilter]);
 
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-border/60 px-4 py-3">
+      <div className="flex items-center justify-between border-b border-border/60 px-3 py-2.5">
         <div className="flex items-center gap-2">
           <Terminal className="h-4 w-4 text-primary" />
-          <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-foreground">
+          <span className="font-mono text-[12px] font-semibold uppercase tracking-[0.12em] text-foreground">
             Claude Code
           </span>
           {runningCount > 0 && (
-            <span className="rounded-full bg-blue-500/20 px-2 py-0.5 font-mono text-[9px] font-semibold text-blue-400">
-              {runningCount} running
+            <span className="flex items-center gap-1 rounded-full bg-blue-500/15 px-2 py-0.5 font-mono text-[10px] font-semibold text-blue-400">
+              <PulseDot color="bg-blue-400" />
+              {runningCount}
             </span>
           )}
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
           <button
             type="button"
-            className="ui-btn-icon ui-btn-icon-xs"
+            className="rounded p-1 text-muted-foreground/50 transition-colors hover:bg-surface-1 hover:text-muted-foreground"
+            onClick={() => setShowConfig(!showConfig)}
+            title="Settings"
+          >
+            <Settings2 className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            className="rounded p-1 text-muted-foreground/50 transition-colors hover:bg-surface-1 hover:text-muted-foreground"
             onClick={() => {
               fetchConfig();
               fetchProcesses();
@@ -364,7 +678,7 @@ export const ClaudeCodePanel = ({ onClose }: ClaudeCodePanelProps) => {
           </button>
           <button
             type="button"
-            className="ui-btn-icon ui-btn-icon-xs"
+            className="rounded p-1 text-muted-foreground/50 transition-colors hover:bg-surface-1 hover:text-muted-foreground"
             onClick={onClose}
             title="Close"
           >
@@ -374,387 +688,388 @@ export const ClaudeCodePanel = ({ onClose }: ClaudeCodePanelProps) => {
       </div>
 
       {error && (
-        <div className="px-4 py-3">
-          <div className="rounded-md bg-red-500/10 px-3 py-2 font-mono text-[11px] text-red-400">
+        <div className="px-3 py-2">
+          <div className="flex items-center gap-2 rounded-md bg-red-500/10 px-3 py-2 font-mono text-[12px] text-red-400">
+            <AlertTriangle className="h-3 w-3 shrink-0" />
             {error}
           </div>
         </div>
       )}
 
-      {/* Config bar */}
+      {/* Quick status bar (always visible) */}
       {config && (
-        <div className="flex flex-wrap items-center gap-3 border-b border-border/60 px-4 py-2">
-          <button
-            type="button"
-            className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 font-mono text-[10px] font-semibold tracking-[0.06em] transition ${
-              config.useProxy
-                ? "bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25"
-                : "bg-surface-2 text-muted-foreground hover:bg-surface-3"
-            }`}
-            onClick={toggleProxy}
-            disabled={proxyToggling}
-            title={config.useProxy ? "Proxy ON" : "Proxy OFF"}
-          >
-            {proxyToggling ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : (
-              <Power className="h-3 w-3" />
-            )}
-            Proxy {config.useProxy ? "ON" : "OFF"}
-          </button>
-
-          <select
-            className="rounded-md border border-border/60 bg-surface-1 px-2 py-1 font-mono text-[10px] text-foreground"
-            value={config.model}
-            onChange={(e) => changeModel(e.target.value)}
-          >
-            <option value="sonnet">sonnet</option>
-            <option value="opus">opus</option>
-            <option value="haiku">haiku</option>
-          </select>
-
-          <span className="flex items-center gap-1 font-mono text-[10px] text-muted-foreground">
-            Slots:{" "}
-            <span className="text-foreground">
-              {queueInfo?.running ?? runningCount}
+        <div className="flex items-center gap-2 border-b border-border/60 px-3 py-2">
+          {/* State indicator */}
+          {allRunning.length > 0 ? (
+            <span className="flex items-center gap-1.5 rounded-md bg-blue-500/15 px-2.5 py-1 font-mono text-[12px] font-bold text-blue-400">
+              <PulseDot color="bg-blue-400" />
+              ACTIVE ({allRunning.length}/{config.maxConcurrent})
             </span>
-            /
-            <select
-              className="rounded border border-border/60 bg-surface-1 px-1 py-0.5 font-mono text-[10px] text-foreground"
-              value={config.maxConcurrent}
-              onChange={(e) => changeMaxConcurrent(Number(e.target.value))}
-            >
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </select>
-          </span>
-
-          <select
-            className="ml-auto rounded-md border border-border/60 bg-surface-1 px-2 py-1 font-mono text-[10px] text-foreground"
-            value={selectedAgent}
-            onChange={(e) => {
-              setEvents([]);
-              setSelectedAgent(e.target.value);
-            }}
-          >
-            {(config.agents ?? []).map((a) => (
-              <option key={a} value={a}>
-                {a}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      {/* Session stats */}
-      {stats.totalCount > 0 && (
-        <div className="flex flex-wrap items-center gap-2 border-b border-border/60 px-4 py-1.5">
-          <span className="flex items-center gap-1 font-mono text-[9px] text-muted-foreground">
-            <Zap className="h-2.5 w-2.5" />
-            {formatTokens(stats.totalTokens)} tok
-          </span>
-          <span className="flex items-center gap-1 font-mono text-[9px] text-muted-foreground">
-            <Coins className="h-2.5 w-2.5" />
-            {formatCost(stats.totalCost)}
-          </span>
-          <span className="flex items-center gap-1 font-mono text-[9px] text-muted-foreground">
-            <Clock className="h-2.5 w-2.5" />
-            avg {formatDuration(stats.avgDurationMs)}
-          </span>
-          <span className="flex items-center gap-1 font-mono text-[9px] text-muted-foreground">
-            <CheckCircle className="h-2.5 w-2.5" />
-            {stats.successRate}% ({stats.completedCount}/{stats.totalCount})
-          </span>
-        </div>
-      )}
-
-      {/* Queue visualization */}
-      {queueInfo && queueInfo.waiting > 0 && (
-        <div className="flex items-center gap-2 border-b border-border/60 bg-purple-500/5 px-4 py-1.5">
-          <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-purple-400 opacity-75" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-purple-500" />
-          </span>
-          <span className="font-mono text-[10px] text-purple-400">
-            Queue: {queueInfo.waiting} waiting | {queueInfo.running}/
-            {queueInfo.max} slots
-          </span>
-        </div>
-      )}
-
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        {/* Active processes */}
-        {active.length > 0 && (
-          <div className="border-b border-border/60 px-4 py-2">
-            <div className="mb-1 font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              Active
-            </div>
-            <div className="space-y-1">
-              {active.map((p) => (
-                <div key={p.id}>
-                  <div
-                    className="flex items-center gap-2 rounded-md bg-surface-1/50 px-2.5 py-1.5 cursor-pointer hover:bg-surface-1"
-                    onClick={() =>
-                      setExpandedId(expandedId === p.id ? null : p.id)
-                    }
-                  >
-                    <span
-                      className={`shrink-0 font-mono text-[8px] font-bold uppercase ${STATUS_COLORS[p.status] ?? "text-muted-foreground"}`}
-                    >
-                      {p.status}
-                    </span>
-                    <span className="flex-1 truncate font-mono text-[10px] text-foreground">
-                      {p.task}
-                    </span>
-                    {p.turnCount != null && p.turnCount > 0 && (
-                      <span className="font-mono text-[8px] text-muted-foreground">
-                        {p.turnCount}t
-                      </span>
-                    )}
-                    <span className="font-mono text-[9px] text-muted-foreground">
-                      {p.status === "running"
-                        ? liveElapsed(p.startedAt)
-                        : p.elapsed}
-                    </span>
-                    {p.costUsd != null && (
-                      <span className="font-mono text-[8px] text-emerald-400/70">
-                        {formatCost(p.costUsd)}
-                      </span>
-                    )}
-                    {p.status === "running" && (
-                      <button
-                        type="button"
-                        className="shrink-0 rounded p-0.5 text-red-400/60 hover:bg-red-500/10 hover:text-red-400"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          cancelProcess(p.id);
-                        }}
-                        title="Cancel"
-                      >
-                        <Square className="h-3 w-3" />
-                      </button>
-                    )}
-                  </div>
-                  {expandedId === p.id && (
-                    <div className="ml-2 mt-1 space-y-1 rounded bg-surface-1/30 px-2.5 py-2">
-                      {p.model && (
-                        <div className="font-mono text-[9px] text-muted-foreground">
-                          Model:{" "}
-                          <span className="text-foreground">{p.model}</span>
-                        </div>
-                      )}
-                      {p.usage && (
-                        <div className="font-mono text-[9px] text-muted-foreground">
-                          Tokens:{" "}
-                          <span className="text-foreground">
-                            {formatTokens(p.usage.inputTokens)}
-                          </span>{" "}
-                          in /{" "}
-                          <span className="text-foreground">
-                            {formatTokens(p.usage.outputTokens)}
-                          </span>{" "}
-                          out
-                          {p.usage.cacheReadTokens > 0 && (
-                            <>
-                              {" "}
-                              | cache: {formatTokens(p.usage.cacheReadTokens)}
-                            </>
-                          )}
-                        </div>
-                      )}
-                      {p.filesModified && p.filesModified.length > 0 && (
-                        <div className="font-mono text-[9px] text-muted-foreground">
-                          Files:{" "}
-                          {p.filesModified.map((f, i) => (
-                            <span key={i} className="text-foreground">
-                              {i > 0 ? ", " : ""}
-                              {f}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                      {p.outputPreview && (
-                        <pre className="mt-1 max-h-40 overflow-y-auto whitespace-pre-wrap rounded bg-surface-2/50 px-2 py-1.5 font-mono text-[9px] leading-relaxed text-foreground/70">
-                          {p.outputPreview}
-                        </pre>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* History (collapsible) */}
-        {completed.length > 0 && (
-          <div className="border-b border-border/60 px-4 py-2">
-            <button
-              type="button"
-              className="mb-1 flex items-center gap-1 font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground hover:text-foreground"
-              onClick={() => setShowHistory(!showHistory)}
-            >
-              {showHistory ? (
-                <ChevronDown className="h-3 w-3" />
-              ) : (
-                <ChevronRight className="h-3 w-3" />
-              )}
-              History ({completed.length})
-            </button>
-            {showHistory && (
-              <div className="space-y-1">
-                {completed.map((p) => (
-                  <div key={p.id}>
-                    <div
-                      className="flex items-center gap-2 rounded-md bg-surface-1/30 px-2.5 py-1.5 cursor-pointer hover:bg-surface-1/50"
-                      onClick={() =>
-                        setExpandedId(expandedId === p.id ? null : p.id)
-                      }
-                    >
-                      <span
-                        className={`shrink-0 font-mono text-[8px] font-bold uppercase ${STATUS_COLORS[p.status] ?? "text-muted-foreground"}`}
-                      >
-                        {p.status === "completed"
-                          ? "OK"
-                          : p.status.slice(0, 3).toUpperCase()}
-                      </span>
-                      <span className="flex-1 truncate font-mono text-[10px] text-foreground/70">
-                        {p.task}
-                      </span>
-                      {p.turnCount != null && p.turnCount > 0 && (
-                        <span className="font-mono text-[8px] text-muted-foreground">
-                          {p.turnCount}t
-                        </span>
-                      )}
-                      <span className="font-mono text-[9px] text-muted-foreground">
-                        {p.elapsed}
-                      </span>
-                      {p.costUsd != null && (
-                        <span className="font-mono text-[8px] text-emerald-400/70">
-                          {formatCost(p.costUsd)}
-                        </span>
-                      )}
-                    </div>
-                    {expandedId === p.id && (
-                      <div className="ml-2 mt-1 space-y-1 rounded bg-surface-1/30 px-2.5 py-2">
-                        {p.model && (
-                          <div className="font-mono text-[9px] text-muted-foreground">
-                            Model:{" "}
-                            <span className="text-foreground">{p.model}</span>
-                          </div>
-                        )}
-                        {p.usage && (
-                          <div className="font-mono text-[9px] text-muted-foreground">
-                            Tokens:{" "}
-                            <span className="text-foreground">
-                              {formatTokens(p.usage.inputTokens)}
-                            </span>{" "}
-                            in /{" "}
-                            <span className="text-foreground">
-                              {formatTokens(p.usage.outputTokens)}
-                            </span>{" "}
-                            out
-                            {p.usage.cacheReadTokens > 0 && (
-                              <>
-                                {" "}
-                                | cache: {formatTokens(p.usage.cacheReadTokens)}
-                              </>
-                            )}
-                          </div>
-                        )}
-                        {p.error && (
-                          <div className="font-mono text-[9px] text-red-400">
-                            Error: {p.error}
-                          </div>
-                        )}
-                        {p.filesModified && p.filesModified.length > 0 && (
-                          <div className="font-mono text-[9px] text-muted-foreground">
-                            Files:{" "}
-                            {p.filesModified.map((f, i) => (
-                              <span key={i} className="text-foreground">
-                                {i > 0 ? ", " : ""}
-                                {f}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        {p.outputPreview && (
-                          <pre className="mt-1 max-h-40 overflow-y-auto whitespace-pre-wrap rounded bg-surface-2/50 px-2 py-1.5 font-mono text-[9px] leading-relaxed text-foreground/70">
-                            {p.outputPreview}
-                          </pre>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Live events */}
-        <div className="px-4 py-2">
-          <div className="mb-1 flex items-center justify-between">
-            <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              Events — {selectedAgent}
-            </span>
-            <div className="flex gap-0.5">
-              {(["ALL", "SYS", "TOOL", "AI", "ERROR"] as EventFilter[]).map(
-                (f) => (
-                  <button
-                    key={f}
-                    type="button"
-                    className={`rounded px-1.5 py-0.5 font-mono text-[7px] font-bold tracking-wider transition ${
-                      eventFilter === f
-                        ? "bg-primary/20 text-primary"
-                        : "text-muted-foreground/50 hover:text-muted-foreground"
-                    }`}
-                    onClick={() => setEventFilter(f)}
-                  >
-                    {f}
-                  </button>
-                ),
-              )}
-            </div>
-          </div>
-          {filteredEvents.length === 0 ? (
-            <div className="py-8 text-center font-mono text-[11px] text-muted-foreground">
-              {events.length === 0
-                ? "Waiting for Claude Code events..."
-                : "No events match filter"}
-            </div>
           ) : (
-            <div className="space-y-0.5">
-              {filteredEvents.map((ev, i) => (
-                <div key={i} className="flex items-start gap-2 py-0.5">
-                  <span className="shrink-0 rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[8px] font-bold text-muted-foreground">
-                    {EVENT_ICON[ev.type] ?? ev.type.slice(0, 4).toUpperCase()}
-                  </span>
-                  <span className="flex-1 font-mono text-[10px] leading-relaxed text-foreground/80">
-                    {ev.summary}
-                    {ev.costUsd != null && (
-                      <span className="ml-1 text-emerald-400/60">
-                        ({formatCost(ev.costUsd)})
-                      </span>
-                    )}
-                  </span>
-                  <span className="shrink-0 font-mono text-[8px] text-muted-foreground/60">
-                    {new Date(ev.timestamp).toLocaleTimeString("fr-FR", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                      second: "2-digit",
-                    })}
-                  </span>
-                </div>
-              ))}
-              <div ref={eventsEndRef} />
+            <span className="flex items-center gap-1.5 rounded-md bg-surface-2/50 px-2.5 py-1 font-mono text-[12px] font-bold text-muted-foreground/40">
+              <span className="inline-flex h-2 w-2 rounded-full bg-muted-foreground/20" />
+              IDLE
+            </span>
+          )}
+
+          <span
+            className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[11px] font-medium ${
+              config.useProxy
+                ? "bg-emerald-500/10 text-emerald-400"
+                : "bg-surface-2 text-muted-foreground/60"
+            }`}
+          >
+            <Power className="h-3 w-3" />
+            {config.useProxy ? "ON" : "OFF"}
+          </span>
+          <span className="font-mono text-[11px] text-muted-foreground">
+            {config.model}
+          </span>
+          <span className="ml-auto rounded bg-surface-1 px-1.5 py-0.5 font-mono text-[11px] text-foreground/70">
+            {selectedAgent}
+          </span>
+        </div>
+      )}
+
+      {/* Active sessions banner — always visible when something is running */}
+      {allRunning.length > 0 && (
+        <div className="border-b border-blue-500/20 bg-blue-500/8 px-3 py-2">
+          {allRunning.map((p) => (
+            <div key={p.id} className="flex items-center gap-2">
+              <PulseDot color="bg-blue-400" />
+              <span className="flex-1 truncate font-mono text-[12px] font-medium text-blue-300">
+                {p.task}
+              </span>
+              <span className="rounded bg-blue-500/15 px-2 py-0.5 font-mono text-[12px] font-bold tabular-nums text-blue-400">
+                {liveElapsed(p.startedAt)}
+              </span>
+              {p.agent !== selectedAgent && (
+                <span className="rounded bg-surface-2/50 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                  {p.agent}
+                </span>
+              )}
+              <button
+                type="button"
+                className="shrink-0 rounded p-1 text-red-400/50 transition-colors hover:bg-red-500/15 hover:text-red-400"
+                onClick={() => cancelProcess(p.id)}
+                title="Cancel"
+              >
+                <Square className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+          {allQueued.length > 0 && (
+            <div className="mt-1 flex items-center gap-2 font-mono text-[11px] text-purple-400">
+              <PulseDot color="bg-purple-400" />
+              {allQueued.length} queued
             </div>
           )}
         </div>
-      </div>
+      )}
+
+      {/* Collapsible config section */}
+      {showConfig && config && (
+        <div className="space-y-2 border-b border-border/60 bg-surface-1/30 px-3 py-2.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 font-mono text-[12px] font-semibold transition ${
+                config.useProxy
+                  ? "bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25"
+                  : "bg-surface-2 text-muted-foreground hover:bg-surface-3"
+              }`}
+              onClick={toggleProxy}
+              disabled={proxyToggling}
+            >
+              {proxyToggling ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Power className="h-3 w-3" />
+              )}
+              Proxy {config.useProxy ? "ON" : "OFF"}
+            </button>
+
+            <select
+              className="rounded-md border border-border/40 bg-surface-1 px-2 py-1 font-mono text-[12px] text-foreground"
+              value={config.model}
+              onChange={(e) => changeModel(e.target.value)}
+            >
+              <option value="sonnet">sonnet</option>
+              <option value="opus">opus</option>
+              <option value="haiku">haiku</option>
+            </select>
+
+            <span className="flex items-center gap-1 font-mono text-[12px] text-muted-foreground">
+              Slots:
+              <select
+                className="rounded border border-border/40 bg-surface-1 px-1 py-0.5 font-mono text-[12px] text-foreground"
+                value={config.maxConcurrent}
+                onChange={(e) => changeMaxConcurrent(Number(e.target.value))}
+              >
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </span>
+          </div>
+
+          <div className="flex flex-wrap gap-1">
+            {(config.agents ?? []).map((a) => (
+              <button
+                key={a}
+                type="button"
+                className={`rounded-md px-2 py-0.5 font-mono text-[11px] transition ${
+                  selectedAgent === a
+                    ? "bg-primary/15 text-primary"
+                    : "bg-surface-2/50 text-muted-foreground hover:bg-surface-2"
+                }`}
+                onClick={() => {
+                  setSelectedAgent(a);
+                }}
+              >
+                {a}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Not a CC agent message */}
+      {config && !isCCAgent && (
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 px-4 py-8">
+          <Bot className="h-10 w-10 text-muted-foreground/20" />
+          <div className="text-center">
+            <div className="font-mono text-[13px] text-muted-foreground/60">
+              {selectedAgent} doesn&apos;t use Claude Code
+            </div>
+            <div className="mt-1 font-mono text-[11px] text-muted-foreground/40">
+              Configured agents: {config.agents?.join(", ") || "none"}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Main content (only for CC agents) */}
+      {(!config || isCCAgent) && (
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {/* Session stats */}
+          {stats.totalCount > 0 && (
+            <div className="flex flex-wrap gap-1.5 border-b border-border/60 px-3 py-2">
+              <StatChip
+                icon={Zap}
+                label="Total tokens"
+                value={`${formatTokens(stats.totalTokens)}`}
+              />
+              <StatChip
+                icon={Coins}
+                label="Total cost"
+                value={formatCost(stats.totalCost)}
+                color="text-emerald-400/70"
+              />
+              <StatChip
+                icon={Clock}
+                label="Avg duration"
+                value={formatDuration(stats.avgDurationMs)}
+              />
+              <StatChip
+                icon={CheckCircle}
+                label="Success rate"
+                value={`${stats.successRate}%`}
+                color={
+                  stats.successRate === 100
+                    ? "text-emerald-400/70"
+                    : "text-muted-foreground"
+                }
+              />
+            </div>
+          )}
+
+          {/* Queue visualization */}
+          {queueInfo && queueInfo.waiting > 0 && (
+            <div className="flex items-center gap-2 border-b border-border/60 bg-purple-500/5 px-3 py-1.5">
+              <PulseDot color="bg-purple-400" />
+              <span className="font-mono text-[12px] text-purple-400">
+                {queueInfo.waiting} waiting &middot; {queueInfo.running}/
+                {queueInfo.max} slots
+              </span>
+            </div>
+          )}
+
+          {/* Active processes */}
+          {active.length > 0 && (
+            <div className="border-b border-border/60 px-3 py-2">
+              <div className="mb-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/50">
+                Active
+              </div>
+              <div className="space-y-1.5">
+                {active.map((p) => (
+                  <ProcessCard
+                    key={p.id}
+                    process={p}
+                    expanded={expandedId === p.id}
+                    onToggle={() =>
+                      setExpandedId(expandedId === p.id ? null : p.id)
+                    }
+                    onCancel={
+                      p.status === "running"
+                        ? () => cancelProcess(p.id)
+                        : undefined
+                    }
+                    fullOutput={fullOutputs[p.id] ?? null}
+                    onFetchOutput={() => fetchFullOutput(p.id)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* History (collapsible) */}
+          {completed.length > 0 && (
+            <div className="border-b border-border/60 px-3 py-2">
+              <button
+                type="button"
+                className="mb-1.5 flex items-center gap-1 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/50 hover:text-muted-foreground"
+                onClick={() => setShowHistory(!showHistory)}
+              >
+                {showHistory ? (
+                  <ChevronDown className="h-3 w-3" />
+                ) : (
+                  <ChevronRight className="h-3 w-3" />
+                )}
+                History ({completed.length})
+              </button>
+              {showHistory && (
+                <div className="space-y-1.5">
+                  {completed.map((p) => (
+                    <ProcessCard
+                      key={p.id}
+                      process={p}
+                      expanded={expandedId === p.id}
+                      onToggle={() =>
+                        setExpandedId(expandedId === p.id ? null : p.id)
+                      }
+                      fullOutput={fullOutputs[p.id] ?? null}
+                      onFetchOutput={() => fetchFullOutput(p.id)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Live events */}
+          <div className="px-3 py-2">
+            <div className="mb-1.5 flex items-center justify-between">
+              <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/50">
+                Events
+              </span>
+              <div className="flex flex-wrap gap-0.5">
+                <button
+                  type="button"
+                  className={`rounded px-1.5 py-0.5 font-mono text-[9px] font-bold tracking-wider transition ${
+                    eventFilter.size === 0
+                      ? "bg-primary/20 text-primary"
+                      : "text-muted-foreground/40 hover:text-muted-foreground/70"
+                  }`}
+                  onClick={() => setEventFilter(new Set())}
+                >
+                  ALL
+                </button>
+                {MAIN_FILTER_CATEGORIES.map((f) => (
+                  <button
+                    key={f}
+                    type="button"
+                    className={`rounded px-1.5 py-0.5 font-mono text-[9px] font-bold tracking-wider transition ${
+                      eventFilter.has(f)
+                        ? "bg-primary/20 text-primary"
+                        : "text-muted-foreground/40 hover:text-muted-foreground/70"
+                    }`}
+                    onClick={() => toggleFilter(f)}
+                  >
+                    {f}
+                  </button>
+                ))}
+                {toolSubtypes.length > 0 && (
+                  <>
+                    <span className="self-center font-mono text-[7px] text-muted-foreground/30">
+                      |
+                    </span>
+                    {toolSubtypes.map((st) => (
+                      <button
+                        key={st}
+                        type="button"
+                        className={`rounded px-1.5 py-0.5 font-mono text-[9px] font-bold tracking-wider transition ${
+                          eventFilter.has(st)
+                            ? "bg-cyan-500/20 text-cyan-400"
+                            : "text-muted-foreground/40 hover:text-muted-foreground/70"
+                        }`}
+                        onClick={() => toggleFilter(st)}
+                      >
+                        {st}
+                      </button>
+                    ))}
+                  </>
+                )}
+                {eventFilter.size > 0 && (
+                  <button
+                    type="button"
+                    className="ml-1 font-mono text-[8px] text-muted-foreground/30 hover:text-muted-foreground/60"
+                    onClick={() => setEventFilter(new Set())}
+                  >
+                    clear
+                  </button>
+                )}
+              </div>
+            </div>
+            {filteredEvents.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 py-8">
+                <Terminal className="h-7 w-7 text-muted-foreground/15" />
+                <span className="font-mono text-[12px] text-muted-foreground/40">
+                  {events.length === 0
+                    ? "Waiting for events..."
+                    : "No events match filter"}
+                </span>
+              </div>
+            ) : (
+              <div className="space-y-0.5">
+                {[...filteredEvents].reverse().map((ev, i) => (
+                  <div
+                    key={i}
+                    className="flex items-start gap-2 rounded px-1 py-0.5 transition-colors hover:bg-surface-1/30"
+                  >
+                    <span
+                      className={`shrink-0 rounded px-1.5 py-0.5 font-mono text-[9px] font-bold ${EVENT_BADGE_COLORS[ev.type] ?? "bg-surface-2 text-muted-foreground"}`}
+                    >
+                      {EVENT_ICON[ev.type] ?? ev.type.slice(0, 4).toUpperCase()}
+                    </span>
+                    {ev.type === "tool_use" &&
+                      ev.subtype &&
+                      ev.subtype !== "claude_code" && (
+                        <span className="shrink-0 rounded bg-cyan-500/10 px-1 py-0.5 font-mono text-[8px] font-semibold text-cyan-400/70">
+                          {ev.subtype}
+                        </span>
+                      )}
+                    <span className="flex-1 font-mono text-[11px] leading-relaxed text-foreground/70">
+                      {ev.summary}
+                      {ev.costUsd != null && (
+                        <span className="ml-1 text-emerald-400/50">
+                          {formatCost(ev.costUsd)}
+                        </span>
+                      )}
+                    </span>
+                    <span className="shrink-0 font-mono text-[10px] text-muted-foreground/40">
+                      {timeAgo(ev.timestamp)}
+                    </span>
+                  </div>
+                ))}
+                <div ref={eventsEndRef} />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

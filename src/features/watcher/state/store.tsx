@@ -153,12 +153,19 @@ function deepMerge(
 
 // ─── Context ───
 
-interface WatcherContextValue {
+interface WatcherStateContextValue {
   state: WatcherState;
+}
+
+interface WatcherDispatchContextValue {
   dispatch: React.Dispatch<WatcherAction>;
 }
 
-const WatcherContext = createContext<WatcherContextValue | null>(null);
+const WatcherStateContext = createContext<WatcherStateContextValue | null>(
+  null,
+);
+const WatcherDispatchContext =
+  createContext<WatcherDispatchContextValue | null>(null);
 
 export function WatcherProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
@@ -167,17 +174,34 @@ export function WatcherProvider({ children }: { children: ReactNode }) {
   useWatcherSSE(dispatch);
 
   return (
-    <WatcherContext.Provider value={{ state, dispatch }}>
-      {children}
-    </WatcherContext.Provider>
+    <WatcherStateContext.Provider value={{ state }}>
+      <WatcherDispatchContext.Provider value={{ dispatch }}>
+        {children}
+      </WatcherDispatchContext.Provider>
+    </WatcherStateContext.Provider>
   );
 }
 
 export function useWatcherStore() {
-  const ctx = useContext(WatcherContext);
-  if (!ctx)
+  const stateCtx = useContext(WatcherStateContext);
+  const dispatchCtx = useContext(WatcherDispatchContext);
+  if (!stateCtx || !dispatchCtx)
     throw new Error("useWatcherStore must be used within WatcherProvider");
-  return ctx;
+  return { ...stateCtx, ...dispatchCtx };
+}
+
+export function useWatcherState() {
+  const ctx = useContext(WatcherStateContext);
+  if (!ctx)
+    throw new Error("useWatcherState must be used within WatcherProvider");
+  return ctx.state;
+}
+
+export function useWatcherDispatch() {
+  const ctx = useContext(WatcherDispatchContext);
+  if (!ctx)
+    throw new Error("useWatcherDispatch must be used within WatcherProvider");
+  return ctx.dispatch;
 }
 
 export type { WatcherAction };

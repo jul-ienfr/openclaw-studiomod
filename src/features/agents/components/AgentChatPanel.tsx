@@ -22,7 +22,6 @@ import {
   Shuffle,
   Trash2,
   X,
-  Zap,
 } from "lucide-react";
 import type { GatewayModelChoice } from "@/lib/gateway/models";
 import { getThinkingLevels } from "@/lib/gateway/models";
@@ -57,6 +56,10 @@ import { AnalyzeLinkWidget } from "./AnalyzeLinkWidget";
 import { ModelSelector } from "./ModelSelector";
 import { SessionSelector } from "./SessionSelector";
 import type { SessionInfo } from "@/features/agents/hooks/useAgentSessions";
+import { type AgentChannelLink } from "@/features/routing/agentChannelResolver";
+import { AgentModelConfigModal } from "./AgentModelConfigModal";
+
+import type { AvailableModel } from "@/app/api/models/route";
 
 type AgentChatPanelProps = {
   agent: AgentRecord;
@@ -68,7 +71,7 @@ type AgentChatPanelProps = {
   onLoadMoreHistory: () => void;
   onOpenSettings: () => void;
   onRename?: (name: string) => Promise<boolean>;
-  onNewSession?: () => Promise<void> | void;
+  onNewSession?: (channelId?: string) => Promise<void> | void;
   onModelChange: (value: string | null) => void;
   onThinkingChange: (value: string | null) => void;
   onToolCallingToggle?: (enabled: boolean) => void;
@@ -147,6 +150,7 @@ const AgentChatComposer = memo(function AgentChatComposer({
   attachments,
   onAddFiles,
   onRemoveAttachment,
+  onConfigureModel,
 }: {
   value: string;
   onChange: (event: ChangeEvent<HTMLTextAreaElement>) => void;
@@ -184,6 +188,7 @@ const AgentChatComposer = memo(function AgentChatComposer({
   attachments: Attachment[];
   onAddFiles: (files: FileList | File[]) => Promise<void>;
   onRemoveAttachment: (id: string) => void;
+  onConfigureModel: () => void;
 }) {
   const tc = useTranslations("chat");
   const stopReason = stopDisabledReason?.trim() ?? "";
@@ -204,8 +209,11 @@ const AgentChatComposer = memo(function AgentChatComposer({
   );
   const thinkingSelectedLabel = useMemo(
     () =>
-      thinkingLevels.find((l) => l.value === thinkingValue)?.label ?? "Default",
-    [thinkingLevels, thinkingValue],
+      autoThinking
+        ? "Auto"
+        : (thinkingLevels.find((l) => l.value === thinkingValue)?.label ??
+          "Default"),
+    [autoThinking, thinkingLevels, thinkingValue],
   );
   const thinkingSelectWidthCh = Math.max(
     9,
@@ -414,58 +422,36 @@ const AgentChatComposer = memo(function AgentChatComposer({
             models={models}
             value={modelValue}
             onChange={onModelChange}
+            onConfigureModel={onConfigureModel}
           />
           {allowThinking ? (
-            <>
-              <InlineHoverTooltip
-                text={
-                  autoThinking
-                    ? tc("autoThinkingDisable")
-                    : tc("autoThinkingEnable")
-                }
-              >
-                <button
-                  type="button"
-                  onClick={onAutoThinkingToggle}
-                  className={`flex h-6 items-center gap-1 rounded-md px-1.5 text-[10px] font-semibold transition-colors ${
-                    autoThinking
-                      ? "bg-primary text-primary-foreground"
-                      : "ui-input text-muted-foreground hover:text-foreground"
-                  }`}
-                  aria-pressed={autoThinking}
-                  aria-label={
-                    autoThinking
-                      ? tc("autoThinkingDisable")
-                      : tc("autoThinkingEnable")
-                  }
-                >
-                  <Zap className="h-3 w-3" strokeWidth={2} />
-                  Auto
-                </button>
-              </InlineHoverTooltip>
-              <InlineHoverTooltip text={tc("selectReasoning")}>
-                <select
-                  className="ui-input ui-control-important h-6 rounded-md px-1.5 text-[10px] font-semibold text-foreground"
-                  aria-label={tc("thinking")}
-                  value={thinkingValue}
-                  disabled={autoThinking}
-                  style={{
-                    width: `${thinkingSelectWidthCh}ch`,
-                    opacity: autoThinking ? 0.6 : 1,
-                  }}
-                  onChange={(event) => {
-                    const nextValue = event.target.value.trim();
+            <InlineHoverTooltip text={tc("selectReasoning")}>
+              <select
+                className="ui-input ui-control-important h-6 rounded-md px-1.5 text-[10px] font-semibold text-foreground"
+                aria-label={tc("thinking")}
+                value={autoThinking ? "__auto__" : thinkingValue}
+                style={{
+                  width: `${thinkingSelectWidthCh}ch`,
+                  colorScheme: "dark",
+                }}
+                onChange={(event) => {
+                  const nextValue = event.target.value.trim();
+                  if (nextValue === "__auto__") {
+                    if (!autoThinking) onAutoThinkingToggle();
+                  } else {
+                    if (autoThinking) onAutoThinkingToggle();
                     onThinkingChange(nextValue ? nextValue : null);
-                  }}
-                >
-                  {thinkingLevels.map((level) => (
-                    <option key={level.value} value={level.value}>
-                      {level.label}
-                    </option>
-                  ))}
-                </select>
-              </InlineHoverTooltip>
-            </>
+                  }
+                }}
+              >
+                <option value="__auto__">⚡ Auto</option>
+                {thinkingLevels.map((level) => (
+                  <option key={level.value} value={level.value}>
+                    {level.label}
+                  </option>
+                ))}
+              </select>
+            </InlineHoverTooltip>
           ) : null}
         </div>
         <div className="ml-auto flex items-center gap-1.5 text-[10px] text-muted-foreground">
@@ -556,6 +542,99 @@ export const AgentChatPanel = ({
   const tc = useTranslations("chat");
   const [draftValue, setDraftValue] = useState(agent.draft);
   const [newSessionBusy, setNewSessionBusy] = useState(false);
+  const [selectedChannelId, setSelectedChannelId] = useState<string>("webchat");
+  const [globalChannels, setGlobalChannels] = useState<AgentChannelLink[]>([]);
+  const [isModelConfigModalOpen, setIsModelConfigModalOpen] = useState(false);
+  const [availableModels, setAvailableModels] = useState<AvailableModel[]>([]);
+
+  // Fetch all configured models to ensure the dropdown has everything
+  useEffect(() => {
+    fetch("/api/models")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.availableModels) {
+          setAvailableModels(data.availableModels);
+        }
+      })
+      .catch(console.error);
+  }, []);
+
+  const combinedModels = useMemo(() => {
+    const map = new Map<string, GatewayModelChoice>();
+    // Add models from gateway (has rich info like context window)
+    for (const m of models) {
+      map.set(`${m.provider}/${m.id}`, m);
+    }
+    // Add any missing models from the configuration
+    for (const m of availableModels) {
+      const key = `${m.provider}/${m.id}`;
+      if (!map.has(key)) {
+        map.set(key, {
+          id: m.id,
+          provider: m.provider,
+          name: m.name,
+          reasoning: false, // Default fallback
+        });
+      }
+    }
+    return Array.from(map.values());
+  }, [models, availableModels]);
+
+  // Restore persisted channel after client-side hydration
+  useEffect(() => {
+    const prefs = loadAgentUiPrefs(agent.agentId);
+    if (prefs.selectedChannel) setSelectedChannelId(prefs.selectedChannel);
+  }, [agent.agentId]);
+
+  useEffect(() => {
+    fetch("/api/channels")
+      .then((r) => r.json())
+      .then((data: { channels?: { name: string; enabled: boolean }[] }) => {
+        const channels: AgentChannelLink[] = [
+          {
+            channelId: "webchat",
+            channelName: "Webchat",
+            channelIcon: "🌐",
+            channelIconColor: "#14b8a6",
+            ruleName: "",
+          },
+        ];
+        for (const ch of data.channels ?? []) {
+          if (!ch.enabled) continue;
+          const meta: Record<
+            string,
+            { name: string; icon: string; color: string }
+          > = {
+            telegram: { name: "Telegram", icon: "✈️", color: "#26A5E4" },
+            whatsapp: { name: "WhatsApp", icon: "📱", color: "#25D366" },
+            discord: { name: "Discord", icon: "🎮", color: "#5865F2" },
+            slack: { name: "Slack", icon: "💼", color: "#4A154B" },
+          };
+          const m = meta[ch.name];
+          if (m)
+            channels.push({
+              channelId: ch.name,
+              channelName: m.name,
+              channelIcon: m.icon,
+              channelIconColor: m.color,
+              ruleName: "",
+            });
+        }
+        setGlobalChannels(channels);
+      })
+      .catch(() => {
+        setGlobalChannels([
+          {
+            channelId: "webchat",
+            channelName: "Webchat",
+            channelIcon: "🌐",
+            channelIconColor: "#14b8a6",
+            ruleName: "",
+          },
+        ]);
+      });
+  }, []);
+
   const [renameEditing, setRenameEditing] = useState(false);
   const [renameSaving, setRenameSaving] = useState(false);
   const [renameDraft, setRenameDraft] = useState(agent.name);
@@ -746,10 +825,10 @@ export const AgentChatPanel = ({
   const modelOptions = useMemo(() => {
     // Detect duplicate model IDs across providers
     const idCount = new Map<string, number>();
-    for (const entry of models) {
+    for (const entry of combinedModels) {
       idCount.set(entry.id, (idCount.get(entry.id) ?? 0) + 1);
     }
-    return models.map((entry) => {
+    return combinedModels.map((entry) => {
       const key = `${entry.provider}/${entry.id}`;
       const alias = typeof entry.name === "string" ? entry.name.trim() : "";
       let label = !alias || alias === key ? key : alias;
@@ -942,15 +1021,18 @@ export const AgentChatPanel = ({
     [cancelRename, submitRename],
   );
 
-  const handleNewSession = useCallback(async () => {
-    if (!onNewSession || newSessionBusy || !canSend) return;
-    setNewSessionBusy(true);
-    try {
-      await onNewSession();
-    } finally {
-      setNewSessionBusy(false);
-    }
-  }, [canSend, newSessionBusy, onNewSession]);
+  const handleNewSession = useCallback(
+    async (channelId?: string) => {
+      if (!onNewSession || newSessionBusy || !canSend) return;
+      setNewSessionBusy(true);
+      try {
+        await onNewSession(channelId);
+      } finally {
+        setNewSessionBusy(false);
+      }
+    },
+    [canSend, newSessionBusy, onNewSession],
+  );
 
   const newSessionDisabled = newSessionBusy || !canSend || !onNewSession;
 
@@ -961,7 +1043,7 @@ export const AgentChatPanel = ({
     <LightboxContext.Provider value={setLightboxSrc}>
       <div
         data-agent-panel
-        className="group fade-up relative flex h-full w-full flex-col"
+        className="group fade-up relative flex h-full w-full min-w-0 flex-col overflow-hidden"
       >
         <div className="px-3 pt-2 sm:px-4 sm:pt-3">
           <div className="flex items-start justify-between gap-4">
@@ -1070,6 +1152,26 @@ export const AgentChatPanel = ({
                   loading={sessionsLoading}
                 />
               ) : null}
+              {globalChannels.length > 1 && (
+                <select
+                  value={selectedChannelId}
+                  onChange={(e) => {
+                    setSelectedChannelId(e.target.value);
+                    saveAgentUiPref(
+                      agent.agentId,
+                      "selectedChannel",
+                      e.target.value,
+                    );
+                  }}
+                  className="h-8 rounded-md border border-zinc-700 bg-zinc-900 px-2 text-sm text-zinc-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                >
+                  {globalChannels.map((ch) => (
+                    <option key={ch.channelId} value={ch.channelId}>
+                      {ch.channelIcon} {ch.channelName}
+                    </option>
+                  ))}
+                </select>
+              )}
               <button
                 className="nodrag ui-btn-primary px-2.5 py-1.5 font-mono text-[11px] font-medium tracking-[0.02em] disabled:cursor-not-allowed disabled:border-border disabled:bg-muted disabled:text-muted-foreground"
                 type="button"
@@ -1077,7 +1179,7 @@ export const AgentChatPanel = ({
                 aria-label={tc("startNewSession")}
                 title={tc("startNewSession")}
                 onClick={() => {
-                  void handleNewSession();
+                  void handleNewSession(selectedChannelId);
                 }}
                 disabled={newSessionDisabled}
               >
@@ -1097,7 +1199,7 @@ export const AgentChatPanel = ({
           </div>
         </div>
 
-        <div className="mt-3 flex min-h-0 flex-1 flex-col px-3 pb-3 sm:px-4 sm:pb-4">
+        <div className="mt-3 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-3 pb-3 sm:px-4 sm:pb-4">
           <AgentChatTranscript
             key={agent.agentId}
             agentId={agent.agentId}
@@ -1151,7 +1253,7 @@ export const AgentChatPanel = ({
               queuedMessages={agent.queuedMessages ?? []}
               onRemoveQueuedMessage={onRemoveQueuedMessage}
               onSendQueuedNow={onSendQueuedNow}
-              models={models}
+              models={combinedModels}
               modelOptions={modelOptionsWithFallback.map((option) => ({
                 value: option.value,
                 label: option.label,
@@ -1182,6 +1284,7 @@ export const AgentChatPanel = ({
               attachments={attachmentsBag.attachments}
               onAddFiles={attachmentsBag.addFiles}
               onRemoveAttachment={attachmentsBag.removeAttachment}
+              onConfigureModel={() => setIsModelConfigModalOpen(true)}
             />
           </div>
         </div>
@@ -1189,6 +1292,17 @@ export const AgentChatPanel = ({
       {lightboxSrc ? (
         <ChatImageLightbox src={lightboxSrc} onClose={closeLightbox} />
       ) : null}
+      <AgentModelConfigModal
+        open={isModelConfigModalOpen}
+        agentId={agent.agentId}
+        agentName={agent.name}
+        onClose={() => setIsModelConfigModalOpen(false)}
+        onSaved={(primary, fallbacks) => {
+          if (primary !== agent.model) {
+            onModelChange(primary);
+          }
+        }}
+      />
     </LightboxContext.Provider>
   );
 };

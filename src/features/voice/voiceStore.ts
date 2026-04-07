@@ -1,4 +1,5 @@
 import type { VoiceConfig, VoiceSession } from "./types";
+import { randomUUID } from "@/lib/uuid";
 
 const STORAGE_KEY = "openclaw-studio:voice-configs";
 
@@ -25,17 +26,20 @@ export const initVoiceStore = () => {
 
 export const getVoiceConfigs = (): VoiceConfig[] => [...configs];
 
-export const getVoiceConfigForAgent = (agentId: string): VoiceConfig | undefined =>
-  configs.find((c) => c.agentId === agentId);
+export const getVoiceConfigForAgent = (
+  agentId: string,
+): VoiceConfig | undefined => configs.find((c) => c.agentId === agentId);
 
-export const upsertVoiceConfig = (config: Omit<VoiceConfig, "id">): VoiceConfig => {
+export const upsertVoiceConfig = (
+  config: Omit<VoiceConfig, "id">,
+): VoiceConfig => {
   const existing = configs.find((c) => c.agentId === config.agentId);
   if (existing) {
     Object.assign(existing, config);
     persistConfigs();
     return existing;
   }
-  const newConfig: VoiceConfig = { ...config, id: crypto.randomUUID() };
+  const newConfig: VoiceConfig = { ...config, id: randomUUID() };
   configs.push(newConfig);
   persistConfigs();
   return newConfig;

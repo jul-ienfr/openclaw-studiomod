@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { X, Eye, EyeOff } from "lucide-react";
+import { randomUUID } from "@/lib/uuid";
 import type { WebhookConfig, WebhookEvent } from "../types";
 
 const ALL_EVENTS: WebhookEvent[] = [
@@ -51,7 +52,7 @@ export function WebhookCreateModal({ webhook, onSave, onClose }: Props) {
   const handleSave = () => {
     if (!isValid) return;
     onSave({
-      id: webhook?.id ?? crypto.randomUUID(),
+      id: webhook?.id ?? randomUUID(),
       name: name.trim() || te("untitledWebhook"),
       url: url.trim(),
       secret: secret.trim() || undefined,
@@ -66,7 +67,9 @@ export function WebhookCreateModal({ webhook, onSave, onClose }: Props) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
       aria-modal="true"
       role="dialog"
       aria-label={title}
@@ -85,10 +88,15 @@ export function WebhookCreateModal({ webhook, onSave, onClose }: Props) {
         </div>
 
         {/* Body */}
-        <div className="space-y-4 overflow-y-auto px-6 py-4" style={{ maxHeight: "60vh" }}>
+        <div
+          className="space-y-4 overflow-y-auto px-6 py-4"
+          style={{ maxHeight: "60vh" }}
+        >
           {/* Name */}
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">{t("nameLabel")}</label>
+            <label className="text-xs text-muted-foreground">
+              {t("nameLabel")}
+            </label>
             <input
               type="text"
               value={name}
@@ -100,7 +108,9 @@ export function WebhookCreateModal({ webhook, onSave, onClose }: Props) {
 
           {/* URL */}
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">{t("urlLabel")}</label>
+            <label className="text-xs text-muted-foreground">
+              {t("urlLabel")}
+            </label>
             <input
               type="url"
               value={url}
@@ -112,7 +122,10 @@ export function WebhookCreateModal({ webhook, onSave, onClose }: Props) {
 
           {/* Secret */}
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">{t("secretLabel")} <span className="text-muted-foreground">({t("optional")})</span></label>
+            <label className="text-xs text-muted-foreground">
+              {t("secretLabel")}{" "}
+              <span className="text-muted-foreground">({t("optional")})</span>
+            </label>
             <div className="relative">
               <input
                 type={showSecret ? "text" : "password"}
@@ -127,14 +140,20 @@ export function WebhookCreateModal({ webhook, onSave, onClose }: Props) {
                 aria-label={showSecret ? te("hide") : te("show")}
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
-                {showSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {showSecret ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
               </button>
             </div>
           </div>
 
           {/* Events */}
           <div className="space-y-2">
-            <label className="text-xs text-muted-foreground">{t("events")}</label>
+            <label className="text-xs text-muted-foreground">
+              {t("events")}
+            </label>
             <div className="grid grid-cols-2 gap-2">
               {ALL_EVENTS.map((event) => (
                 <label

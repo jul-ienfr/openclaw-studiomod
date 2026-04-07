@@ -12,7 +12,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: false,
   serverExternalPackages: ["bun:sqlite"],
   outputFileTracingRoot: __dirname,
-  allowedDevOrigins: ["192.168.31.96"],
+  allowedDevOrigins: ["192.168.31.96", "192.168.31.101"],
   async rewrites() {
     return [
       {

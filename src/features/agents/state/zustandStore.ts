@@ -2,11 +2,7 @@
 
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
-import type {
-  AgentStoreState,
-  AgentState,
-  AgentStoreSeed,
-} from "./store";
+import type { AgentStoreState, AgentState, AgentStoreSeed } from "./store";
 import {
   areTranscriptEntriesEqual,
   buildOutputLinesFromTranscriptEntries,
@@ -138,7 +134,8 @@ const createRuntimeAgentState = (
       seed.toolCallingEnabled ?? existing?.toolCallingEnabled ?? false,
     showThinkingTraces:
       seed.showThinkingTraces ?? existing?.showThinkingTraces ?? true,
-    hideSystemMessages: existing?.hideSystemMessages ?? false,
+    hideSystemMessages:
+      seed.hideSystemMessages ?? existing?.hideSystemMessages ?? false,
     transcriptEntries,
     transcriptRevision: sameSessionKey
       ? (existing?.transcriptRevision ?? outputLines.length)
@@ -211,13 +208,10 @@ export const useAgentZustandStore = create<AgentZustandStore>()(
             const agents = seeds.map((seed) =>
               createRuntimeAgentState(seed, byId.get(seed.agentId)),
             );
-            const requestedSelectedAgentId =
-              selectedAgentId?.trim() ?? "";
+            const requestedSelectedAgentId = selectedAgentId?.trim() ?? "";
             const resolvedSelectedAgentId =
               requestedSelectedAgentId &&
-              agents.some(
-                (agent) => agent.agentId === requestedSelectedAgentId,
-              )
+              agents.some((agent) => agent.agentId === requestedSelectedAgentId)
                 ? requestedSelectedAgentId
                 : state.selectedAgentId &&
                     agents.some(
@@ -426,14 +420,14 @@ export const useAgentZustandStore = create<AgentZustandStore>()(
                   },
                   [],
                 );
+                // Sort only on replacement (order may be broken)
                 nextEntries = TRANSCRIPT_V2_ENABLED
                   ? sortTranscriptEntries(replaced)
                   : replaced;
               } else {
                 const appended = [...existingEntries, nextEntry];
-                nextEntries = TRANSCRIPT_V2_ENABLED
-                  ? sortTranscriptEntries(appended)
-                  : appended;
+                // Skip sort on append — new entry has highest sequenceKey
+                nextEntries = appended;
               }
 
               return {
@@ -468,10 +462,7 @@ export const useAgentZustandStore = create<AgentZustandStore>()(
               if (agent.agentId !== agentId) return agent;
               const trimmed = message.trim();
               if (!trimmed) return agent;
-              const queuedMessages = [
-                ...(agent.queuedMessages ?? []),
-                trimmed,
-              ];
+              const queuedMessages = [...(agent.queuedMessages ?? []), trimmed];
               return { ...agent, queuedMessages };
             }),
           }),
@@ -489,9 +480,7 @@ export const useAgentZustandStore = create<AgentZustandStore>()(
               if (index >= queuedMessages.length) return agent;
               return {
                 ...agent,
-                queuedMessages: queuedMessages.filter(
-                  (_, i) => i !== index,
-                ),
+                queuedMessages: queuedMessages.filter((_, i) => i !== index),
               };
             }),
           }),
@@ -573,15 +562,13 @@ export const useSelectedAgentId = () =>
 /** Returns transcript entries for a specific agent. */
 export const useAgentTranscript = (agentId: string) =>
   useAgentZustandStore(
-    (s) =>
-      s.agents.find((a) => a.agentId === agentId)?.transcriptEntries ?? [],
+    (s) => s.agents.find((a) => a.agentId === agentId)?.transcriptEntries ?? [],
   );
 
 /** Returns the status of a specific agent. */
 export const useAgentStatus = (agentId: string) =>
   useAgentZustandStore(
-    (s) =>
-      s.agents.find((a) => a.agentId === agentId)?.status ?? "idle",
+    (s) => s.agents.find((a) => a.agentId === agentId)?.status ?? "idle",
   );
 
 /** Returns the queued messages for a specific agent. */
@@ -625,6 +612,5 @@ export const useAgentAwaitingInput = (agentId: string) =>
 /** Returns the transcript revision for a specific agent. */
 export const useAgentTranscriptRevision = (agentId: string) =>
   useAgentZustandStore(
-    (s) =>
-      s.agents.find((a) => a.agentId === agentId)?.transcriptRevision ?? 0,
+    (s) => s.agents.find((a) => a.agentId === agentId)?.transcriptRevision ?? 0,
   );

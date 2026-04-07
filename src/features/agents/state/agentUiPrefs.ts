@@ -6,6 +6,7 @@ export type AgentUiPrefs = {
   hideSystemMessages?: boolean;
   autoThinking?: boolean;
   model?: string | null;
+  selectedChannel?: string;
 };
 
 export function loadAgentUiPrefs(agentId: string): AgentUiPrefs {

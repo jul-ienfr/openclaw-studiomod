@@ -9,9 +9,9 @@ import { NotificationProvider } from "@/features/notifications/notificationStore
 import { ToastContainer } from "@/features/notifications/ToastContainer";
 import { CommandPaletteProvider } from "@/features/command-palette/CommandPaletteProvider";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { GatewayConnectionProvider } from "@/lib/gateway/GatewayConnectionProvider";
+import { readTheme } from "@/lib/theme/server";
 import "./globals.css";
-
-export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "OpenClaw Studio V2",
@@ -50,6 +50,7 @@ export default async function RootLayout({
 }>) {
   const locale = await getLocale();
   const messages = await getMessages();
+  const theme = await readTheme();
 
   return (
     <html lang={locale} suppressHydrationWarning>
@@ -63,21 +64,33 @@ export default async function RootLayout({
       </head>
       <body
         className={`${display.variable} ${sans.variable} ${mono.variable} antialiased`}
+        data-sidebar-style={theme.layout.sidebarStyle}
+        data-card-style={theme.layout.cardStyle}
+        data-header-style={theme.layout.headerStyle}
+        data-border-radius={theme.layout.borderRadius}
+        data-content-density={theme.layout.contentDensity}
+        data-shadow-intensity={theme.layout.shadowIntensity}
+        data-animation-level={theme.layout.animationLevel}
+        data-accent-style={theme.layout.accentStyle}
+        data-preset={theme.preset}
+        data-template={theme.templateId ?? "default"}
       >
         <ThemeProvider>
           <NextIntlClientProvider messages={messages} locale={locale}>
-            <NotificationProvider>
-              <div className="flex h-screen w-full overflow-hidden">
-                <AppNav />
-                <main className="min-w-0 flex-1 overflow-auto bg-background">
-                  <SectionErrorBoundary sectionName="main">
-                    {children}
-                  </SectionErrorBoundary>
-                </main>
-              </div>
-              <CommandPaletteProvider />
-              <ToastContainer />
-            </NotificationProvider>
+            <GatewayConnectionProvider>
+              <NotificationProvider>
+                <div className="flex h-screen w-full overflow-hidden">
+                  <AppNav />
+                  <main className="min-w-0 flex-1 overflow-auto bg-background">
+                    <SectionErrorBoundary sectionName="main">
+                      {children}
+                    </SectionErrorBoundary>
+                  </main>
+                </div>
+                <CommandPaletteProvider />
+                <ToastContainer />
+              </NotificationProvider>
+            </GatewayConnectionProvider>
           </NextIntlClientProvider>
         </ThemeProvider>
         <Toaster />
