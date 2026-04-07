@@ -1,17 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import {
-  Info,
-  AlertTriangle,
-  CheckCircle,
-  XCircle,
-  Bug,
-} from "lucide-react";
-import type { LogEntry, LogLevel } from "@/features/logs/types";
+import { Info, AlertTriangle, CheckCircle, XCircle, Bug } from "lucide-react";
+import type { DashboardSnapshot } from "@/features/dashboard/types";
+import type { LogLevel } from "@/features/logs/types";
 
 type ActivityTimelineProps = {
-  maxItems?: number;
+  entries: DashboardSnapshot["recentActivity"];
+  loading?: boolean;
 };
 
 const LEVEL_ICON: Record<
@@ -43,49 +38,10 @@ function formatRelativeTime(timestamp: number): string {
   return `${diffD}d ago`;
 }
 
-function useRecentActivity(maxItems: number): {
-  entries: LogEntry[];
-  loading: boolean;
-} {
-  const [entries, setEntries] = useState<LogEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function fetchLogs() {
-      try {
-        const res = await fetch(`/api/logs?limit=${maxItems}&sort=desc`);
-        if (!res.ok || !mounted) return;
-        const data = (await res.json()) as {
-          entries?: LogEntry[];
-          logs?: LogEntry[];
-        };
-        const logList = data.entries ?? data.logs ?? [];
-        setEntries(logList.slice(0, maxItems));
-      } catch {
-        /* silent */
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    }
-
-    fetchLogs();
-    const id = setInterval(fetchLogs, 15_000);
-    return () => {
-      mounted = false;
-      clearInterval(id);
-    };
-  }, [maxItems]);
-
-  return { entries, loading };
-}
-
 export function ActivityTimeline({
-  maxItems = 10,
+  entries,
+  loading = false,
 }: ActivityTimelineProps) {
-  const { entries, loading } = useRecentActivity(maxItems);
-
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
       <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -100,8 +56,13 @@ export function ActivityTimeline({
 
       {!loading && entries.length === 0 && (
         <div className="flex items-center justify-center py-4">
-          <CheckCircle className="mr-2 h-4 w-4 text-muted-foreground/40" strokeWidth={1.75} />
-          <span className="text-xs text-muted-foreground">No recent activity</span>
+          <CheckCircle
+            className="mr-2 h-4 w-4 text-muted-foreground/40"
+            strokeWidth={1.75}
+          />
+          <span className="text-xs text-muted-foreground">
+            No recent activity
+          </span>
         </div>
       )}
 
@@ -112,10 +73,7 @@ export function ActivityTimeline({
             const colorClass = LEVEL_COLOR[entry.level];
 
             return (
-              <li
-                key={entry.id}
-                className="flex items-start gap-2.5 text-xs"
-              >
+              <li key={entry.id} className="flex items-start gap-2.5 text-xs">
                 {/* Level icon */}
                 <Icon
                   className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${colorClass}`}

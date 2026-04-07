@@ -1,80 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { HardDrive, Radio, Bot, Clock } from "lucide-react";
+import type { DashboardCronCounts } from "@/features/dashboard/types";
 import type { GatewayStatus } from "@/lib/gateway/GatewayClient";
 
 type InfraStatusBarProps = {
   gatewayStatus: GatewayStatus;
   activeAgentCount: number;
+  diskUsagePercent: number | null;
+  cronCounts: DashboardCronCounts;
 };
-
-type SystemInfo = {
-  disk?: { percent: number };
-  crons?: { active: number; total: number };
-};
-
-function useSystemInfo(): SystemInfo {
-  const [info, setInfo] = useState<SystemInfo>({});
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function fetchInfo() {
-      try {
-        const res = await fetch("/api/config/system");
-        if (!res.ok || !mounted) return;
-        const data = (await res.json()) as SystemInfo;
-        setInfo(data);
-      } catch {
-        /* silent — system info is optional */
-      }
-    }
-
-    fetchInfo();
-    const id = setInterval(fetchInfo, 60_000);
-    return () => {
-      mounted = false;
-      clearInterval(id);
-    };
-  }, []);
-
-  return info;
-}
-
-function useCronActiveCount(): { active: number; total: number } {
-  const [counts, setCounts] = useState({ active: 0, total: 0 });
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function fetchJobs() {
-      try {
-        const res = await fetch("/api/cron/jobs");
-        if (!res.ok || !mounted) return;
-        const data = (await res.json()) as {
-          jobs?: Array<{ state?: { enabled?: boolean } }>;
-        };
-        const jobs = data.jobs ?? [];
-        const active = jobs.filter(
-          (j) => j.state?.enabled !== false,
-        ).length;
-        setCounts({ active, total: jobs.length });
-      } catch {
-        /* silent */
-      }
-    }
-
-    fetchJobs();
-    const id = setInterval(fetchJobs, 30_000);
-    return () => {
-      mounted = false;
-      clearInterval(id);
-    };
-  }, []);
-
-  return counts;
-}
 
 function gatewayStatusColor(status: GatewayStatus): string {
   if (status === "connected") return "bg-green-500";
@@ -103,18 +38,17 @@ function diskTextColor(pct: number): string {
 export function InfraStatusBar({
   gatewayStatus,
   activeAgentCount,
+  diskUsagePercent,
+  cronCounts,
 }: InfraStatusBarProps) {
-  const systemInfo = useSystemInfo();
-  const cronCounts = useCronActiveCount();
-
-  const disk = systemInfo.disk;
-  const diskPct = disk?.percent ?? null;
-
   return (
     <div className="flex flex-wrap items-center gap-4 rounded-xl border border-border bg-card px-4 py-3">
       {/* Gateway connection dot */}
       <div className="flex items-center gap-2">
-        <Radio className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} />
+        <Radio
+          className="h-3.5 w-3.5 text-muted-foreground"
+          strokeWidth={1.75}
+        />
         <span
           className={`h-2 w-2 rounded-full ${gatewayStatusColor(gatewayStatus)}`}
           title={`Gateway: ${gatewayStatusLabel(gatewayStatus)}`}
@@ -138,7 +72,7 @@ export function InfraStatusBar({
       </div>
 
       {/* Disk usage (only if available) */}
-      {diskPct !== null && (
+      {diskUsagePercent !== null && (
         <>
           <div className="h-4 w-px bg-border" />
           <div className="flex items-center gap-2">
@@ -148,14 +82,14 @@ export function InfraStatusBar({
             />
             <span className="text-xs text-muted-foreground">Disk</span>
             <span
-              className={`text-xs font-semibold tabular-nums ${diskTextColor(diskPct)}`}
+              className={`text-xs font-semibold tabular-nums ${diskTextColor(diskUsagePercent)}`}
             >
-              {diskPct}%
+              {diskUsagePercent}%
             </span>
             <div className="h-1.5 w-16 overflow-hidden rounded-full bg-muted">
               <div
-                className={`h-full rounded-full transition-all ${diskBarColor(diskPct)}`}
-                style={{ width: `${Math.min(diskPct, 100)}%` }}
+                className={`h-full rounded-full transition-all ${diskBarColor(diskUsagePercent)}`}
+                style={{ width: `${Math.min(diskUsagePercent, 100)}%` }}
               />
             </div>
           </div>
@@ -166,7 +100,10 @@ export function InfraStatusBar({
 
       {/* Active cron jobs */}
       <div className="flex items-center gap-2">
-        <Clock className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} />
+        <Clock
+          className="h-3.5 w-3.5 text-muted-foreground"
+          strokeWidth={1.75}
+        />
         <span className="text-xs text-muted-foreground">Cron</span>
         <span className="text-xs font-semibold tabular-nums">
           {cronCounts.active}/{cronCounts.total}

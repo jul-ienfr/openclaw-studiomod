@@ -21,6 +21,7 @@ import {
   Cpu,
   CircleDot,
 } from "lucide-react";
+import { useDocumentVisibility } from "@/hooks/useDocumentVisibility";
 
 // ── Types ──
 
@@ -188,14 +189,17 @@ function computeSessionStats(processes: ProcessInfo[]) {
 
 // ── Live timer hook ──
 
-function useLiveTimer(processes: ProcessInfo[]): number {
+function useLiveTimer(
+  processes: ProcessInfo[],
+  isDocumentVisible: boolean,
+): number {
   const [tick, setTick] = useState(0);
   const hasRunning = processes.some((p) => p.status === "running");
   useEffect(() => {
-    if (!hasRunning) return;
+    if (!hasRunning || !isDocumentVisible) return;
     const id = setInterval(() => setTick((t) => t + 1), 1000);
     return () => clearInterval(id);
-  }, [hasRunning]);
+  }, [hasRunning, isDocumentVisible]);
   return tick;
 }
 
@@ -413,10 +417,16 @@ type ClaudeCodePanelProps = {
   focusedAgentId?: string;
 };
 
+const CC_ACTIVE_POLL_MS = 15_000;
+const CC_IDLE_POLL_MS = 45_000;
+const CC_HIDDEN_POLL_MS = 120_000;
+const CC_SSE_REFRESH_DEBOUNCE_MS = 500;
+
 export const ClaudeCodePanel = ({
   onClose,
   focusedAgentId,
 }: ClaudeCodePanelProps) => {
+  const isDocumentVisible = useDocumentVisibility();
   const [processes, setProcesses] = useState<ProcessInfo[]>([]);
   const [queueInfo, setQueueInfo] = useState<QueueInfo | null>(null);
   const [events, setEvents] = useState<StreamEvent[]>([]);
@@ -433,6 +443,8 @@ export const ClaudeCodePanel = ({
   const [fullOutputs, setFullOutputs] = useState<Record<string, string>>({});
   const eventsEndRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const processRefreshTimerRef = useRef<number | null>(null);
+  const processAbortRef = useRef<AbortController | null>(null);
 
   // Derive unique tool subtypes from events (for dynamic filter chips)
   const toolSubtypes = useMemo(() => {
@@ -466,7 +478,7 @@ export const ClaudeCodePanel = ({
     if (focusedAgentId) setSelectedAgent(focusedAgentId);
   }, [focusedAgentId]);
 
-  useLiveTimer(processes);
+  useLiveTimer(processes, isDocumentVisible);
 
   // Fetch config
   const fetchConfig = useCallback(async () => {
@@ -483,10 +495,17 @@ export const ClaudeCodePanel = ({
 
   // Fetch processes
   const fetchProcesses = useCallback(async () => {
+    processAbortRef.current?.abort();
+    const controller = new AbortController();
+    processAbortRef.current = controller;
     try {
-      const res = await fetch("/claude-code/api/status");
+      const res = await fetch("/claude-code/api/status", {
+        cache: "no-store",
+        signal: controller.signal,
+      });
       if (!res.ok) return;
       const data = await res.json();
+      if (controller.signal.aborted) return;
       if (Array.isArray(data)) {
         setProcesses(data);
         setQueueInfo(null);
@@ -494,8 +513,26 @@ export const ClaudeCodePanel = ({
         setProcesses(data.processes ?? []);
         setQueueInfo(data.queue ?? null);
       }
-    } catch {}
+    } catch {
+    } finally {
+      if (processAbortRef.current === controller) {
+        processAbortRef.current = null;
+      }
+    }
   }, []);
+
+  const scheduleProcessRefresh = useCallback(
+    (delayMs = 0) => {
+      if (processRefreshTimerRef.current) {
+        window.clearTimeout(processRefreshTimerRef.current);
+      }
+      processRefreshTimerRef.current = window.setTimeout(() => {
+        processRefreshTimerRef.current = null;
+        void fetchProcesses();
+      }, delayMs);
+    },
+    [fetchProcesses],
+  );
 
   // Fetch full output for a process
   const fetchFullOutput = useCallback(async (processId: string) => {
@@ -567,10 +604,10 @@ export const ClaudeCodePanel = ({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ processId }),
         });
-        fetchProcesses();
+        scheduleProcessRefresh(150);
       } catch {}
     },
-    [fetchProcesses],
+    [scheduleProcessRefresh],
   );
 
   // SSE connection
@@ -578,6 +615,9 @@ export const ClaudeCodePanel = ({
     if (!selectedAgent || !isCCAgent) return;
     const es = new EventSource(`/claude-code/api/events/${selectedAgent}`);
     eventSourceRef.current = es;
+    es.onopen = () => {
+      scheduleProcessRefresh();
+    };
     es.onmessage = (e) => {
       try {
         const event: StreamEvent = JSON.parse(e.data);
@@ -585,27 +625,58 @@ export const ClaudeCodePanel = ({
           const next = [...prev, event];
           return next.length > 200 ? next.slice(-200) : next;
         });
+        scheduleProcessRefresh(CC_SSE_REFRESH_DEBOUNCE_MS);
       } catch {}
     };
-    es.onerror = () => {};
+    es.onerror = () => {
+      scheduleProcessRefresh(1_000);
+    };
     return () => {
       es.close();
       eventSourceRef.current = null;
     };
-  }, [selectedAgent, isCCAgent]);
+  }, [selectedAgent, isCCAgent, scheduleProcessRefresh]);
 
   // Auto-scroll events
   useEffect(() => {
     eventsEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [events]);
 
-  // Initial load + polling
+  // Initial config load
   useEffect(() => {
     fetchConfig();
-    fetchProcesses();
-    const interval = setInterval(fetchProcesses, 5000);
-    return () => clearInterval(interval);
-  }, [fetchConfig, fetchProcesses]);
+  }, [fetchConfig]);
+
+  const hasActiveProcesses = processes.some(
+    (process) => process.status === "running" || process.status === "queued",
+  );
+
+  // Status refresh: event-driven first, polling as fallback
+  useEffect(() => {
+    scheduleProcessRefresh();
+    const intervalMs = !isDocumentVisible
+      ? CC_HIDDEN_POLL_MS
+      : hasActiveProcesses
+        ? CC_ACTIVE_POLL_MS
+        : CC_IDLE_POLL_MS;
+    const interval = window.setInterval(() => {
+      void fetchProcesses();
+    }, intervalMs);
+    return () => {
+      window.clearInterval(interval);
+      if (processRefreshTimerRef.current) {
+        window.clearTimeout(processRefreshTimerRef.current);
+        processRefreshTimerRef.current = null;
+      }
+      processAbortRef.current?.abort();
+      processAbortRef.current = null;
+    };
+  }, [
+    fetchProcesses,
+    hasActiveProcesses,
+    isDocumentVisible,
+    scheduleProcessRefresh,
+  ]);
 
   // Clear events when switching agents
   useEffect(() => {

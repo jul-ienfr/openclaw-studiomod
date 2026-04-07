@@ -1,57 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, Settings } from "lucide-react";
 import { useAgentStore } from "@/features/agents/state/store";
+import { useDashboardSnapshot } from "@/features/dashboard/hooks/useDashboardSnapshot";
 import { usePillars } from "@/features/dashboard/hooks/usePillars";
-import type { GatewayStatus } from "@/lib/gateway/GatewayClient";
 import { InfraStatusBar } from "./InfraStatusBar";
 import { PillarSection } from "./PillarSection";
 import { MetricsRow } from "./MetricsRow";
 import { ActivityTimeline } from "./ActivityTimeline";
-
-// ---------------------------------------------------------------------------
-// Lightweight gateway status detector (polls studio settings API to infer
-// connectivity, without opening a second WebSocket connection)
-// ---------------------------------------------------------------------------
-
-function useGatewayStatus(): GatewayStatus {
-  const [status, setStatus] = useState<GatewayStatus>("connecting");
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function check() {
-      try {
-        const res = await fetch("/api/studio", { cache: "no-store" });
-        if (!mounted) return;
-        // If studio API responds, the server is reachable.
-        // We assume the gateway is likely connected if studio settings load.
-        const data = (await res.json()) as {
-          settings?: { gatewayUrl?: string };
-        };
-        const gatewayUrl = data?.settings?.gatewayUrl?.trim();
-        if (res.ok && gatewayUrl) {
-          setStatus("connected");
-        } else {
-          setStatus("disconnected");
-        }
-      } catch {
-        if (mounted) setStatus("disconnected");
-      }
-    }
-
-    check();
-    const id = setInterval(check, 30_000);
-    return () => {
-      mounted = false;
-      clearInterval(id);
-    };
-  }, []);
-
-  return status;
-}
 
 // ---------------------------------------------------------------------------
 // Gateway down banner
@@ -78,7 +35,10 @@ function GatewayDownBanner() {
 function NoPillarsCTA() {
   return (
     <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card py-16 text-center">
-      <Settings className="mb-3 h-10 w-10 text-muted-foreground/30" strokeWidth={1.25} />
+      <Settings
+        className="mb-3 h-10 w-10 text-muted-foreground/30"
+        strokeWidth={1.25}
+      />
       <h2 className="mb-1 text-sm font-semibold text-foreground">
         No pillars configured
       </h2>
@@ -104,24 +64,39 @@ function NoPillarsCTA() {
 export function DashboardPage() {
   const { state } = useAgentStore();
   const { pillars, loading: pillarsLoading } = usePillars();
-  const gatewayStatus = useGatewayStatus();
+  const {
+    snapshot,
+    loading: snapshotLoading,
+    error: snapshotError,
+  } = useDashboardSnapshot(12);
 
   const activeAgentCount = state.agents.filter(
     (a) => a.status === "running",
   ).length;
 
   const isGatewayDown =
-    gatewayStatus === "disconnected" || gatewayStatus === "connecting";
+    snapshot.gatewayStatus === "disconnected" ||
+    snapshot.gatewayStatus === "connecting";
 
   return (
     <div className="flex flex-col gap-4 p-4 md:p-6">
       {/* Gateway down banner */}
       {isGatewayDown && <GatewayDownBanner />}
+      {snapshotError && !snapshotLoading && (
+        <div
+          role="status"
+          className="rounded-lg border border-border bg-card px-4 py-3 text-xs text-muted-foreground"
+        >
+          Dashboard snapshot refresh failed. Showing the latest cached values.
+        </div>
+      )}
 
       {/* Zone 1 — Infrastructure status bar */}
       <InfraStatusBar
-        gatewayStatus={gatewayStatus}
+        gatewayStatus={snapshot.gatewayStatus}
         activeAgentCount={activeAgentCount}
+        diskUsagePercent={snapshot.diskUsagePercent}
+        cronCounts={snapshot.cronCounts}
       />
 
       {/* Zone 2 — Pillars grid */}
@@ -150,12 +125,18 @@ export function DashboardPage() {
       <div className="flex flex-col gap-4 lg:flex-row">
         {/* Metrics row (takes available width) */}
         <div className="flex-1">
-          <MetricsRow activeAgentCount={activeAgentCount} />
+          <MetricsRow
+            activeAgentCount={activeAgentCount}
+            metrics={snapshot.metrics}
+          />
         </div>
       </div>
 
       {/* Activity timeline (full width below) */}
-      <ActivityTimeline maxItems={12} />
+      <ActivityTimeline
+        entries={snapshot.recentActivity}
+        loading={snapshotLoading}
+      />
     </div>
   );
 }

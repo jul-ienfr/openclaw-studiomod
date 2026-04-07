@@ -48,6 +48,7 @@ import {
   type SkillStatusEntry,
   type SkillStatusReport,
 } from "@/lib/skills/types";
+import { useDocumentVisibility } from "@/hooks/useDocumentVisibility";
 
 export type RestartingMutationBlockState = MutationBlockState & {
   kind: MutationWorkflowKind;
@@ -88,6 +89,7 @@ export type UseAgentSettingsMutationControllerParams = {
 export function useAgentSettingsMutationController(
   params: UseAgentSettingsMutationControllerParams,
 ) {
+  const isDocumentVisible = useDocumentVisibility();
   const skillsLoadRequestIdRef = useRef(0);
   const [settingsSkillsReport, setSettingsSkillsReport] =
     useState<SkillStatusReport | null>(null);
@@ -120,6 +122,15 @@ export function useAgentSettingsMutationController(
     useState<RestartingMutationBlockState | null>(null);
   const REMOTE_MUTATION_EXEC_TIMEOUT_MS = 45_000;
   const SKILL_INSTALL_TIMEOUT_MS = 120_000;
+  const DELETE_REFRESH_BASE_MS = 1_500;
+  const DELETE_REFRESH_MAX_MS = 8_000;
+  const DELETE_REFRESH_HIDDEN_MS = 20_000;
+  const {
+    agents: settingsAgents,
+    loadAgents,
+    setMobilePaneChat,
+    status,
+  } = params;
 
   const hasRenameMutationBlock =
     restartingMutationBlock?.kind === "rename-agent";
@@ -435,21 +446,51 @@ export function useAgentSettingsMutationController(
     if (!restartingMutationBlock) return;
     if (restartingMutationBlock.kind !== "delete-agent") return;
     if (restartingMutationBlock.phase !== "awaiting-restart") return;
-    if (params.status !== "connected") return;
+    if (status !== "connected") return;
 
-    const deletedAgentStillPresent = params.agents.some(
+    const deletedAgentStillPresent = settingsAgents.some(
       (entry) => entry.agentId === restartingMutationBlock.agentId,
     );
     if (!deletedAgentStillPresent) {
       setRestartingMutationBlock(null);
-      params.setMobilePaneChat();
+      setMobilePaneChat();
       return;
     }
+  }, [restartingMutationBlock, setMobilePaneChat, settingsAgents, status]);
+
+  useEffect(() => {
+    if (!restartingMutationBlock) return;
+    if (restartingMutationBlock.kind !== "delete-agent") return;
+    if (restartingMutationBlock.phase !== "awaiting-restart") return;
+    if (status !== "connected") return;
 
     let cancelled = false;
+    let refreshInFlight = false;
+    let nextDelayMs = isDocumentVisible
+      ? DELETE_REFRESH_BASE_MS
+      : DELETE_REFRESH_HIDDEN_MS;
+    let timeoutId: number | null = null;
+
+    const clearRefreshTimer = () => {
+      if (!timeoutId) return;
+      window.clearTimeout(timeoutId);
+      timeoutId = null;
+    };
+
+    const scheduleRefresh = (delayMs: number) => {
+      if (cancelled) return;
+      clearRefreshTimer();
+      timeoutId = window.setTimeout(() => {
+        timeoutId = null;
+        void refreshAgents();
+      }, delayMs);
+    };
+
     const refreshAgents = async () => {
+      if (cancelled || refreshInFlight) return;
+      refreshInFlight = true;
       try {
-        await params.loadAgents();
+        await loadAgents();
       } catch (error) {
         if (!isGatewayDisconnectLikeError(error)) {
           console.error(
@@ -457,27 +498,29 @@ export function useAgentSettingsMutationController(
             error,
           );
         }
+      } finally {
+        refreshInFlight = false;
+        if (cancelled) return;
+        if (!isDocumentVisible) {
+          scheduleRefresh(DELETE_REFRESH_HIDDEN_MS);
+          return;
+        }
+        nextDelayMs = Math.min(nextDelayMs * 2, DELETE_REFRESH_MAX_MS);
+        scheduleRefresh(nextDelayMs);
       }
     };
 
-    const intervalId = window.setInterval(() => {
-      if (cancelled) return;
+    if (isDocumentVisible) {
       void refreshAgents();
-    }, 800);
-    void refreshAgents();
+    } else {
+      scheduleRefresh(DELETE_REFRESH_HIDDEN_MS);
+    }
 
     return () => {
       cancelled = true;
-      window.clearInterval(intervalId);
+      clearRefreshTimer();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    params.agents,
-    params.loadAgents,
-    params.setMobilePaneChat,
-    params.status,
-    restartingMutationBlock,
-  ]);
+  }, [isDocumentVisible, loadAgents, restartingMutationBlock, status]);
 
   const handleDeleteAgent = useCallback(
     async (agentId: string) => {

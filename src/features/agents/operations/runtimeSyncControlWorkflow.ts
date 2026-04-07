@@ -3,6 +3,7 @@ import type { AgentState } from "@/features/agents/state/store";
 export type RuntimeSyncStatus = "disconnected" | "connecting" | "connected";
 
 export const RUNTIME_SYNC_RECONCILE_INTERVAL_MS = 3000;
+export const RUNTIME_SYNC_RECONCILE_HIDDEN_INTERVAL_MS = 12000;
 export const RUNTIME_SYNC_FOCUSED_HISTORY_INTERVAL_MS = 4500;
 export const RUNTIME_SYNC_HISTORY_REFRESH_DEBOUNCE_MS = 1500;
 export const RUNTIME_SYNC_DEFAULT_HISTORY_LIMIT = 200;
@@ -25,18 +26,25 @@ export type RuntimeSyncFocusedHistoryPollingIntent =
   | { kind: "start"; agentId: string; intervalMs: number; runImmediately: true }
   | {
       kind: "stop";
-      reason: "not-connected" | "missing-focused-agent" | "focused-not-running";
+      reason:
+        | "not-connected"
+        | "missing-focused-agent"
+        | "focused-not-running"
+        | "document-hidden";
     };
 
 export const resolveRuntimeSyncReconcilePollingIntent = (params: {
   status: RuntimeSyncStatus;
+  isDocumentVisible: boolean;
 }): RuntimeSyncReconcilePollingIntent => {
   if (params.status !== "connected") {
     return { kind: "stop", reason: "not-connected" };
   }
   return {
     kind: "start",
-    intervalMs: RUNTIME_SYNC_RECONCILE_INTERVAL_MS,
+    intervalMs: params.isDocumentVisible
+      ? RUNTIME_SYNC_RECONCILE_INTERVAL_MS
+      : RUNTIME_SYNC_RECONCILE_HIDDEN_INTERVAL_MS,
     runImmediately: true,
   };
 };
@@ -61,9 +69,13 @@ export const resolveRuntimeSyncFocusedHistoryPollingIntent = (params: {
   status: RuntimeSyncStatus;
   focusedAgentId: string | null;
   focusedAgentRunning: boolean;
+  isDocumentVisible: boolean;
 }): RuntimeSyncFocusedHistoryPollingIntent => {
   if (params.status !== "connected") {
     return { kind: "stop", reason: "not-connected" };
+  }
+  if (!params.isDocumentVisible) {
+    return { kind: "stop", reason: "document-hidden" };
   }
   const focusedAgentId = params.focusedAgentId?.trim() ?? "";
   if (!focusedAgentId) {

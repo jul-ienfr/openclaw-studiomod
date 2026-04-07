@@ -18,6 +18,38 @@ interface LogRow {
   metadata: string | null;
 }
 
+type LogQueryOptions = {
+  level?: string;
+  source?: string;
+  since?: string;
+};
+
+function buildLogWhereClause(opts: LogQueryOptions): {
+  where: string;
+  params: (string | number | null)[];
+} {
+  const conditions: string[] = [];
+  const params: (string | number | null)[] = [];
+
+  if (opts.level) {
+    conditions.push("level = ?");
+    params.push(opts.level);
+  }
+  if (opts.source) {
+    conditions.push("source = ?");
+    params.push(opts.source);
+  }
+  if (opts.since) {
+    conditions.push("timestamp >= ?");
+    params.push(opts.since);
+  }
+
+  return {
+    where: conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "",
+    params,
+  };
+}
+
 /** Insert a log entry */
 export function insertLog(
   level: "debug" | "info" | "warn" | "error",
@@ -39,24 +71,7 @@ export function queryLogs(opts: {
   limit?: number;
 }): LogEntry[] {
   const db = getDb();
-  const conditions: string[] = [];
-  const params: (string | number | null)[] = [];
-
-  if (opts.level) {
-    conditions.push("level = ?");
-    params.push(opts.level);
-  }
-  if (opts.source) {
-    conditions.push("source = ?");
-    params.push(opts.source);
-  }
-  if (opts.since) {
-    conditions.push("timestamp >= ?");
-    params.push(opts.since);
-  }
-
-  const where =
-    conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  const { where, params } = buildLogWhereClause(opts);
   const limit = opts.limit ?? 100;
 
   const rows = db
@@ -69,6 +84,15 @@ export function queryLogs(opts: {
     ...row,
     metadata: row.metadata ? JSON.parse(row.metadata) : null,
   }));
+}
+
+export function countLogs(opts: LogQueryOptions = {}): number {
+  const db = getDb();
+  const { where, params } = buildLogWhereClause(opts);
+  const row = db
+    .prepare(`SELECT COUNT(*) AS count FROM logs ${where}`)
+    .get(...params) as { count?: number } | undefined;
+  return row?.count ?? 0;
 }
 
 /** Delete logs older than the specified number of days */

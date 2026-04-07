@@ -5,6 +5,8 @@ import type { WatcherAction } from "@/features/watcher/state/store";
 
 type Dispatch = React.Dispatch<WatcherAction>;
 
+const IMPLEMENTATION_REFRESH_DEBOUNCE_MS = 750;
+
 /**
  * Opens a Server-Sent Events connection to /api/watcher/events and
  * dispatches updates into the Watcher store automatically.
@@ -20,8 +22,69 @@ export function useWatcherSSE(dispatch: Dispatch) {
   useEffect(() => {
     let es: EventSource | null = null;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let implementationRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+    let implementationRefreshController: AbortController | null = null;
+    let implementationRefreshInFlight = false;
+    let implementationRefreshQueued = false;
     let retryDelay = 1_000;
     let mounted = true;
+
+    const clearImplementationRefreshTimer = () => {
+      if (!implementationRefreshTimer) return;
+      clearTimeout(implementationRefreshTimer);
+      implementationRefreshTimer = null;
+    };
+
+    const refreshImplementations = async () => {
+      if (!mounted || implementationRefreshInFlight) return;
+      implementationRefreshInFlight = true;
+      implementationRefreshQueued = false;
+      const controller = new AbortController();
+      implementationRefreshController = controller;
+
+      try {
+        const res = await fetch("/api/watcher/implementations?limit=20", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        if (!res.ok) return;
+        const data = (await res.json()) as {
+          implementations?: unknown[];
+          total?: number;
+        };
+        if (!mounted || controller.signal.aborted) return;
+        if (Array.isArray(data.implementations)) {
+          dispatch({
+            type: "HYDRATE_IMPLEMENTATIONS",
+            implementations: data.implementations as never,
+            total: data.total ?? data.implementations.length,
+          });
+        }
+      } catch {
+        /* silent — non-critical */
+      } finally {
+        if (implementationRefreshController === controller) {
+          implementationRefreshController = null;
+        }
+        implementationRefreshInFlight = false;
+        if (mounted && implementationRefreshQueued) {
+          scheduleImplementationRefresh();
+        }
+      }
+    };
+
+    const scheduleImplementationRefresh = () => {
+      if (!mounted) return;
+      if (implementationRefreshInFlight) {
+        implementationRefreshQueued = true;
+        return;
+      }
+      clearImplementationRefreshTimer();
+      implementationRefreshTimer = setTimeout(() => {
+        implementationRefreshTimer = null;
+        void refreshImplementations();
+      }, IMPLEMENTATION_REFRESH_DEBOUNCE_MS);
+    };
 
     function open() {
       if (!mounted) return;
@@ -71,21 +134,7 @@ export function useWatcherSSE(dispatch: Dispatch) {
           });
 
           es.addEventListener("implementation-status", () => {
-            // Reload implementations so the timeline stays current
-            fetch("/api/watcher/implementations?limit=20")
-              .then((r) => r.json())
-              .then((data: { implementations?: unknown[]; total?: number }) => {
-                if (Array.isArray(data.implementations)) {
-                  dispatch({
-                    type: "HYDRATE_IMPLEMENTATIONS",
-                    implementations: data.implementations as never,
-                    total: data.total ?? data.implementations.length,
-                  });
-                }
-              })
-              .catch(() => {
-                /* silent — non-critical */
-              });
+            scheduleImplementationRefresh();
           });
 
           es.onerror = () => {
@@ -107,6 +156,8 @@ export function useWatcherSSE(dispatch: Dispatch) {
     return () => {
       mounted = false;
       if (reconnectTimer) clearTimeout(reconnectTimer);
+      clearImplementationRefreshTimer();
+      implementationRefreshController?.abort();
       es?.close();
     };
     // dispatch is guaranteed stable by React's useReducer

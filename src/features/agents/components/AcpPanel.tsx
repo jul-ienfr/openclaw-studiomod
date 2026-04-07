@@ -2,10 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Terminal,
   X,
   RefreshCw,
-  Loader2,
   ChevronDown,
   ChevronRight,
   Coins,
@@ -13,13 +11,11 @@ import {
   Clock,
   Settings2,
   AlertTriangle,
-  Bot,
   Cpu,
   CircleDot,
   MessageSquare,
-  Wrench,
-  User,
 } from "lucide-react";
+import { useDocumentVisibility } from "@/hooks/useDocumentVisibility";
 
 // ── Types ──
 
@@ -225,7 +221,13 @@ type AcpPanelProps = {
   focusedAgentId?: string;
 };
 
+const ACP_ACTIVE_POLL_MS = 15_000;
+const ACP_IDLE_POLL_MS = 45_000;
+const ACP_HIDDEN_POLL_MS = 120_000;
+const ACP_SSE_REFRESH_DEBOUNCE_MS = 500;
+
 export const AcpPanel = ({ onClose, focusedAgentId }: AcpPanelProps) => {
+  const isDocumentVisible = useDocumentVisibility();
   const [sessions, setSessions] = useState<AcpSession[]>([]);
   const [events, setEvents] = useState<AcpEvent[]>([]);
   const [config, setConfig] = useState<AcpConfig | null>(null);
@@ -241,6 +243,8 @@ export const AcpPanel = ({ onClose, focusedAgentId }: AcpPanelProps) => {
   );
   const eventsEndRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const sessionRefreshTimerRef = useRef<number | null>(null);
+  const sessionAbortRef = useRef<AbortController | null>(null);
 
   // Sync selectedAgent with focused agent from parent
   useEffect(() => {
@@ -262,19 +266,47 @@ export const AcpPanel = ({ onClose, focusedAgentId }: AcpPanelProps) => {
 
   // Fetch sessions
   const fetchSessions = useCallback(async () => {
+    sessionAbortRef.current?.abort();
+    const controller = new AbortController();
+    sessionAbortRef.current = controller;
     try {
-      const res = await fetch("/acp-bridge/api/status");
+      const res = await fetch("/acp-bridge/api/status", {
+        cache: "no-store",
+        signal: controller.signal,
+      });
       if (!res.ok) return;
       const data = await res.json();
+      if (controller.signal.aborted) return;
       setSessions(data.sessions ?? []);
-    } catch {}
+    } catch {
+    } finally {
+      if (sessionAbortRef.current === controller) {
+        sessionAbortRef.current = null;
+      }
+    }
   }, []);
+
+  const scheduleSessionRefresh = useCallback(
+    (delayMs = 0) => {
+      if (sessionRefreshTimerRef.current) {
+        window.clearTimeout(sessionRefreshTimerRef.current);
+      }
+      sessionRefreshTimerRef.current = window.setTimeout(() => {
+        sessionRefreshTimerRef.current = null;
+        void fetchSessions();
+      }, delayMs);
+    },
+    [fetchSessions],
+  );
 
   // SSE connection
   useEffect(() => {
     if (!selectedAgent) return;
     const es = new EventSource(`/acp-bridge/api/events/${selectedAgent}`);
     eventSourceRef.current = es;
+    es.onopen = () => {
+      scheduleSessionRefresh();
+    };
     es.onmessage = (e) => {
       try {
         const event: AcpEvent = JSON.parse(e.data);
@@ -282,27 +314,27 @@ export const AcpPanel = ({ onClose, focusedAgentId }: AcpPanelProps) => {
           const next = [...prev, event];
           return next.length > 200 ? next.slice(-200) : next;
         });
+        scheduleSessionRefresh(ACP_SSE_REFRESH_DEBOUNCE_MS);
       } catch {}
     };
-    es.onerror = () => {};
+    es.onerror = () => {
+      scheduleSessionRefresh(1_000);
+    };
     return () => {
       es.close();
       eventSourceRef.current = null;
     };
-  }, [selectedAgent]);
+  }, [scheduleSessionRefresh, selectedAgent]);
 
   // Auto-scroll events
   useEffect(() => {
     eventsEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [events]);
 
-  // Initial load + polling
+  // Initial config load
   useEffect(() => {
     fetchConfig();
-    fetchSessions();
-    const interval = setInterval(fetchSessions, 5000);
-    return () => clearInterval(interval);
-  }, [fetchConfig, fetchSessions]);
+  }, [fetchConfig]);
 
   // Clear events when switching agents
   useEffect(() => {
@@ -338,6 +370,36 @@ export const AcpPanel = ({ onClose, focusedAgentId }: AcpPanelProps) => {
 
   // All running across ALL agents
   const allRunning = sessions.filter((s) => s.state === "running");
+  const hasActiveSessions = sessions.some(
+    (session) => session.state === "running" || session.state === "pending",
+  );
+
+  // Status refresh: event-driven first, polling as fallback
+  useEffect(() => {
+    scheduleSessionRefresh();
+    const intervalMs = !isDocumentVisible
+      ? ACP_HIDDEN_POLL_MS
+      : hasActiveSessions
+        ? ACP_ACTIVE_POLL_MS
+        : ACP_IDLE_POLL_MS;
+    const interval = window.setInterval(() => {
+      void fetchSessions();
+    }, intervalMs);
+    return () => {
+      window.clearInterval(interval);
+      if (sessionRefreshTimerRef.current) {
+        window.clearTimeout(sessionRefreshTimerRef.current);
+        sessionRefreshTimerRef.current = null;
+      }
+      sessionAbortRef.current?.abort();
+      sessionAbortRef.current = null;
+    };
+  }, [
+    fetchSessions,
+    hasActiveSessions,
+    isDocumentVisible,
+    scheduleSessionRefresh,
+  ]);
 
   const filteredEvents = useMemo(() => {
     if (roleFilter === "all") return events;

@@ -16,6 +16,38 @@ interface MetricRow {
   value: string;
 }
 
+type MetricQueryOptions = {
+  agentId?: string;
+  metricType?: string;
+  since?: string;
+};
+
+function buildMetricWhereClause(opts: MetricQueryOptions): {
+  where: string;
+  params: (string | number | null)[];
+} {
+  const conditions: string[] = [];
+  const params: (string | number | null)[] = [];
+
+  if (opts.agentId) {
+    conditions.push("agent_id = ?");
+    params.push(opts.agentId);
+  }
+  if (opts.metricType) {
+    conditions.push("metric_type = ?");
+    params.push(opts.metricType);
+  }
+  if (opts.since) {
+    conditions.push("timestamp >= ?");
+    params.push(opts.since);
+  }
+
+  return {
+    where: conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "",
+    params,
+  };
+}
+
 /** Insert a metric entry */
 export function insertMetric(
   agentId: string | null,
@@ -36,24 +68,7 @@ export function queryMetrics(opts: {
   limit?: number;
 }): MetricEntry[] {
   const db = getDb();
-  const conditions: string[] = [];
-  const params: (string | number | null)[] = [];
-
-  if (opts.agentId) {
-    conditions.push("agent_id = ?");
-    params.push(opts.agentId);
-  }
-  if (opts.metricType) {
-    conditions.push("metric_type = ?");
-    params.push(opts.metricType);
-  }
-  if (opts.since) {
-    conditions.push("timestamp >= ?");
-    params.push(opts.since);
-  }
-
-  const where =
-    conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  const { where, params } = buildMetricWhereClause(opts);
   const limit = opts.limit ?? 100;
 
   const rows = db
@@ -66,6 +81,15 @@ export function queryMetrics(opts: {
     ...row,
     value: JSON.parse(row.value),
   }));
+}
+
+export function countMetrics(opts: MetricQueryOptions = {}): number {
+  const db = getDb();
+  const { where, params } = buildMetricWhereClause(opts);
+  const row = db
+    .prepare(`SELECT COUNT(*) AS count FROM metrics ${where}`)
+    .get(...params) as { count?: number } | undefined;
+  return row?.count ?? 0;
 }
 
 export interface AggregatedMetric {

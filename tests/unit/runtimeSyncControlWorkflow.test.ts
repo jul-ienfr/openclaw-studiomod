@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   RUNTIME_SYNC_FOCUSED_HISTORY_INTERVAL_MS,
   RUNTIME_SYNC_RECONCILE_INTERVAL_MS,
+  RUNTIME_SYNC_RECONCILE_HIDDEN_INTERVAL_MS,
   resolveRuntimeSyncBootstrapHistoryAgentIds,
   resolveRuntimeSyncFocusedHistoryPollingIntent,
   resolveRuntimeSyncGapRecoveryIntent,
@@ -16,7 +17,8 @@ describe("runtimeSyncControlWorkflow", () => {
     expect(
       resolveRuntimeSyncReconcilePollingIntent({
         status: "disconnected",
-      })
+        isDocumentVisible: true,
+      }),
     ).toEqual({
       kind: "stop",
       reason: "not-connected",
@@ -25,10 +27,22 @@ describe("runtimeSyncControlWorkflow", () => {
     expect(
       resolveRuntimeSyncReconcilePollingIntent({
         status: "connected",
-      })
+        isDocumentVisible: true,
+      }),
     ).toEqual({
       kind: "start",
       intervalMs: RUNTIME_SYNC_RECONCILE_INTERVAL_MS,
+      runImmediately: true,
+    });
+
+    expect(
+      resolveRuntimeSyncReconcilePollingIntent({
+        status: "connected",
+        isDocumentVisible: false,
+      }),
+    ).toEqual({
+      kind: "start",
+      intervalMs: RUNTIME_SYNC_RECONCILE_HIDDEN_INTERVAL_MS,
       runImmediately: true,
     });
   });
@@ -42,14 +56,16 @@ describe("runtimeSyncControlWorkflow", () => {
           { agentId: "agent-2", sessionCreated: true, historyLoadedAt: 1234 },
           { agentId: "agent-3", sessionCreated: false, historyLoadedAt: null },
         ],
-      })
+      }),
     ).toEqual(["agent-1"]);
 
     expect(
       resolveRuntimeSyncBootstrapHistoryAgentIds({
         status: "connecting",
-        agents: [{ agentId: "agent-1", sessionCreated: true, historyLoadedAt: null }],
-      })
+        agents: [
+          { agentId: "agent-1", sessionCreated: true, historyLoadedAt: null },
+        ],
+      }),
     ).toEqual([]);
   });
 
@@ -59,7 +75,8 @@ describe("runtimeSyncControlWorkflow", () => {
         status: "connected",
         focusedAgentId: "agent-1",
         focusedAgentRunning: true,
-      })
+        isDocumentVisible: true,
+      }),
     ).toEqual({
       kind: "start",
       agentId: "agent-1",
@@ -72,7 +89,8 @@ describe("runtimeSyncControlWorkflow", () => {
         status: "connected",
         focusedAgentId: null,
         focusedAgentRunning: true,
-      })
+        isDocumentVisible: true,
+      }),
     ).toEqual({
       kind: "stop",
       reason: "missing-focused-agent",
@@ -83,10 +101,23 @@ describe("runtimeSyncControlWorkflow", () => {
         status: "connected",
         focusedAgentId: "agent-1",
         focusedAgentRunning: false,
-      })
+        isDocumentVisible: true,
+      }),
     ).toEqual({
       kind: "stop",
       reason: "focused-not-running",
+    });
+
+    expect(
+      resolveRuntimeSyncFocusedHistoryPollingIntent({
+        status: "connected",
+        focusedAgentId: "agent-1",
+        focusedAgentRunning: true,
+        isDocumentVisible: false,
+      }),
+    ).toEqual({
+      kind: "stop",
+      reason: "document-hidden",
     });
   });
 
@@ -95,21 +126,21 @@ describe("runtimeSyncControlWorkflow", () => {
       shouldRuntimeSyncContinueFocusedHistoryPolling({
         agentId: "agent-1",
         agents: [{ agentId: "agent-1", status: "running" }],
-      })
+      }),
     ).toBe(true);
 
     expect(
       shouldRuntimeSyncContinueFocusedHistoryPolling({
         agentId: "agent-1",
         agents: [{ agentId: "agent-1", status: "idle" }],
-      })
+      }),
     ).toBe(false);
 
     expect(
       shouldRuntimeSyncContinueFocusedHistoryPolling({
         agentId: "agent-1",
         agents: [],
-      })
+      }),
     ).toBe(false);
   });
 
@@ -119,7 +150,7 @@ describe("runtimeSyncControlWorkflow", () => {
         currentLimit: 200,
         defaultLimit: 200,
         maxLimit: 5000,
-      })
+      }),
     ).toBe(400);
 
     expect(
@@ -127,7 +158,7 @@ describe("runtimeSyncControlWorkflow", () => {
         currentLimit: 3000,
         defaultLimit: 200,
         maxLimit: 5000,
-      })
+      }),
     ).toBe(5000);
 
     expect(
@@ -135,7 +166,7 @@ describe("runtimeSyncControlWorkflow", () => {
         currentLimit: null,
         defaultLimit: 200,
         maxLimit: 5000,
-      })
+      }),
     ).toBe(400);
   });
 

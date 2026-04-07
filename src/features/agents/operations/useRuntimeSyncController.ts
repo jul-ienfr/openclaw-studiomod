@@ -30,6 +30,7 @@ import {
   TRANSCRIPT_V2_ENABLED,
   logTranscriptDebugMetric,
 } from "@/features/agents/state/transcript";
+import { useDocumentVisibility } from "@/hooks/useDocumentVisibility";
 import { randomUUID } from "@/lib/uuid";
 
 type RuntimeSyncDispatchAction = {
@@ -72,6 +73,8 @@ export type RuntimeSyncController = {
 export function useRuntimeSyncController(
   params: UseRuntimeSyncControllerParams,
 ): RuntimeSyncController {
+  const isDocumentVisible = useDocumentVisibility();
+  const previousVisibilityRef = useRef(isDocumentVisible);
   const agentsRef = useRef(params.agents);
   const historyInFlightRef = useRef<Set<string>>(new Set());
   const historyRequestedAtRef = useRef<Map<string, number>>(new Map());
@@ -249,8 +252,17 @@ export function useRuntimeSyncController(
   }, [loadSummarySnapshot, params.status]);
 
   useEffect(() => {
+    const wasVisible = previousVisibilityRef.current;
+    previousVisibilityRef.current = isDocumentVisible;
+    if (params.status !== "connected" || !isDocumentVisible || wasVisible)
+      return;
+    void loadSummarySnapshot();
+  }, [isDocumentVisible, loadSummarySnapshot, params.status]);
+
+  useEffect(() => {
     const reconcileIntent = resolveRuntimeSyncReconcilePollingIntent({
       status: params.status,
+      isDocumentVisible,
     });
     if (reconcileIntent.kind === "stop") return;
     void reconcileRunningAgents();
@@ -260,7 +272,7 @@ export function useRuntimeSyncController(
     return () => {
       window.clearInterval(timer);
     };
-  }, [params.status, reconcileRunningAgents]);
+  }, [isDocumentVisible, params.status, reconcileRunningAgents]);
 
   useEffect(() => {
     const bootstrapAgentIds = resolveRuntimeSyncBootstrapHistoryAgentIds({
@@ -277,6 +289,7 @@ export function useRuntimeSyncController(
       status: params.status,
       focusedAgentId: params.focusedAgentId,
       focusedAgentRunning: params.focusedAgentRunning,
+      isDocumentVisible,
     });
     if (pollingIntent.kind === "stop") return;
     void loadAgentHistory(pollingIntent.agentId);
@@ -293,6 +306,7 @@ export function useRuntimeSyncController(
     };
   }, [
     loadAgentHistory,
+    isDocumentVisible,
     params.focusedAgentId,
     params.focusedAgentRunning,
     params.status,

@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { useDocumentVisibility } from "@/hooks/useDocumentVisibility";
 
 const POLL_INTERVAL_MS = 10_000;
+const HIDDEN_POLL_INTERVAL_MS = 60_000;
 const GATEWAY_WS_BASE =
   typeof window !== "undefined"
     ? `${window.location.protocol}//${window.location.host}`
@@ -19,12 +21,17 @@ const GATEWAY_WS_BASE =
  * Dismissible, but reappears on next poll failure if the gateway is still down.
  */
 export function DegradedModeBanner() {
+  const isDocumentVisible = useDocumentVisibility();
   const [offline, setOffline] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const wasOfflineRef = useRef(false);
+  const inFlightRef = useRef(false);
+  const previousVisibilityRef = useRef(isDocumentVisible);
 
   const checkGateway = useCallback(async () => {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     try {
       const res = await fetch(`${GATEWAY_WS_BASE}/api/studio`, {
         method: "GET",
@@ -47,6 +54,8 @@ export function DegradedModeBanner() {
         wasOfflineRef.current = true;
         setDismissed(false);
       }
+    } finally {
+      inFlightRef.current = false;
     }
   }, []);
 
@@ -54,7 +63,10 @@ export function DegradedModeBanner() {
     // Initial check after a short delay (let the page settle)
     const initialTimer = setTimeout(checkGateway, 2_000);
 
-    pollRef.current = setInterval(checkGateway, POLL_INTERVAL_MS);
+    const intervalMs = isDocumentVisible
+      ? POLL_INTERVAL_MS
+      : HIDDEN_POLL_INTERVAL_MS;
+    pollRef.current = setInterval(checkGateway, intervalMs);
 
     return () => {
       clearTimeout(initialTimer);
@@ -63,7 +75,14 @@ export function DegradedModeBanner() {
         pollRef.current = null;
       }
     };
-  }, [checkGateway]);
+  }, [checkGateway, isDocumentVisible]);
+
+  useEffect(() => {
+    const wasVisible = previousVisibilityRef.current;
+    previousVisibilityRef.current = isDocumentVisible;
+    if (!isDocumentVisible || wasVisible) return;
+    void checkGateway();
+  }, [checkGateway, isDocumentVisible]);
 
   // Re-show banner on navigation (route change)
   useEffect(() => {
