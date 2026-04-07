@@ -1,9 +1,15 @@
 import { NextResponse } from "next/server";
 import { resolveStateDir } from "@/lib/clawdbot/paths";
-import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { withErrorHandler } from "@/lib/api/error-handler";
+import {
+  LOCAL_DAEMON_HEALTH_URL,
+  LOCAL_GATEWAY_HEALTH_URL,
+  readDiskInfo,
+  readServiceStatus,
+  type DiskInfo,
+} from "@/lib/system/runtime-health";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,39 +20,6 @@ function readJson(filePath: string): unknown {
     return JSON.parse(fs.readFileSync(filePath, "utf8"));
   } catch {
     return null;
-  }
-}
-
-function parseDisk(): {
-  percent: number;
-  total: string;
-  used: string;
-  available: string;
-} {
-  try {
-    const output = execSync("df -h /", { encoding: "utf8", timeout: 5000 });
-    const lines = output.trim().split("\n");
-    if (lines.length < 2)
-      return { percent: 0, total: "?", used: "?", available: "?" };
-    const parts = lines[1].split(/\s+/);
-    // df -h output: Filesystem Size Used Avail Use% Mounted
-    const total = parts[1] ?? "?";
-    const used = parts[2] ?? "?";
-    const available = parts[3] ?? "?";
-    const percentStr = parts[4] ?? "0%";
-    const percent = parseInt(percentStr.replace("%", ""), 10) || 0;
-    return { percent, total, used, available };
-  } catch {
-    return { percent: 0, total: "?", used: "?", available: "?" };
-  }
-}
-
-async function checkService(url: string): Promise<"up" | "down"> {
-  try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(2000) });
-    return res.ok ? "up" : "down";
-  } catch {
-    return "down";
   }
 }
 
@@ -83,9 +56,9 @@ async function get_handler() {
     const stateDir = resolveStateDir();
 
     const [disk, gateway, daemon] = await Promise.all([
-      Promise.resolve(parseDisk()),
-      checkService("http://localhost:18789"),
-      checkService("http://localhost:18089/admin/api/health"),
+      readDiskInfo(),
+      readServiceStatus(LOCAL_GATEWAY_HEALTH_URL),
+      readServiceStatus(LOCAL_DAEMON_HEALTH_URL),
     ]);
 
     const crons = parseCrons(stateDir);
@@ -105,7 +78,12 @@ async function get_handler() {
     return NextResponse.json(
       {
         error: message,
-        disk: { percent: 0, total: "?", used: "?", available: "?" },
+        disk: {
+          percent: 0,
+          total: "?",
+          used: "?",
+          available: "?",
+        } satisfies DiskInfo,
         gateway: "down",
         daemon: "down",
         crons: { total: 0, active: 0, errored: 0 },

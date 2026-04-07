@@ -10,12 +10,37 @@ const GATEWAY_CLIENT_MODES = {
   CLI: "cli",
 } as const;
 
+const GATEWAY_DEBUG_STORAGE_KEY = "openclaw.gateway.debug";
+
 type CryptoLike = {
   randomUUID?: (() => string) | undefined;
   getRandomValues?: ((array: Uint8Array) => Uint8Array) | undefined;
 };
 
 let warnedWeakCrypto = false;
+let gatewayDebugEnabled: boolean | null = null;
+
+function isGatewayDebugEnabled(): boolean {
+  if (gatewayDebugEnabled !== null) {
+    return gatewayDebugEnabled;
+  }
+  if (typeof window === "undefined") {
+    gatewayDebugEnabled = false;
+    return gatewayDebugEnabled;
+  }
+  try {
+    gatewayDebugEnabled =
+      window.localStorage.getItem(GATEWAY_DEBUG_STORAGE_KEY) === "1";
+  } catch {
+    gatewayDebugEnabled = false;
+  }
+  return gatewayDebugEnabled;
+}
+
+function gatewayDebugLog(...args: unknown[]) {
+  if (!isGatewayDebugEnabled()) return;
+  console.log(...args);
+}
 
 function uuidFromBytes(bytes: Uint8Array): string {
   bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
@@ -392,7 +417,6 @@ export type GatewayBrowserClientOptions = {
   onGap?: (info: { expected: number; received: number }) => void;
 };
 
-const CONNECT_FAILED_CLOSE_CODE = 4008;
 const WS_CLOSE_REASON_MAX_BYTES = 123;
 const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
 const SEND_RETRY_BASE_DELAY_MS = 300;
@@ -580,11 +604,11 @@ export class GatewayBrowserClient {
   private connect() {
     if (this.closed) return;
 
-    console.log("[gw-client] opening EventSource to /api/runtime/stream");
+    gatewayDebugLog("[gw-client] opening EventSource to /api/runtime/stream");
     this.eventSource = new EventSource("/api/runtime/stream");
 
     this.eventSource.onopen = () => {
-      console.log("[gw-client] EventSource OPEN");
+      gatewayDebugLog("[gw-client] EventSource OPEN");
       this.backoffMs = 800;
       this.startKeepalive();
       // Reset connect state — hello-ok will arrive from server broadcast
@@ -601,7 +625,7 @@ export class GatewayBrowserClient {
 
     this.eventSource.onerror = () => {
       this.clearKeepaliveTimer();
-      console.log("[gw-client] EventSource error — reconnecting");
+      gatewayDebugLog("[gw-client] EventSource error — reconnecting");
       this.eventSource?.close();
       this.eventSource = null;
       this.connectSent = false; // allow re-receiving hello-ok on next connection
@@ -743,7 +767,7 @@ export class GatewayBrowserClient {
 
     void this.request<GatewayHelloOk>("connect", params)
       .then((hello) => {
-        console.log("[gw-client] hello-ok received!", hello?.type);
+        gatewayDebugLog("[gw-client] hello-ok received!", hello?.type);
         if (hello?.auth?.deviceToken && deviceIdentity) {
           storeDeviceAuthToken({
             deviceId: deviceIdentity.deviceId,
@@ -759,7 +783,7 @@ export class GatewayBrowserClient {
       .catch((err) => {
         // Server gateway not ready (503) — retry connect without closing EventSource
         if ((err as { httpStatus?: number }).httpStatus === 503) {
-          console.log(
+          gatewayDebugLog(
             "[gw-client] server gateway not ready, retrying connect in 2s...",
           );
           this.connectSent = false;
@@ -803,7 +827,7 @@ export class GatewayBrowserClient {
     if (frame.type === "event") {
       const evt = parsed as GatewayEventFrame;
       if (evt.event === "connect.challenge") {
-        console.log(
+        gatewayDebugLog(
           "[gw-client] connect.challenge received, connectSent=",
           this.connectSent,
         );
@@ -839,7 +863,7 @@ export class GatewayBrowserClient {
         // Treat it as our hello if we haven't received one yet.
         const payload = res.payload as { type?: string } | undefined;
         if (res.ok && payload?.type === "hello-ok" && !this.connectSent) {
-          console.log(
+          gatewayDebugLog(
             "[gw-client] received server hello-ok broadcast → connected",
           );
           this.connectSent = true;
@@ -848,7 +872,7 @@ export class GatewayBrowserClient {
         }
         return;
       }
-      console.log("[gw-client] resolving res:", res.id, "ok:", res.ok);
+      gatewayDebugLog("[gw-client] resolving res:", res.id, "ok:", res.ok);
       this.pending.delete(res.id);
       this.clearPendingTimeout(pending);
       if (res.ok) {

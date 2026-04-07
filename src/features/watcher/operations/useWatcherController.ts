@@ -104,7 +104,7 @@ export function useWatcherController() {
   const loadNewItemsCount = useCallback(async () => {
     try {
       const res = await fetch(
-        "/api/watcher/items?status=scored&category=release,npm_version,npm_dist_tag,clawhub_skill&min_score=65&limit=1",
+        "/api/watcher/items?status=scored&category=release,npm_version,npm_dist_tag,clawhub_skill&min_score=65&count_only=1",
       );
       const data = await res.json();
       if (typeof data.total === "number")

@@ -4,6 +4,7 @@ import { useMemo, useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { Activity, Clock, MessageSquare, Zap } from "lucide-react";
 import type { AgentState } from "@/features/agents/state/store";
+import { useDocumentVisibility } from "@/hooks/useDocumentVisibility";
 
 type AgentPerformanceTabProps = {
   agent: AgentState;
@@ -26,12 +27,14 @@ const formatRelative = (timestampMs: number | null): string => {
 
 export const AgentPerformanceTab = ({ agent }: AgentPerformanceTabProps) => {
   const t = useTranslations("inspect");
+  const isDocumentVisible = useDocumentVisibility();
 
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 5_000);
+    if (!isDocumentVisible) return;
+    const id = window.setInterval(() => setNow(Date.now()), 5_000);
     return () => clearInterval(id);
-  }, []);
+  }, [isDocumentVisible]);
 
   const metrics = useMemo(() => {
     const outputCount = agent.outputLines.length;

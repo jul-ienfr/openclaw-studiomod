@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import {
   Copy,
@@ -19,6 +19,7 @@ import {
   Shield,
   Link,
 } from "lucide-react";
+import { useDocumentVisibility } from "@/hooks/useDocumentVisibility";
 
 interface ConnectionInfo {
   lan: string;
@@ -49,6 +50,7 @@ export default function MobileAccessClient({
   connectionInfo,
   initialTunnel,
 }: Props) {
+  const isDocumentVisible = useDocumentVisibility();
   const [copiedItem, setCopiedItem] = useState<string | null>(null);
   const [tunnel, setTunnel] = useState<TunnelStatus>(initialTunnel);
   const [tunnelLoading, setTunnelLoading] = useState(false);
@@ -67,6 +69,10 @@ export default function MobileAccessClient({
   const [confirmRevokeId, setConfirmRevokeId] = useState<string | null>(null);
   const [discoveryUrl, setDiscoveryUrl] = useState<string | null>(null);
   const [apkQrDataUrl, setApkQrDataUrl] = useState<string | null>(null);
+  const tunnelPollRef = useRef<number | null>(null);
+  const tunnelAbortRef = useRef<AbortController | null>(null);
+  const tunnelInFlightRef = useRef(false);
+  const previousVisibilityRef = useRef(isDocumentVisible);
 
   const copyToClipboard = async (text: string, key: string) => {
     await navigator.clipboard.writeText(text);
@@ -75,6 +81,7 @@ export default function MobileAccessClient({
   };
 
   const lanUrl = `http://${connectionInfo.lan}:${connectionInfo.port}`;
+  const isTunnelMode = tunnel.active && tunnel.url;
 
   // Load existing tokens
   const loadTokens = useCallback(async () => {
@@ -121,7 +128,7 @@ export default function MobileAccessClient({
       )
       .then(setApkQrDataUrl)
       .catch(() => {});
-  }, [tunnel, lanUrl]);
+  }, [isTunnelMode, lanUrl, tunnel]);
 
   // Generate QR code when activeToken or tunnel changes
   useEffect(() => {
@@ -209,22 +216,68 @@ export default function MobileAccessClient({
   );
 
   // Tunnel controls
-  useEffect(() => {
-    if (!tunnelLoading) return;
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch("/api/mobile-access/tunnel");
-        const status: TunnelStatus = await res.json();
-        setTunnel(status);
-        if (status.active && status.url) setTunnelLoading(false);
-        if (!status.active && !status.downloading && status.error)
-          setTunnelLoading(false);
-      } catch {
-        /* ignore */
+  const refreshTunnelStatus = useCallback(async () => {
+    if (!tunnelLoading || tunnelInFlightRef.current) return;
+    tunnelInFlightRef.current = true;
+    const controller = new AbortController();
+    tunnelAbortRef.current = controller;
+
+    try {
+      const res = await fetch("/api/mobile-access/tunnel", {
+        cache: "no-store",
+        signal: controller.signal,
+      });
+      const status: TunnelStatus = await res.json();
+      if (controller.signal.aborted) return;
+      setTunnel(status);
+      if (status.active && status.url) setTunnelLoading(false);
+      if (!status.active && !status.downloading && status.error)
+        setTunnelLoading(false);
+    } catch {
+      /* ignore */
+    } finally {
+      if (tunnelAbortRef.current === controller) {
+        tunnelAbortRef.current = null;
       }
-    }, 2000);
-    return () => clearInterval(interval);
+      tunnelInFlightRef.current = false;
+    }
   }, [tunnelLoading]);
+
+  useEffect(() => {
+    if (!tunnelLoading) {
+      if (tunnelPollRef.current !== null) {
+        window.clearInterval(tunnelPollRef.current);
+        tunnelPollRef.current = null;
+      }
+      tunnelAbortRef.current?.abort();
+      tunnelAbortRef.current = null;
+      tunnelInFlightRef.current = false;
+      return;
+    }
+
+    void refreshTunnelStatus();
+    const intervalMs = isDocumentVisible ? 2_000 : 5_000;
+    tunnelPollRef.current = window.setInterval(() => {
+      void refreshTunnelStatus();
+    }, intervalMs);
+
+    return () => {
+      if (tunnelPollRef.current !== null) {
+        window.clearInterval(tunnelPollRef.current);
+        tunnelPollRef.current = null;
+      }
+      tunnelAbortRef.current?.abort();
+      tunnelAbortRef.current = null;
+      tunnelInFlightRef.current = false;
+    };
+  }, [isDocumentVisible, refreshTunnelStatus, tunnelLoading]);
+
+  useEffect(() => {
+    const wasVisible = previousVisibilityRef.current;
+    previousVisibilityRef.current = isDocumentVisible;
+    if (!tunnelLoading || !isDocumentVisible || wasVisible) return;
+    void refreshTunnelStatus();
+  }, [isDocumentVisible, refreshTunnelStatus, tunnelLoading]);
 
   const startTunnel = useCallback(async () => {
     setTunnelLoading(true);
@@ -252,8 +305,6 @@ export default function MobileAccessClient({
     }
     setTunnelLoading(false);
   }, []);
-
-  const isTunnelMode = tunnel.active && tunnel.url;
 
   const getFullUrl = (tokenValue: string) => {
     const tokenSuffix = `?access_token=${encodeURIComponent(tokenValue)}`;

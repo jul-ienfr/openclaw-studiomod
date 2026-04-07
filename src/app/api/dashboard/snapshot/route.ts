@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import fs from "node:fs";
 import path from "node:path";
-import { spawn } from "node:child_process";
 import type {
   LogEntry as DashboardLogEntry,
   LogLevel,
@@ -14,6 +13,7 @@ import { applyRateLimit, RATE_LIMITS } from "@/lib/rateLimit";
 import { resolveStateDir } from "@/lib/clawdbot/paths";
 import { countLogs, queryLogs } from "@/lib/db/repositories/log-repo";
 import { countMetrics } from "@/lib/db/repositories/metrics-repo";
+import { readDiskUsagePercent } from "@/lib/system/runtime-health";
 import { loadStudioSettings } from "@/lib/studio/settings-store";
 
 export const runtime = "nodejs";
@@ -29,55 +29,6 @@ type CronJobSummary = {
 function readJson(p: string): unknown {
   try {
     return JSON.parse(fs.readFileSync(p, "utf8"));
-  } catch {
-    return null;
-  }
-}
-
-function spawnWithTimeout(
-  cmd: string,
-  args: string[],
-  timeoutMs = 3000,
-): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const proc = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"] });
-    let stdout = "";
-    let stderr = "";
-    const timer = setTimeout(() => {
-      proc.kill("SIGKILL");
-      reject(new Error(`Command timed out after ${timeoutMs}ms`));
-    }, timeoutMs);
-
-    proc.stdout?.on("data", (chunk: Buffer) => {
-      stdout += chunk.toString();
-    });
-    proc.stderr?.on("data", (chunk: Buffer) => {
-      stderr += chunk.toString();
-    });
-    proc.on("close", (code) => {
-      clearTimeout(timer);
-      if (code === 0 || stdout) {
-        resolve(stdout);
-        return;
-      }
-      reject(new Error(stderr || `Process exited with code ${code}`));
-    });
-    proc.on("error", (err) => {
-      clearTimeout(timer);
-      reject(err);
-    });
-  });
-}
-
-async function readDiskUsagePercent(): Promise<number | null> {
-  try {
-    const raw = await spawnWithTimeout("df", ["-h", "/"]);
-    const lines = raw.trim().split("\n");
-    if (lines.length < 2) return null;
-    const parts = lines[1].split(/\s+/);
-    const percent = Number.parseInt(parts[4]?.replace("%", "") ?? "", 10);
-    if (!Number.isFinite(percent)) return null;
-    return percent;
   } catch {
     return null;
   }

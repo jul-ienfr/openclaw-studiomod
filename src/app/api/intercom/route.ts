@@ -119,6 +119,7 @@ async function handler(request: Request) {
   const url = new URL(request.url);
   const detailAgent = url.searchParams.get("agentId");
   const detailSession = url.searchParams.get("sessionKey");
+  const summaryAgent = detailSession ? null : detailAgent;
 
   const stateDir = resolveStateDir();
 
@@ -179,6 +180,13 @@ async function handler(request: Request) {
       const isSameAgent = fromAgent === agentId;
       const label = session.label as string | undefined;
       const sessionFile = session.sessionFile as string | undefined;
+      if (
+        summaryAgent &&
+        fromAgent !== summaryAgent &&
+        agentId !== summaryAgent
+      ) {
+        continue;
+      }
 
       // Messages are in separate JSONL files, not inline
       const sessionMsgs = sessionFile

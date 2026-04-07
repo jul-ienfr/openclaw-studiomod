@@ -1,16 +1,16 @@
 import { NextResponse } from "next/server";
 import { spawn } from "node:child_process";
 import { withErrorHandler } from "@/lib/api/error-handler";
+import {
+  LOCAL_DAEMON_HEALTH_URL,
+  LOCAL_GATEWAY_HEALTH_URL,
+  readDiskInfo,
+  readServiceStatus,
+  type DiskInfo,
+} from "@/lib/system/runtime-health";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-interface DiskInfo {
-  total: string;
-  used: string;
-  available: string;
-  percent: number;
-}
 
 interface ServiceInfo {
   name: string;
@@ -37,8 +37,12 @@ function spawnWithTimeout(
       proc.kill("SIGKILL");
       reject(new Error(`Command timed out after ${timeoutMs}ms`));
     }, timeoutMs);
-    proc.stdout?.on("data", (d: Buffer) => { stdout += d.toString(); });
-    proc.stderr?.on("data", (d: Buffer) => { stderr += d.toString(); });
+    proc.stdout?.on("data", (d: Buffer) => {
+      stdout += d.toString();
+    });
+    proc.stderr?.on("data", (d: Buffer) => {
+      stderr += d.toString();
+    });
     proc.on("close", (code) => {
       clearTimeout(timer);
       if (code === 0 || stdout) resolve(stdout);
@@ -51,43 +55,13 @@ function spawnWithTimeout(
   });
 }
 
-function parseDisk(): Promise<DiskInfo> {
-  return spawnWithTimeout("df", ["-h", "/"])
-    .then((raw) => {
-      const lines = raw.trim().split("\n");
-      if (lines.length < 2)
-        return { total: "?", used: "?", available: "?", percent: 0 };
-      const parts = lines[1].split(/\s+/);
-      // parts: [Filesystem, Size, Used, Avail, Use%, Mounted]
-      const percent = parseInt(parts[4]?.replace("%", "") ?? "0", 10);
-      return {
-        total: parts[1] ?? "?",
-        used: parts[2] ?? "?",
-        available: parts[3] ?? "?",
-        percent: isNaN(percent) ? 0 : percent,
-      };
-    })
-    .catch(() => ({ total: "?", used: "?", available: "?", percent: 0 }));
-}
-
-async function checkEndpoint(
-  url: string,
-  timeoutMs = 2000,
-): Promise<"up" | "down"> {
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    const res = await fetch(url, { signal: controller.signal });
-    clearTimeout(timer);
-    return res.ok ? "up" : "down";
-  } catch {
-    return "down";
-  }
-}
-
 function parseServices(): Promise<ServiceInfo[]> {
   const serviceNames = ["openclaw-gateway", "voicebox", "ai-daemon"];
-  return spawnWithTimeout("systemctl", ["--user", "is-active", ...serviceNames], 3000)
+  return spawnWithTimeout(
+    "systemctl",
+    ["--user", "is-active", ...serviceNames],
+    3000,
+  )
     .then((raw) => {
       const statuses = raw.trim().split("\n");
       return serviceNames.map((name, i) => ({
@@ -101,9 +75,9 @@ function parseServices(): Promise<ServiceInfo[]> {
 async function get_handler() {
   try {
     const [disk, gateway, daemon, services] = await Promise.all([
-      parseDisk(),
-      checkEndpoint("http://localhost:18789"),
-      checkEndpoint("http://localhost:18089/admin/api/health"),
+      readDiskInfo(),
+      readServiceStatus(LOCAL_GATEWAY_HEALTH_URL),
+      readServiceStatus(LOCAL_DAEMON_HEALTH_URL),
       parseServices(),
     ]);
 

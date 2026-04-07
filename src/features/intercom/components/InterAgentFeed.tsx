@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslations } from "next-intl";
 import {
   MessageSquare,
@@ -10,6 +10,7 @@ import {
   Bot,
   ChevronLeft,
 } from "lucide-react";
+import { useDocumentVisibility } from "@/hooks/useDocumentVisibility";
 
 type ApiMessage = {
   id: string;
@@ -27,8 +28,12 @@ type InterAgentFeedProps = {
   agentId?: string;
 };
 
+const VISIBLE_POLL_INTERVAL_MS = 15_000;
+const HIDDEN_POLL_INTERVAL_MS = 60_000;
+
 export const InterAgentFeed = ({ agentId }: InterAgentFeedProps) => {
   const t = useTranslations("intercom");
+  const isDocumentVisible = useDocumentVisibility();
   const [messages, setMessages] = useState<ApiMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -43,10 +48,26 @@ export const InterAgentFeed = ({ agentId }: InterAgentFeedProps) => {
   } | null>(null);
   const [detailMessages, setDetailMessages] = useState<ApiMessage[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
+  const pollRef = useRef<number | null>(null);
+  const listAbortRef = useRef<AbortController | null>(null);
+  const detailAbortRef = useRef<AbortController | null>(null);
+  const previousVisibilityRef = useRef(isDocumentVisible);
 
   const fetchMessages = useCallback(async () => {
+    listAbortRef.current?.abort();
+    const controller = new AbortController();
+    listAbortRef.current = controller;
+
     try {
-      const res = await fetch("/api/intercom", { cache: "no-store" });
+      const params = new URLSearchParams();
+      if (agentId) {
+        params.set("agentId", agentId);
+      }
+      const query = params.toString();
+      const res = await fetch(`/api/intercom${query ? `?${query}` : ""}`, {
+        cache: "no-store",
+        signal: controller.signal,
+      });
       if (!res.ok) {
         const body = await res.text().catch(() => "");
         throw new Error(`HTTP ${res.status}: ${body.slice(0, 100)}`);
@@ -60,22 +81,48 @@ export const InterAgentFeed = ({ agentId }: InterAgentFeedProps) => {
       if (agentId) {
         msgs = msgs.filter((m) => m.from === agentId || m.to === agentId);
       }
+      if (controller.signal.aborted) return;
       setMessages(msgs);
       setError(null);
       setLastRefresh(Date.now());
     } catch (err) {
-      console.error("[InterAgentFeed] fetch error:", err);
+      if (controller.signal.aborted) return;
       setError(err instanceof Error ? err.message : String(err));
     } finally {
-      setLoading(false);
+      if (listAbortRef.current === controller) {
+        listAbortRef.current = null;
+      }
+      if (!controller.signal.aborted) {
+        setLoading(false);
+      }
     }
   }, [agentId]);
 
   useEffect(() => {
-    fetchMessages();
-    const interval = setInterval(fetchMessages, 10_000);
-    return () => clearInterval(interval);
-  }, [fetchMessages]);
+    void fetchMessages();
+    const intervalMs = isDocumentVisible
+      ? VISIBLE_POLL_INTERVAL_MS
+      : HIDDEN_POLL_INTERVAL_MS;
+    pollRef.current = window.setInterval(() => {
+      void fetchMessages();
+    }, intervalMs);
+
+    return () => {
+      if (pollRef.current !== null) {
+        window.clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+      listAbortRef.current?.abort();
+      listAbortRef.current = null;
+    };
+  }, [fetchMessages, isDocumentVisible]);
+
+  useEffect(() => {
+    const wasVisible = previousVisibilityRef.current;
+    previousVisibilityRef.current = isDocumentVisible;
+    if (!isDocumentVisible || wasVisible) return;
+    void fetchMessages();
+  }, [fetchMessages, isDocumentVisible]);
 
   const openSession = useCallback(
     async (
@@ -86,25 +133,40 @@ export const InterAgentFeed = ({ agentId }: InterAgentFeedProps) => {
     ) => {
       setSelectedSession({ sessionKey, toAgent, fromAgent, label });
       setDetailLoading(true);
+      detailAbortRef.current?.abort();
+      const controller = new AbortController();
+      detailAbortRef.current = controller;
       try {
         const res = await fetch(
           `/api/intercom?agentId=${encodeURIComponent(toAgent)}&sessionKey=${encodeURIComponent(sessionKey)}`,
-          { cache: "no-store" },
+          {
+            cache: "no-store",
+            signal: controller.signal,
+          },
         );
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = (await res.json()) as { messages: ApiMessage[] };
+        if (controller.signal.aborted) return;
         setDetailMessages(data.messages ?? []);
       } catch {
+        if (controller.signal.aborted) return;
         // Fallback: use the preview messages we already have
         setDetailMessages(messages.filter((m) => m.sessionKey === sessionKey));
       } finally {
-        setDetailLoading(false);
+        if (detailAbortRef.current === controller) {
+          detailAbortRef.current = null;
+        }
+        if (!controller.signal.aborted) {
+          setDetailLoading(false);
+        }
       }
     },
     [messages],
   );
 
   const closeDetail = () => {
+    detailAbortRef.current?.abort();
+    detailAbortRef.current = null;
     setSelectedSession(null);
     setDetailMessages([]);
   };

@@ -58,9 +58,13 @@ export function insertLog(
   metadata?: unknown,
 ): void {
   const db = getDbWrite();
-  db.prepare(
-    "INSERT INTO logs (level, source, message, metadata) VALUES (?, ?, ?, ?)",
-  ).run(level, source, message, metadata ? JSON.stringify(metadata) : null);
+  try {
+    db.prepare(
+      "INSERT INTO logs (level, source, message, metadata) VALUES (?, ?, ?, ?)",
+    ).run(level, source, message, metadata ? JSON.stringify(metadata) : null);
+  } finally {
+    db.close();
+  }
 }
 
 /** Query logs with optional filters */
@@ -71,35 +75,47 @@ export function queryLogs(opts: {
   limit?: number;
 }): LogEntry[] {
   const db = getDb();
-  const { where, params } = buildLogWhereClause(opts);
-  const limit = opts.limit ?? 100;
+  try {
+    const { where, params } = buildLogWhereClause(opts);
+    const limit = opts.limit ?? 100;
 
-  const rows = db
-    .prepare(
-      `SELECT id, timestamp, level, source, message, metadata FROM logs ${where} ORDER BY timestamp DESC LIMIT ?`,
-    )
-    .all(...params, limit) as LogRow[];
+    const rows = db
+      .prepare(
+        `SELECT id, timestamp, level, source, message, metadata FROM logs ${where} ORDER BY timestamp DESC LIMIT ?`,
+      )
+      .all(...params, limit) as LogRow[];
 
-  return rows.map((row) => ({
-    ...row,
-    metadata: row.metadata ? JSON.parse(row.metadata) : null,
-  }));
+    return rows.map((row) => ({
+      ...row,
+      metadata: row.metadata ? JSON.parse(row.metadata) : null,
+    }));
+  } finally {
+    db.close();
+  }
 }
 
 export function countLogs(opts: LogQueryOptions = {}): number {
   const db = getDb();
-  const { where, params } = buildLogWhereClause(opts);
-  const row = db
-    .prepare(`SELECT COUNT(*) AS count FROM logs ${where}`)
-    .get(...params) as { count?: number } | undefined;
-  return row?.count ?? 0;
+  try {
+    const { where, params } = buildLogWhereClause(opts);
+    const row = db
+      .prepare(`SELECT COUNT(*) AS count FROM logs ${where}`)
+      .get(...params) as { count?: number } | undefined;
+    return row?.count ?? 0;
+  } finally {
+    db.close();
+  }
 }
 
 /** Delete logs older than the specified number of days */
 export function pruneLogs(olderThanDays: number): number {
   const db = getDbWrite();
-  const result = db
-    .prepare("DELETE FROM logs WHERE timestamp < datetime('now', ?)")
-    .run(`-${olderThanDays} days`);
-  return result.changes;
+  try {
+    const result = db
+      .prepare("DELETE FROM logs WHERE timestamp < datetime('now', ?)")
+      .run(`-${olderThanDays} days`);
+    return result.changes;
+  } finally {
+    db.close();
+  }
 }

@@ -19,19 +19,23 @@ interface CacheRow {
 /** Get a cached value if it hasn't expired */
 export function getCache(key: string): CacheEntry | null {
   const db = getDb();
-  const row = db
-    .prepare(
-      `SELECT key, value, etag, cached_at, ttl_seconds FROM cache
-       WHERE key = ? AND datetime(cached_at, '+' || ttl_seconds || ' seconds') > datetime('now')`,
-    )
-    .get(key) as CacheRow | undefined;
+  try {
+    const row = db
+      .prepare(
+        `SELECT key, value, etag, cached_at, ttl_seconds FROM cache
+         WHERE key = ? AND datetime(cached_at, '+' || ttl_seconds || ' seconds') > datetime('now')`,
+      )
+      .get(key) as CacheRow | undefined;
 
-  if (!row) return null;
+    if (!row) return null;
 
-  return {
-    ...row,
-    value: JSON.parse(row.value),
-  };
+    return {
+      ...row,
+      value: JSON.parse(row.value),
+    };
+  } finally {
+    db.close();
+  }
 }
 
 /** Upsert a cache entry */
@@ -42,36 +46,52 @@ export function setCache(
   etag?: string,
 ): void {
   const db = getDbWrite();
-  db.prepare(
-    `INSERT INTO cache (key, value, ttl_seconds, etag, cached_at)
-     VALUES (?, ?, ?, ?, datetime('now'))
-     ON CONFLICT(key) DO UPDATE SET
-       value = excluded.value,
-       ttl_seconds = excluded.ttl_seconds,
-       etag = excluded.etag,
-       cached_at = excluded.cached_at`,
-  ).run(key, JSON.stringify(value), ttlSeconds, etag ?? null);
+  try {
+    db.prepare(
+      `INSERT INTO cache (key, value, ttl_seconds, etag, cached_at)
+       VALUES (?, ?, ?, ?, datetime('now'))
+       ON CONFLICT(key) DO UPDATE SET
+         value = excluded.value,
+         ttl_seconds = excluded.ttl_seconds,
+         etag = excluded.etag,
+         cached_at = excluded.cached_at`,
+    ).run(key, JSON.stringify(value), ttlSeconds, etag ?? null);
+  } finally {
+    db.close();
+  }
 }
 
 /** Delete a cache entry by key */
 export function invalidateCache(key: string): void {
   const db = getDbWrite();
-  db.prepare("DELETE FROM cache WHERE key = ?").run(key);
+  try {
+    db.prepare("DELETE FROM cache WHERE key = ?").run(key);
+  } finally {
+    db.close();
+  }
 }
 
 /** Delete cache entries whose key starts with the given prefix */
 export function invalidateCacheByPrefix(prefix: string): void {
   const db = getDbWrite();
-  db.prepare("DELETE FROM cache WHERE key LIKE ?").run(`${prefix}%`);
+  try {
+    db.prepare("DELETE FROM cache WHERE key LIKE ?").run(`${prefix}%`);
+  } finally {
+    db.close();
+  }
 }
 
 /** Delete all expired cache entries */
 export function pruneExpiredCache(): number {
   const db = getDbWrite();
-  const result = db
-    .prepare(
-      "DELETE FROM cache WHERE datetime(cached_at, '+' || ttl_seconds || ' seconds') <= datetime('now')",
-    )
-    .run();
-  return result.changes;
+  try {
+    const result = db
+      .prepare(
+        "DELETE FROM cache WHERE datetime(cached_at, '+' || ttl_seconds || ' seconds') <= datetime('now')",
+      )
+      .run();
+    return result.changes;
+  } finally {
+    db.close();
+  }
 }

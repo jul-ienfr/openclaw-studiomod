@@ -13,6 +13,7 @@ async function get_handler(request: Request) {
   const level = url.searchParams.get("level") ?? undefined;
   const source = url.searchParams.get("source") ?? undefined;
   const sort = url.searchParams.get("sort") ?? "desc";
+  const countOnly = url.searchParams.get("count_only") === "1";
 
   // Parse limit (default 100, max 1000)
   let limit = 100;
@@ -33,7 +34,14 @@ async function get_handler(request: Request) {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { queryLogs } = require("@/lib/db/repositories/log-repo");
+  const { countLogs, queryLogs } = require("@/lib/db/repositories/log-repo");
+
+  if (countOnly) {
+    return NextResponse.json({
+      logs: [],
+      total: countLogs({ level, source, since }),
+    });
+  }
 
   const rows = queryLogs({ level, source, since, limit });
 

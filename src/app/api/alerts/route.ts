@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
 import { resolveStateDir } from "@/lib/clawdbot/paths";
-import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { withErrorHandler } from "@/lib/api/error-handler";
+import {
+  LOCAL_DAEMON_HEALTH_URL,
+  LOCAL_GATEWAY_HEALTH_URL,
+  readDiskInfo,
+  readServiceStatus,
+} from "@/lib/system/runtime-health";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,35 +29,13 @@ function readJson(filePath: string): unknown {
   }
 }
 
-function getDiskPercent(): number {
-  try {
-    const output = execSync("df -h /", { encoding: "utf8", timeout: 5000 });
-    const lines = output.trim().split("\n");
-    if (lines.length < 2) return 0;
-    const parts = lines[1].split(/\s+/);
-    const percentStr = parts[4] ?? "0%";
-    return parseInt(percentStr.replace("%", ""), 10) || 0;
-  } catch {
-    return 0;
-  }
-}
-
-async function isServiceUp(url: string): Promise<boolean> {
-  try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(2000) });
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
-
 async function get_handler() {
   try {
     const stateDir = resolveStateDir();
     const alerts: Alert[] = [];
 
     // Disk check
-    const diskPct = getDiskPercent();
+    const diskPct = (await readDiskInfo()).percent;
     if (diskPct >= 85) {
       alerts.push({
         id: "disk-critical",
@@ -69,10 +52,12 @@ async function get_handler() {
     }
 
     // Gateway check
-    const [gatewayUp, daemonUp] = await Promise.all([
-      isServiceUp("http://localhost:18789"),
-      isServiceUp("http://localhost:18089/admin/api/health"),
+    const [gatewayStatus, daemonStatus] = await Promise.all([
+      readServiceStatus(LOCAL_GATEWAY_HEALTH_URL),
+      readServiceStatus(LOCAL_DAEMON_HEALTH_URL),
     ]);
+    const gatewayUp = gatewayStatus === "up";
+    const daemonUp = daemonStatus === "up";
 
     if (!gatewayUp) {
       alerts.push({

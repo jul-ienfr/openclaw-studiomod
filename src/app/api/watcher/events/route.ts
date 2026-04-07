@@ -37,28 +37,37 @@ async function get_handler(request: Request) {
         if (closed) return;
         try {
           const db = getDb();
-          // Group all queries in a single transaction to reduce DB round-trips
-          const [sources, newCountRow, lastImpl] = db.transaction(() => [
-            db.prepare("SELECT * FROM source_state ORDER BY source ASC").all(),
-            db
-              .prepare("SELECT COUNT(*) AS c FROM items WHERE status = 'new'")
-              .get() as { c: number },
-            db
-              .prepare(
-                "SELECT id, status, implemented_at FROM implementations ORDER BY implemented_at DESC LIMIT 1",
-              )
-              .get() as
-              | { id: string; status: string; implemented_at: number }
-              | undefined,
-          ])() as [
-            unknown,
-            { c: number },
-            { id: string; status: string; implemented_at: number } | undefined,
-          ];
+          try {
+            // Group all queries in a single transaction to reduce DB round-trips
+            const [sources, newCountRow, lastImpl] = db.transaction(() => [
+              db
+                .prepare("SELECT * FROM source_state ORDER BY source ASC")
+                .all(),
+              db
+                .prepare("SELECT COUNT(*) AS c FROM items WHERE status = 'new'")
+                .get() as { c: number },
+              db
+                .prepare(
+                  "SELECT id, status, implemented_at FROM implementations ORDER BY implemented_at DESC LIMIT 1",
+                )
+                .get() as
+                | { id: string; status: string; implemented_at: number }
+                | undefined,
+            ])() as [
+              unknown,
+              { c: number },
+              (
+                | { id: string; status: string; implemented_at: number }
+                | undefined
+              ),
+            ];
 
-          send("sources-updated", { sources });
-          send("new-items", { count: newCountRow.c });
-          if (lastImpl) send("implementation-status", { latest: lastImpl });
+            send("sources-updated", { sources });
+            send("new-items", { count: newCountRow.c });
+            if (lastImpl) send("implementation-status", { latest: lastImpl });
+          } finally {
+            db.close();
+          }
         } catch {
           // DB may not exist yet — send ping to keep alive
           send("ping", { ts: Date.now() });
